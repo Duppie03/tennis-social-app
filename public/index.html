@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eldoraigne Tennis Club - Social Day</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1 id="header-clock">Social Day Manager</h1>
+        <div class="header-buttons">
+            <button id="checkInBtn" class="header-btn">Check In</button>
+            <button id="checkOutBtn" class="header-btn secondary">Check Out</button>
+            <button id="historyBtn" class="header-btn secondary">History</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="player-column">
+            <h2>Available Players</h2>
+            <div id="availablePlayersSection">
+                <div class="mode-selector">
+                    <button id="mode-doubles" class="mode-btn active">Doubles</button>
+                    <button id="mode-singles" class="mode-btn">Singles</button>
+                </div>
+                <ul id="availablePlayersList">
+                    </ul>
+            </div>
+        </section>
+
+        <section id="courtsSection">
+            <h2>Courts in Play</h2>
+            <div id="info-bar" class="info-bar hidden">
+                <p id="info-bar-text">Dynamic message goes here.</p>
+                <div class="info-bar-buttons">
+                    <button id="info-bar-btn-cancel">Cancel</button>
+                    <button id="info-bar-btn-confirm">Confirm Game</button>
+                </div>
+            </div>
+            
+            <div id="court-grid" class="court-grid">
+                </div>
+        </section>
+    </main>
+
+    <div id="choose-teams-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Choose Teams</h3>
+            <p>Select 2 players for Team 1. The rest will be Team 2.</p>
+            <div id="modal-player-list" class="modal-player-list"></div>
+            <div class="modal-actions">
+                <button id="modal-confirm-teams-btn">Confirm Teams</button>
+                <button id="modal-cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cancel-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Confirm Action</h3>
+            <p>Are you sure?</p>
+            <div class="modal-actions">
+                <button id="modal-btn-no" class="action-btn">Go Back</button>
+                <button id="modal-btn-yes-confirm" class="action-btn">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="check-in-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Check In</h3>
+            <p>Select the '+' next to the player to check in.</p>
+            <ul id="check-in-list" class="modal-action-list scrollable"></ul>
+            <div class="modal-actions">
+                <button id="check-in-cancel-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="check-out-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Check Out Player</h3>
+            <p>Select the 'X' next to the player to check out.</p>
+            <ul id="check-out-list" class="modal-action-list scrollable"></ul>
+            <div class="modal-actions">
+                <button id="check-out-cancel-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="end-game-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Enter Game Results</h3>
+            <div id="end-game-teams">
+                </div>
+            <div class="score-input-area">
+                <label>Score:</label>
+                <input type="number" id="team1-score" min="0" max="7">
+                <span>-</span>
+                <input type="number" id="team2-score" min="0" max="7">
+            </div>
+            <div id="tie-breaker-area" class="score-input-area hidden">
+                <label>Tie-Break:</label>
+                <input type="number" id="team1-tiebreak" min="0">
+                <span>-</span>
+                <input type="number" id="team2-tiebreak" min="0">
+            </div>
+            <div class="modal-actions">
+                <button id="end-game-cancel-btn">Cancel</button>
+                <button id="end-game-confirm-btn" disabled>Confirm Results</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="history-page" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <h3>Game History</h3>
+            <div id="history-list" class="history-list scrollable">
+                </div>
+            <div class="modal-actions">
+                <button id="history-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
