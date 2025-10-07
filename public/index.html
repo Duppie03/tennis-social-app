@@ -10,39 +10,86 @@
     <header>
         <h1 id="header-clock">Social Day Manager</h1>
         <div class="header-buttons">
-            <button id="checkInBtn" class="header-btn">Check In</button>
-            <button id="checkOutBtn" class="header-btn secondary">Check Out</button>
             <button id="historyBtn" class="header-btn secondary">History</button>
         </div>
     </header>
 
     <main class="container">
-        <section class="player-column">
-            <h2>Available Players</h2>
-            <div id="availablePlayersSection">
-                <div class="mode-selector">
-                    <button id="mode-doubles" class="mode-btn active">Doubles</button>
-                    <button id="mode-singles" class="mode-btn">Singles</button>
-                </div>
-                <ul id="availablePlayersList">
-                    </ul>
+        <div id="info-bar" class="info-bar hidden">
+            <p id="info-bar-text">Dynamic message goes here.</p>
             </div>
-        </section>
+        
+        <div class="content-columns">
+            <section class="player-column">
+                <div id="availablePlayersSection">
+                    <div class="card-header">
+                        <h3>Available Players</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="player-list-controls">
+                            <button id="checkInBtn" class="action-btn">Check In</button>
+                            <button id="checkOutBtn" class="action-btn">Check Out</button>
+                        </div>
+                        <h4>Mode</h4>
+                        <div class="mode-selector">
+                            <button id="mode-doubles" class="mode-btn active">Doubles</button>
+                            <button id="mode-singles" class="mode-btn">Singles</button>
+                        </div>
+                        <h4>Players</h4>
+                        <ul id="availablePlayersList">
+                            </ul>
+                    </div>
+                </div>
+            </section>
 
-        <section id="courtsSection">
-            <h2>Courts in Play</h2>
-            <div id="info-bar" class="info-bar hidden">
-                <p id="info-bar-text">Dynamic message goes here.</p>
-                <div class="info-bar-buttons">
-                    <button id="info-bar-btn-cancel">Cancel</button>
-                    <button id="info-bar-btn-confirm">Confirm Game</button>
+            <section id="courtsSection">
+                <div id="court-grid" class="court-grid">
                 </div>
-            </div>
-            
-            <div id="court-grid" class="court-grid">
-                </div>
-        </section>
+            </section>
+        </div>
     </main>
+
+    <div id="admin-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Admin Settings</h3>
+            <h4>Select Member on Duty</h4>
+            <ul id="committee-member-list" class="modal-action-list scrollable">
+            </ul>
+            <h4 style="margin-top: 1.5rem;">Court Availability</h4>
+            <ul id="court-availability-list" class="court-availability-list">
+            </ul>
+            <div class="modal-actions">
+                <button id="view-reorder-log-btn" class="action-btn" style="background-color: #6c757d;">View Reorder Log</button>
+                <button id="reorder-players-btn" class="action-btn" style="background-color: var(--primary-blue);">Reorder Players</button>
+                <button id="admin-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reorder-log-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <h3>Queue Reorder History</h3>
+            <p>Log of all administrative changes to the player queue.</p>
+            <div id="reorder-history-list" class="history-list scrollable" style="max-height: 400px; padding: 0;">
+                </div>
+            <div class="modal-actions">
+                <button id="reorder-log-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reorder-players-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Reorder Available Players</h3>
+            <p>Use the arrows to change the player queue order. The player at the top is first in line.</p>
+            <ul id="reorder-players-list" class="modal-action-list scrollable">
+                </ul>
+            <div class="modal-actions">
+                <button id="reorder-cancel-btn">Cancel</button>
+                <button id="reorder-save-btn">Save Changes</button>
+            </div>
+        </div>
+    </div>
 
     <div id="choose-teams-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -67,12 +114,44 @@
         </div>
     </div>
 
+    <div id="guest-name-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Add New Guest</h3>
+            <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
+                <label for="guest-name-input">First Name:</label>
+                <input type="text" id="guest-name-input" readonly placeholder="Tap to enter name">
+            </div>
+            <div class="score-input-area" style="flex-direction: column; align-items: stretch; margin-top: 1rem;">
+                <label for="guest-surname-input">Surname:</label>
+                <input type="text" id="guest-surname-input" readonly placeholder="Tap to enter surname">
+            </div>
+            
+            <div class="gender-selector">
+                <label>Gender:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="guest-gender" value="M" checked> Male
+                    </label>
+                    <label>
+                        <input type="radio" name="guest-gender" value="F"> Female
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="guest-cancel-btn">Cancel</button>
+                <button id="guest-confirm-btn" disabled>Confirm Guest</button>
+            </div>
+        </div>
+    </div>
+
     <div id="check-in-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Check In</h3>
             <p>Select the '+' next to the player to check in.</p>
             <ul id="check-in-list" class="modal-action-list scrollable"></ul>
             <div class="modal-actions">
+                <button id="add-guest-btn" class="action-btn" style="background-color: #007bff; border-color: #007bff;">Add Guest</button>
                 <button id="check-in-cancel-btn">Close</button>
             </div>
         </div>
@@ -92,23 +171,45 @@
     <div id="end-game-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Enter Game Results</h3>
-            <div id="end-game-teams">
+            <p id="end-game-timestamp" style="font-size: 0.9rem; color: #6c757d; text-align: center; margin-top: -1rem; margin-bottom: 1.5rem;"></p>
+            
+            <div class="result-section">
+                <h4>1. Select Winning Team</h4>
+                <div id="end-game-teams">
+                    </div>
+            </div>
+    
+            <div class="result-section hidden" id="score-section">
+                <h4>2. Enter Final Score</h4>
+                <div class="score-input-area">
+                    <div class="score-input-wrapper winning">
+                        <label for="winning-score">Winning Score</label>
+                        <input type="number" id="winning-score" readonly>
+                    </div>
+                    <div class="score-input-wrapper losing">
+                        <label for="losing-score">Losing Score</label>
+                        <input type="number" id="losing-score" readonly>
+                    </div>
                 </div>
-            <div class="score-input-area">
-                <label>Score:</label>
-                <input type="number" id="team1-score" min="0" max="7">
-                <span>-</span>
-                <input type="number" id="team2-score" min="0" max="7">
             </div>
-            <div id="tie-breaker-area" class="score-input-area hidden">
-                <label>Tie-Break:</label>
-                <input type="number" id="team1-tiebreak" min="0">
-                <span>-</span>
-                <input type="number" id="team2-tiebreak" min="0">
+            
+            <div class="result-section hidden" id="tie-breaker-area">
+                <h4>3. Enter Tie-Break Score</h4>
+                 <div class="score-input-area">
+                    <div class="score-input-wrapper winning">
+                        <label for="winner-tiebreak">Winner's Points</label>
+                        <input type="number" id="winner-tiebreak" readonly>
+                    </div>
+                    <div class="score-input-wrapper losing">
+                        <label for="loser-tiebreak">Loser's Points</label>
+                        <input type="number" id="loser-tiebreak" readonly>
+                    </div>
+                </div>
             </div>
+    
             <div class="modal-actions">
                 <button id="end-game-cancel-btn">Cancel</button>
-                <button id="end-game-confirm-btn" disabled>Confirm Results</button>
+                <button id="end-game-confirm-btn" disabled>Confirm</button>
             </div>
         </div>
     </div>
@@ -117,13 +218,46 @@
         <div class="modal-content wide">
             <h3>Game History</h3>
             <div id="history-list" class="history-list scrollable">
-                </div>
+            </div>
             <div class="modal-actions">
+                <button id="history-toggle-view" class="action-btn">Show Player Stats</button>
                 <button id="history-close-btn">Close</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="custom-keypad-modal" class="modal-overlay hidden">
+        <div class="keypad-content">
+            <div id="keypad-display"></div>
+            <div class="keypad-grid">
+                <button class="keypad-btn" data-key="1">1</button>
+                <button class="keypad-btn" data-key="2">2</button>
+                <button class="keypad-btn" data-key="3">3</button>
+                <button class="keypad-btn action" data-key="backspace">⌫</button>
+                
+                <button class="keypad-btn" data-key="4">4</button>
+                <button class="keypad-btn" data-key="5">5</button>
+                <button class="keypad-btn" data-key="6">6</button>
+                <button class="keypad-btn action secondary" data-key="clear">C</button>
+                
+                <button class="keypad-btn" data-key="7">7</button>
+                <button class="keypad-btn" data-key="8">8</button>
+                <button class="keypad-btn" data-key="9">9</button>
+                <button class="keypad-btn" data-key="0">0</button>
+
+                <button class="keypad-btn wide-half cancel hidden" id="keypad-cancel-btn">Cancel</button>
+                <button class="keypad-btn wide-full confirm" id="keypad-confirm-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-alpha-keypad-modal" class="modal-overlay hidden">
+        <div class="keypad-content">
+            <div id="alpha-keypad-display"></div>
+            <div class="keypad-grid" id="alpha-keypad-grid">
+            </div>
+        </div>
+    </div>
+        <script src="script.js"></script>
 </body>
 </html>

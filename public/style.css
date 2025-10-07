@@ -1,6 +1,6 @@
 /* =================================
-   Global Styles & Color Variables
-   ================================= */
+    Global Styles & Color Variables
+    ================================= */
 :root {
     --primary-blue: #0A0A57;
     --light-blue: #e7f3ff;
@@ -10,6 +10,15 @@
     --card-background: #ffffff;
     --court-background: #0A0A57;
     --court-line-color: white;
+    --gap: 1.5rem;
+    --confirm-color: #28a745; /* Green */
+    --confirm-hover-color: #218838;
+    --cancel-color: #dc3545; /* Red */
+    --cancel-hover-color: #c82333;
+    --neutral-color: #6c757d;
+    --neutral-hover-color: #5a6268;
+    --inactive-color: #ffc107; /* Orange/Yellow for inactive confirm */
+    --inactive-hover-color: #e0ac00;
 }
 
 body {
@@ -21,8 +30,8 @@ body {
 }
 
 /* =================================
-   Header & Main Layout
-   ================================= */
+    Header & Main Layout
+    ================================= */
 header {
     background-color: #0A0A57;
     color: white;
@@ -37,36 +46,91 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 
 .container {
     display: flex;
-    padding: 2rem;
+    flex-direction: column;
+    padding: 1.5rem 2rem 2rem 2rem;
+    gap: 1.5rem;
+}
+
+.content-columns {
+    display: flex;
     gap: 2rem;
     align-items: flex-start;
 }
 
+
 .player-column {
-    flex: 0 0 250px;
+    flex: 0 0 400px;
 }
 
 #availablePlayersSection {
     background-color: var(--card-background);
-    padding: 0.5rem 1.5rem 1.5rem 1.5rem;
     border-radius: 8px;
     color: var(--dark-text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
+#availablePlayersSection .card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+#availablePlayersSection h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--neutral-color);
+    letter-spacing: 0.5px;
+}
+#availablePlayersSection h4:nth-of-type(2) {
+    margin-top: 1rem;
+}
+
 
 #courtsSection { flex: 1; }
 
-h2 {
-    margin-top: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-    padding-bottom: 0.75rem;
-    margin-bottom: 1rem;
-    color: white;
-}
 
 /* =================================
-   Player List Styling
-   ================================= */
-#availablePlayersList { list-style-type: none; padding: 0; margin: 0; }
+    Player List Styling
+    ================================= */
+.player-list-controls {
+    display: flex;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.player-list-controls .action-btn {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: none;
+}
+.player-list-controls #checkInBtn {
+    background-color: var(--confirm-color);
+}
+.player-list-controls #checkInBtn:hover {
+    background-color: var(--confirm-hover-color);
+}
+.player-list-controls #checkOutBtn {
+    background-color: var(--cancel-color);
+}
+.player-list-controls #checkOutBtn:hover {
+    background-color: var(--cancel-hover-color);
+}
+
+
+#availablePlayersList {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
 #availablePlayersList li {
     display: flex;
     align-items: center;
@@ -75,19 +139,13 @@ h2 {
     font-weight: 500;
     color: var(--dark-text);
     transition: background-color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 #availablePlayersList li:last-child { border-bottom: none; }
 #availablePlayersList li:hover { background-color: #f1f1f1; cursor: pointer; }
-#availablePlayersList li::before {
-    content: '';
-    display: inline-block;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: #ced4da;
-    margin-right: 1rem;
-    flex-shrink: 0;
-}
+
 #availablePlayersList li.waiting-message {
     justify-content: center;
     color: #6c757d;
@@ -95,17 +153,104 @@ h2 {
     background-color: transparent !important;
     cursor: default;
 }
-#availablePlayersList li.waiting-message::before {
-    display: none;
-}
 
 /* =================================
-   Court Card Styling
-   ================================= */
+    Court Card Styling
+    ================================= */
+.summary-card {
+    background-color: var(--card-background);
+    border-radius: 8px;
+    overflow: hidden;
+    color: var(--dark-text);
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+    box-sizing: border-box;
+}
+.summary-card .card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.settings-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--neutral-color);
+    transition: color 0.2s;
+    padding: 0.5rem;
+}
+.settings-btn:hover {
+    color: var(--primary-blue);
+}
+
+.on-duty-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+.duty-image-placeholder {
+    width: 60px;
+    height: 60px;
+    background-color: #f0f0f0;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #ccc;
+    flex-shrink: 0;
+}
+.duty-info p {
+    margin: 0;
+}
+.duty-name {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--dark-text);
+}
+.duty-label {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--neutral-color);
+}
+
+.summary-stats {
+    margin: 1rem 0;
+}
+.summary-stats p {
+    font-size: 1rem;
+    margin: 0.5rem 0;
+}
+
+.quote-section {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+    font-style: italic;
+    color: #6c757d;
+    text-align: center;
+    height: 5em;
+}
+.quote-text {
+    opacity: 1;
+    transition: opacity 1s ease-in-out;
+}
+.quote-text.fading {
+    opacity: 0;
+}
+
 .court-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Max 3 columns */
-    gap: 1.5rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap);
+    justify-content: center;
 }
 
 .court-card {
@@ -116,8 +261,7 @@ h2 {
     display: flex;
     flex-direction: column;
     transition: all 0.2s ease-in-out;
-    border: 1px solid var(--border-color);
-    min-width: 300px; /* Prevent cards from getting too small */
+    min-width: 300px;
 }
 
 .card-header {
@@ -128,8 +272,45 @@ h2 {
     background-color: #f8f9fa;
     border-bottom: 1px solid var(--border-color);
     gap: 0.5rem;
+    box-sizing: border-box;
+    height: 54px;
 }
-.card-header h3 { margin: 0; font-size: 1.2rem; }
+.card-header > h3 {
+    flex: 1 1 0%;
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--dark-text);
+    text-align: left;
+}
+.card-header > .game-timer {
+    flex-shrink: 0; /* Prevents timer from shrinking */
+}
+.card-header > .header-controls {
+    flex: 1 1 0%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+
+.card-header.header-status-available h3,
+.card-header.header-status-available .status-tag {
+    color: var(--confirm-color);
+}
+.court-card.selected .card-header h3,
+.court-card.selected .card-header .status-tag,
+.card-header.header-status-selecting_teams h3,
+.card-header.header-status-selecting_teams .status-tag,
+.card-header.header-status-game_pending h3,
+.card-header.header-status-game_pending .status-tag {
+    color: var(--inactive-color);
+}
+.card-header.header-status-in_progress h3,
+.card-header.header-status-in_progress .status-tag {
+    color: var(--cancel-color);
+}
+
 
 .status-tag {
     font-size: 0.8rem;
@@ -138,19 +319,88 @@ h2 {
     border-radius: 12px;
     text-transform: uppercase;
     white-space: nowrap;
+    color: var(--dark-text);
 }
 
 .card-body {
     padding: 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
 }
 
-/* --- Final Portrait Court Drawing (Shorter) --- */
+.confirmation-overlay,
+.team-selection-overlay,
+.game-action-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    background-color: rgba(10, 10, 87, 0.85);
+    z-index: 5;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.court-card.status-in_progress .game-action-overlay,
+.court-card.status-game_pending .game-action-overlay {
+    background-color: transparent;
+    pointer-events: none; /* This makes the invisible overlay click-through */
+}
+
+.court-card.status-in_progress .game-action-overlay > *,
+.court-card.status-game_pending .game-action-overlay > * {
+    pointer-events: auto; /* This makes the buttons inside clickable again */
+}
+
+
+.court-confirm-btn {
+    flex: 1;
+    width: 80%;
+    max-width: 200px;
+    max-height: 40px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.court-confirm-btn:hover {
+    opacity: 0.9;
+}
+.court-confirm-btn.confirm {
+    background-color: var(--confirm-color);
+}
+.court-confirm-btn.cancel {
+    background-color: var(--cancel-color);
+}
+.court-confirm-btn.randomize {
+    background-color: var(--primary-blue);
+    border: 1px solid white;
+}
+.court-confirm-btn.choose {
+    background-color: var(--neutral-color);
+}
+
+
 .court-inner {
     position: relative;
     background-color: var(--court-background);
     box-sizing: border-box;
     width: 100%;
-    aspect-ratio: 1; /* Changed to a square aspect ratio */
+    aspect-ratio: 1;
     border-left: 2px solid var(--court-line-color);
     border-right: 2px solid var(--court-line-color);
     display: grid;
@@ -179,10 +429,10 @@ h2 {
     right: 12.5%;
     border-left: 2px solid var(--court-line-color);
     border-right: 2px solid var(--court-line-color);
-    background: linear-gradient(to bottom, 
-        transparent 31%, 
-        var(--court-line-color) 31%, 
-        var(--court-line-color) calc(31% + 2px), 
+    background: linear-gradient(to bottom,
+        transparent 31%,
+        var(--court-line-color) 31%,
+        var(--court-line-color) calc(31% + 2px),
         transparent calc(31% + 2px),
         transparent 69%,
         var(--court-line-color) 69%,
@@ -204,26 +454,45 @@ h2 {
 }
 
 .player-spot {
-    position: relative;
+    position: relative; /* This is now the positioning context for the name */
     z-index: 3;
+}
+
+.player-spot.single-player {
+    grid-column: 1 / 3;
+}
+
+/* This targets the <span> inside the player spot */
+.player-spot > span {
+    position: absolute;
+    left: 5px;
+    right: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 5px;
-    box-sizing: border-box;
     color: white;
     font-weight: bold;
     font-size: 0.85em;
     text-align: center;
     line-height: 1.2;
 }
-.player-spot.single-player {
-    grid-column: 1 / 3;
+
+/* Constrains the top player names to the area between the baseline and service line */
+.player-spot.top-row > span {
+    top: 0;
+    bottom: 38%; /* 100% - (31% service line / 50% half court) */
 }
 
+/* Constrains the bottom player names to the area between their service line and baseline */
+.player-spot.bottom-row > span {
+    top: 38%;
+    bottom: 0;
+}
+
+
 /* =================================
-   Button & Interactive Styles
-   ================================= */
+    Button & Interactive Styles
+    ================================= */
 .header-buttons {
     display: flex;
     gap: 1rem;
@@ -250,10 +519,27 @@ h2 {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.court-actions {
-    display: flex;
-    justify-content: space-around;
-    gap: 0.5rem;
+.cancel-game-btn.on-court {
+    position: absolute;
+    top: 2.25rem; /* Match card-body padding */
+    right: 2.5rem; /* Match card-body padding */
+    transform: translate(50%, -50%); /* Move half size right and up */
+    z-index: 6;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.cancel-game-btn.on-court:hover {
+    background-color: var(--cancel-color);
 }
 
 .action-btn {
@@ -270,22 +556,6 @@ h2 {
 }
 .action-btn:hover { background-color: #0056b3; }
 
-.action-btn.start-game-btn {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-.action-btn.start-game-btn:hover {
-    background-color: #218838;
-}
-
-.action-btn.end-game-btn {
-    background-color: #dc3545;
-    border-color: #dc3545;
-}
-.action-btn.end-game-btn:hover {
-    background-color: #c82333;
-}
-
 #availablePlayersList li.selected {
     background-color: var(--light-blue);
     font-weight: bold;
@@ -299,26 +569,27 @@ h2 {
 
 .court-card.selectable:hover,
 .court-card.selected {
-    --court-line-color: #28a745;
+    --court-line-color: var(--inactive-color);
     cursor: pointer;
 }
 .court-card.status-selecting_teams,
 .court-card.status-game_pending {
-    --court-line-color: #28a745;
+    --court-line-color: var(--inactive-color);
 }
+.court-card.status-selecting_teams .player-spot,
 .court-card.status-game_pending .player-spot {
-    color: #28a745;
+    color: var(--inactive-color);
 }
 .court-card.status-in_progress {
-    --court-line-color: #dc3545;
+    --court-line-color: var(--cancel-color);
 }
 .court-card.status-in_progress .player-spot {
-    color: #dc3545;
+    color: var(--cancel-color);
 }
 .game-timer {
     font-size: 0.9rem;
     font-weight: bold;
-    color: #dc3545;
+    color: var(--cancel-color);
     min-width: 50px;
     text-align: center;
 }
@@ -328,11 +599,10 @@ h2 {
 
 #info-bar {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 1rem 1.5rem;
     border-radius: 8px;
-    margin-bottom: 1.5rem;
     min-height: 40px;
     box-sizing: border-box;
 }
@@ -343,37 +613,10 @@ h2 {
     margin: 0;
     font-weight: bold;
 }
-.info-bar-buttons {
-    display: flex;
-    gap: 0.5rem;
-}
-#info-bar button {
-    border: none;
-    padding: 0.6rem 1rem;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-}
-#info-bar-btn-confirm:disabled {
-    background-color: #eee;
-    color: #aaa;
-    cursor: not-allowed;
-}
-#info-bar-btn-cancel {
-    background-color: transparent;
-    border: 1px solid;
-}
+
 #info-bar.green-theme {
-    background-color: #28a745;
+    background-color: var(--confirm-color);
     color: white;
-}
-#info-bar.green-theme #info-bar-btn-confirm {
-    background-color: white;
-    color: #28a745;
-}
-#info-bar.green-theme #info-bar-btn-cancel {
-    color: white;
-    border-color: white;
 }
 #info-bar.yellow-theme {
     background-color: #ffc107;
@@ -383,15 +626,14 @@ h2 {
     background-color: var(--light-blue);
     color: var(--primary-blue);
 }
-#info-bar.blue-theme #info-bar-btn-cancel {
-    color: var(--primary-blue);
-    border-color: var(--primary-blue);
-}
 #info-bar.red-theme {
-    background-color: #dc3545;
+    background-color: var(--cancel-color);
     color: white;
 }
 
+/* =================================
+    MODAL & ACTION BUTTON STYLES
+    ================================= */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -432,12 +674,89 @@ h2 {
     color: white;
     font-weight: bold;
 }
+
 .modal-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 1rem;
-    margin-top: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 0.5rem;
 }
+
+#end-game-modal .modal-actions button {
+    flex-basis: 150px;
+}
+
+.modal-actions button,
+#history-page .modal-actions button,
+#admin-close-btn {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+    border: none;
+}
+
+#modal-confirm-teams-btn,
+#guest-confirm-btn,
+#end-game-confirm-btn {
+    background-color: var(--inactive-color);
+    color: white;
+    border: 1px solid var(--inactive-color);
+}
+#modal-confirm-teams-btn:not(:disabled):hover,
+#guest-confirm-btn:not(:disabled):hover,
+#end-game-confirm-btn:not(:disabled):hover {
+    background-color: var(--confirm-hover-color);
+}
+#modal-confirm-teams-btn:disabled:hover,
+#guest-confirm-btn:disabled:hover,
+#end-game-confirm-btn:disabled:hover {
+    background-color: var(--inactive-hover-color);
+}
+
+#modal-cancel-btn,
+#guest-cancel-btn,
+#check-in-cancel-btn,
+#check-out-cancel-btn,
+#end-game-cancel-btn,
+#history-close-btn,
+#modal-btn-no,
+#admin-close-btn {
+    background-color: var(--cancel-color);
+    color: white;
+    border: 1px solid var(--cancel-color);
+}
+#modal-cancel-btn:hover,
+#guest-cancel-btn:hover,
+#check-in-cancel-btn:hover,
+#check-out-cancel-btn:hover,
+#end-game-cancel-btn:hover,
+#history-close-btn:hover,
+#modal-btn-no:hover,
+#admin-close-btn:hover {
+    background-color: var(--cancel-hover-color);
+}
+
+#modal-btn-yes-confirm {
+    background-color: var(--confirm-color);
+    border-color: var(--confirm-color);
+    color: white;
+}
+#modal-btn-yes-confirm:hover {
+    background-color: var(--confirm-hover-color);
+}
+
+#add-guest-btn,
+#history-toggle-view {
+    background-color: var(--primary-blue) !important;
+    border-color: var(--primary-blue) !important;
+    color: white !important;
+    flex: initial;
+}
+#history-toggle-view:hover { background-color: #0056b3 !important; }
 
 .header-controls {
     display: flex;
@@ -445,23 +764,14 @@ h2 {
     gap: 0.5rem;
 }
 
-/* New style for the second line of buttons */
 .court-actions-bar {
-    padding: 0.5rem 1rem;
-    background-color: #f8f9fa;
-}
-.court-actions-bar .action-btn {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.75rem;
-    border: none;
+    display: none;
 }
 
 .mode-selector {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 1rem;
+    margin-top: 0.5rem;
 }
 .mode-btn {
     flex: 1;
@@ -489,24 +799,12 @@ h2 {
     font-weight: bold;
     color: white;
 }
-.locked {
+#availablePlayersSection.locked #availablePlayersList {
     opacity: 0.5;
     pointer-events: none;
 }
-#modal-btn-no {
-    background-color: #6c757d;
-    border-color: #6c757d;
-}
-#modal-btn-no:hover {
-    background-color: #5a6268;
-}
-#modal-btn-yes-confirm {
-    background-color: #dc3545;
-    border-color: #dc3545;
-}
-#modal-btn-yes-confirm:hover {
-    background-color: #c82333;
-}
+
+
 .modal-action-list.scrollable {
     max-height: 300px;
     overflow-y: auto;
@@ -525,6 +823,28 @@ h2 {
     padding: 0.8rem 1rem;
     border-bottom: 1px solid #f0f0f0;
 }
+.modal-action-list li.committee-member {
+    cursor: pointer;
+}
+.modal-action-list li.committee-member label {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    cursor: pointer;
+}
+.modal-action-list li.committee-member input[type="radio"] {
+    margin-right: 1rem;
+}
+.modal-action-list li.committee-member .member-details {
+    display: flex;
+    flex-direction: column;
+}
+.modal-action-list li.committee-member .member-designation {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+
 .action-icon {
     font-weight: bold;
     font-size: 1.5rem;
@@ -533,36 +853,21 @@ h2 {
     line-height: 1;
 }
 .action-icon.add {
-    color: #28a745;
+    color: var(--confirm-color);
 }
 .action-icon.remove {
-    color: #dc3545;
+    color: var(--cancel-color);
 }
 
 #end-game-teams {
-    margin: 1.5rem 0;
-}
-.team-selection {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border: 2px solid var(--border-color);
-    border-radius: 5px;
     margin-bottom: 1rem;
-    cursor: pointer;
-}
-.team-selection.winner {
-    border-color: #28a745;
-    background-color: #eafaf1;
-}
-.team-selection input[type="radio"] {
-    margin-right: 1rem;
 }
 .score-input-area {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    justify-content: center;
 }
 .score-input-area.hidden {
     display: none;
@@ -582,6 +887,10 @@ h2 {
 .history-list {
     text-align: left;
 }
+.history-list.scrollable {
+    max-height: 400px;
+    overflow-y: auto;
+}
 .history-item {
     padding: 1rem;
     border-bottom: 1px solid var(--border-color);
@@ -590,17 +899,451 @@ h2 {
     border-bottom: none;
 }
 .history-details {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    /* Defines three columns: Time (150px), Game/Duration (flexible), Score (80px) */
+    grid-template-columns: 150px 1fr 80px; 
     align-items: center;
     font-weight: bold;
     margin-bottom: 0.5rem;
 }
+.history-details .game-time-cell {
+    font-size: 0.85rem;
+    color: var(--neutral-color);
+    font-weight: normal;
+}
+.history-details .score-cell {
+    text-align: right;
+}
 .history-teams {
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--neutral-color);
 }
 .history-teams .winner {
     font-weight: bold;
-    color: #28a745;
+    color: var(--confirm-color);
+}
+
+/* =================================
+    NEW RESULTS MODAL STYLES
+    ================================= */
+.result-section {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+.result-section:first-of-type {
+    margin-top: 1rem;
+    padding-top: 0;
+    border-top: none;
+}
+.result-section.hidden {
+    display: none;
+}
+.result-section h4 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-blue);
+    font-size: 1rem;
+    font-weight: 600;
+}
+.team-selection {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+.team-selection:last-child {
+    margin-bottom: 0;
+}
+.team-selection.winner {
+    border-color: var(--confirm-color);
+    background-color: #eafaf1;
+    font-weight: bold;
+}
+.team-selection.loser {
+    border-color: var(--cancel-color);
+    background-color: #fbe9eb;
+    opacity: 0.7;
+}
+
+.team-selection h5 {
+    margin: 0 1rem 0 0;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.team-selection p {
+    margin: 0;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    white-space: pre-line;
+}
+
+.score-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+.score-input-wrapper label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+.score-input-wrapper input {
+    border: 2px solid var(--border-color);
+    border-radius: 5px;
+    width: 80px;
+    padding: 0.8rem;
+    font-size: 1.5rem;
+    text-align: center;
+    font-weight: bold;
+}
+.score-input-wrapper.winning label { color: var(--confirm-color); }
+.score-input-wrapper.winning input {
+    border-color: var(--confirm-color);
+    color: var(--confirm-color);
+}
+.score-input-wrapper.losing label { color: var(--cancel-color); }
+.score-input-wrapper.losing input {
+    border-color: var(--cancel-color);
+    color: var(--cancel-color);
+}
+
+/* =================================
+    KEYPAD STYLES
+    ================================= */
+#custom-keypad-modal {
+    align-items: flex-end;
+}
+
+.keypad-content {
+    background: white;
+    color: var(--dark-text);
+    padding: 1rem;
+    border-radius: 8px 8px 0 0;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+}
+
+#keypad-display, #alpha-keypad-display {
+    font-size: 2.5rem;
+    font-weight: 500;
+    padding: 0.5rem 0.5rem 1rem;
+    text-align: right;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+    min-height: 50px;
+    position: relative;
+}
+#keypad-display[data-placeholder]::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ccc;
+    font-size: 1.5rem;
+    font-weight: 400;
+}
+
+
+.keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+.shake {
+  animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+
+.keypad-btn {
+    padding: 1.5rem 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: 1px solid var(--border-color);
+    background-color: #f0f0f0;
+    color: var(--dark-text);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.keypad-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.keypad-btn.action {
+    background-color: var(--neutral-color);
+    color: white;
+    border-color: var(--neutral-color);
+}
+
+.keypad-btn.action.secondary {
+    background-color: var(--cancel-color);
+    color: white;
+    border-color: var(--cancel-color);
+}
+.keypad-btn.action.secondary:hover {
+    background-color: var(--cancel-hover-color);
+}
+
+.keypad-btn.hidden {
+    display: none;
+}
+.keypad-btn.wide-full {
+    grid-column: span 4;
+}
+.keypad-btn.wide-half {
+    grid-column: span 2;
+}
+.keypad-btn.cancel {
+    background-color: var(--cancel-color);
+    color: white;
+    border-color: var(--cancel-color);
+}
+.keypad-btn.cancel:hover {
+    background-color: var(--cancel-hover-color);
+}
+
+.keypad-btn.confirm {
+    background-color: var(--inactive-color);
+    color: white;
+    font-size: 1.2rem;
+    padding: 1.5rem 0;
+}
+
+.keypad-btn.confirm:hover {
+    background-color: var(--inactive-hover-color);
+}
+
+#keypad-confirm-btn:not(:disabled) {
+    background-color: var(--confirm-color);
+}
+#keypad-confirm-btn:not(:disabled):hover {
+    background-color: var(--confirm-hover-color);
+}
+
+
+/* =================================
+    ALPHA KEYPAD STYLES
+    ================================= */
+#custom-alpha-keypad-modal {
+    align-items: flex-end;
+}
+
+#alpha-keypad-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+#alpha-keypad-grid .keypad-btn {
+    padding: 1.2rem 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+}
+
+.key-row-1, .key-row-2, .key-row-3 {
+    grid-column: 1 / span 1;
+    display: flex;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.key-row-1 {
+    justify-content: space-between;
+}
+
+.key-row-2 {
+    justify-content: center;
+    margin-left: 5%;
+    margin-right: 5%;
+}
+
+.key-row-3 {
+    justify-content: center;
+    margin-left: 15%;
+    margin-right: 15%;
+}
+
+.key-row-4 {
+    grid-column: 1 / span 1;
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.keypad-btn.control {
+    background-color: var(--neutral-color);
+    color: white;
+    font-size: 1.5rem;
+}
+.keypad-btn.control:hover {
+    background-color: var(--neutral-hover-color);
+}
+
+.key-row-4 .keypad-btn.wide-control {
+    flex: 2;
+}
+.key-row-4 .keypad-btn.control:not(.wide-control) {
+    flex: 1;
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 60px;
+}
+.key-row-4 .keypad-btn.wide-control.confirm {
+    flex: 3;
+    background-color: var(--confirm-color);
+}
+.key-row-4 .keypad-btn.wide-control.confirm:hover {
+    background-color: var(--confirm-hover-color);
+}
+
+
+/* =================================
+    Modal Input Fixes
+    ================================= */
+#guest-name-modal .score-input-area input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+/* =================================
+   COURT AVAILABILITY TOGGLE STYLES
+   ================================= */
+.court-availability-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+}
+
+.court-availability-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.court-availability-item:last-child {
+    border-bottom: none;
+}
+
+.court-availability-item label {
+    font-weight: 500;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 28px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--confirm-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+/* =================================
+   REORDER PLAYERS MODAL STYLES
+   ================================= */
+#reorder-players-list li {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.reorder-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto; /* Pushes controls to the right */
+}
+
+.reorder-btn {
+    background-color: var(--neutral-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    padding: 0;
+}
+
+.reorder-btn:hover {
+    background-color: var(--neutral-hover-color);
+}
+
+.reorder-btn:disabled {
+    background-color: #e0e0e0;
+    cursor: not-allowed;
+}
+
+#reorder-save-btn {
+    background-color: var(--confirm-color);
+    border-color: var(--confirm-color);
+    color: white;
+}
+
+#reorder-save-btn:hover {
+    background-color: var(--confirm-hover-color);
 }
