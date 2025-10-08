@@ -220,15 +220,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- DYNAMIC HEIGHT FUNCTION ---
     function setPlayerListHeight() {
-        const referenceCard = courtGrid.querySelector('.court-card, .summary-card');
-        if (!referenceCard) {
+        const courtGridEl = document.getElementById('court-grid');
+        const referenceCard = courtGridEl.querySelector('.court-card, .summary-card');
+        const courtGridStyles = window.getComputedStyle(courtGridEl);
+        // Determine the number of columns currently being used by the grid.
+        const courtColumnCount = courtGridStyles.gridTemplateColumns.split(' ').length;
+        
+        // If no reference card is found, or if the layout is stacked (1 column or fewer than 2), 
+        // set height to auto and exit.
+        if (!referenceCard || courtColumnCount < 2) {
             availablePlayersSection.style.height = 'auto';
             return;
         }
-        const courtGridStyles = window.getComputedStyle(courtGrid);
-        const cardHeight = referenceCard.offsetHeight;
-        const gridGap = parseFloat(courtGridStyles.gap);
-        const totalHeight = (cardHeight * 2) + gridGap;
+
+        // Measure the actual height of the court grid container.
+        // This accurately captures the total space of all cards + gaps now that CSS forces equal rows.
+        const totalHeight = courtGridEl.offsetHeight; 
+        
+        // Set the available players section height to match.
         availablePlayersSection.style.height = `${totalHeight}px`;
     }
 
@@ -2383,7 +2392,7 @@ document.addEventListener('DOMContentLoaded', () => {
     historyToggleViewBtn.addEventListener("click",()=>{state.historyViewMode="games"===state.historyViewMode?"stats":"games";renderHistory();saveState()});
     checkInBtn.addEventListener("click",()=>{populateCheckInModal(),checkInModal.classList.remove("hidden")});
     checkInCancelBtn.addEventListener("click",()=>checkInModal.classList.add("hidden"));
-    checkInList.addEventListener("click",e=>{if(e.target.classList.contains("add")){const playerName=e.target.dataset.player;const player = getPlayerByName(playerName); checkInModal.classList.add("hidden"); cancelConfirmModal.querySelector("h3").textContent="Confirm Check In",cancelConfirmModal.querySelector("p").textContent=`Are you sure you want to check in ${playerName.split(' ')[0]} (${player.gender})?`,modalBtnYesConfirm.textContent="Yes, Check In",cancelConfirmModal.dataset.mode="checkInPlayer",cancelConfirmModal.dataset.player=playerName,cancelConfirmModal.classList.remove("hidden")}});
+    checkInList.addEventListener("click",e=>{if(e.target.classList.contains("add")){const playerName=e.target.dataset.player;const player = getPlayerByName(playerName); checkInModal.classList.add("hidden"); cancelConfirmModal.querySelector("h3").textContent="Confirm Check In",cancelConfirmModal.querySelector("p").textContent=`Are you sure you want to check in ${playerName.split(' ')[0]} (${player.gender})?`,modalBtnYesConfirm.textContent="Yes, Check In",cancelConfirmModal.dataset.mode="checkInPlayer",cancelConfirmModal.classList.remove("hidden")}});
     checkOutBtn.addEventListener("click",()=>{populateCheckOutModal(),checkOutModal.classList.remove("hidden")});
     checkOutCloseBtn.addEventListener("click",()=>checkOutModal.classList.add("hidden"));
     checkOutList.addEventListener("click",e=>{if(e.target.classList.contains("remove")){const playerName=e.target.dataset.player;const player = getPlayerByName(playerName); checkOutModal.classList.add("hidden"); cancelConfirmModal.querySelector("h3").textContent="Confirm Check Out",cancelConfirmModal.querySelector("p").textContent=`Are you sure you want to check out ${playerName.split(' ')[0]} (${player.gender})?`,modalBtnYesConfirm.textContent="Yes, Check Out",cancelConfirmModal.dataset.mode="checkOutPlayer",cancelConfirmModal.dataset.player=playerName,cancelConfirmModal.classList.remove("hidden")}});

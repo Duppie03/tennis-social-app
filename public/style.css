@@ -164,14 +164,16 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     color: var(--dark-text);
     display: flex;
     flex-direction: column;
-    min-height: 400px;
+    min-height: auto; /* FIX: Allow height to be set by content or grid */
     box-sizing: border-box;
+    height: 100%; /* FIX: Ensure it takes the full grid cell height */
 }
 .summary-card .card-body {
     padding: 1rem;
     display: flex;
     flex-direction: column;
     flex: 1;
+    justify-content: space-between; /* FIX: Added for consistent quote positioning */
 }
 
 /* Updated settings button styles to also apply to the new notify button */
@@ -261,6 +263,10 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .court-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    /* FIX: Explicitly set 2 rows to take equal height (1fr)
+       This forces the second row to match the taller first row. */
+    grid-template-rows: 1fr 1fr; 
+    align-items: stretch; /* Ensure all items stretch to fill the full height of the row */
     gap: var(--gap);
     justify-content: center;
 }
@@ -273,7 +279,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     display: flex;
     flex-direction: column;
     transition: all 0.2s ease-in-out;
-    min-width: 300px;
+    min-width: 0; /* FIX: Ensure it shrinks correctly in flex/grid containers */
+    height: 100%; /* FIX: Ensure the court card takes the full grid cell height */
 }
 
 .card-header {
@@ -321,8 +328,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .card-header.header-status-game_pending .status-tag {
     color: var(--inactive-color);
 }
-.card-header.header-status-in_progress h3,
-.card-header.header-status-in_progress .status-tag {
+.court-card.status-in_progress h3,
+.card-header.status-in_progress .status-tag {
     color: var(--cancel-color);
 }
 
@@ -343,6 +350,7 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     display: flex;
     flex-direction: column;
     position: relative;
+    justify-content: space-between; /* FIX: Added to anchor court/buttons */
 }
 
 .confirmation-overlay,
@@ -415,12 +423,14 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     background-color: var(--court-background);
     box-sizing: border-box;
     width: 100%;
-    aspect-ratio: 1;
+    /* aspect-ratio: 1; */ /* FIX: Removed to allow vertical stretching */
+    flex-grow: 1; /* FIX: Consume all available vertical space */
     border-left: 2px solid var(--court-line-color);
     border-right: 2px solid var(--court-line-color);
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
+    margin-bottom: 0.75rem; /* FIX: Added space above the game action/end game buttons */
 }
 
 .court-inner::before {
@@ -1727,4 +1737,92 @@ input:checked + .slider:before {
 /* Ensure hidden buttons don't take up grid space */
 #manage-court-players-modal .modal-actions .action-btn.hidden {
     display: none;
+}
+
+
+/* =================================
+    Responsive Adjustments
+    ================================= */
+@media (max-width: 900px) {
+    /* Reduce padding on header and main container for smaller screens */
+    header {
+        padding: 1rem 1rem;
+    }
+    
+    .container {
+        padding: 1rem 1rem 1.5rem 1rem;
+    }
+
+    /* Stack the content columns */
+    .content-columns {
+        flex-direction: column;
+        gap: 1.5rem; /* Slightly reduce gap when stacked */
+    }
+
+    /* Allow player column to take full width */
+    .player-column {
+        flex: 1 1 100%;
+        max-width: 100%; /* Ensure it respects 100% width */
+    }
+    
+    /* Ensure available players list scrolls within the max width */
+    #availablePlayersSection {
+        max-width: 100%; 
+    }
+    
+    /* Set court grid to 2 columns for better use of space */
+    .court-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        /* Revert to automatic rows in stacked view */
+        grid-template-rows: auto; 
+    }
+    
+    /* Ensure summary card width on mobile */
+    .summary-card {
+        min-height: auto; /* Allow height to collapse when on top */
+    }
+    
+    /* Reduce card padding slightly */
+    .court-card .card-body,
+    .summary-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    /* Center text in card headers when space is tight */
+    .card-header > h3 {
+        text-align: center;
+    }
+    
+    /* Center the history details on narrow screens since 3 columns is too wide */
+    .history-details {
+        grid-template-columns: 1fr 1fr; /* Two columns for game/duration and score */
+        gap: 0.5rem;
+    }
+    .history-details .game-time-cell {
+        grid-column: 1 / 3; /* Time spans full width on its own row */
+        text-align: left;
+    }
+    .history-details .score-cell {
+        text-align: left;
+    }
+    .history-teams {
+        padding-top: 0.5rem;
+    }
+}
+
+/* For very narrow phones in portrait (e.g., < 500px) */
+@media (max-width: 500px) {
+    .court-grid {
+        grid-template-columns: 1fr; /* Single column court view */
+    }
+    /* Smaller padding */
+    header, .container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    .container {
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+    }
 }
