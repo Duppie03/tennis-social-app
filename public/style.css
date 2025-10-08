@@ -4,7 +4,7 @@
 :root {
     --primary-blue: #0A0A57;
     --light-blue: #e7f3ff;
-    --dark-text: #343a40;
+    --dark-text: #343a3d;
     --background-color: var(--primary-blue);
     --border-color: #dee2e6;
     --card-background: #ffffff;
@@ -174,6 +174,7 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     flex: 1;
 }
 
+/* Updated settings button styles to also apply to the new notify button */
 .settings-btn {
     background: none;
     border: none;
@@ -186,6 +187,17 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .settings-btn:hover {
     color: var(--primary-blue);
 }
+.settings-btn#notify-now-btn {
+    font-size: 1.5rem; /* Base size for announcement icon */
+    margin-right: 0;
+    /* AGGRESSIVE FIX: Ensure it takes space and is visible */
+    width: 28px;
+    height: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+    padding: 0;
+}
+
 
 .on-duty-section {
     display: flex;
@@ -290,7 +302,10 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 0.5rem;
+    /* AGGRESSIVE FIX: High z-index and tight spacing */
+    z-index: 100;
+    gap: 0.25rem; 
+    position: relative; /* Ensure z-index works */
 }
 
 
@@ -555,6 +570,12 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     transition: background-color 0.2s;
 }
 .action-btn:hover { background-color: #0056b3; }
+.action-btn:disabled {
+    background-color: var(--neutral-color) !important;
+    border-color: var(--neutral-color) !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
 
 #availablePlayersList li.selected {
     background-color: var(--light-blue);
@@ -657,6 +678,55 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     width: 90%;
     max-width: 500px;
 }
+/* ADDED: Admin Settings Layout */
+#admin-settings-modal .modal-content {
+    max-width: 768px; /* Wider for 2-column layout */
+}
+.admin-settings-grid-2col {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem; /* Reduced margin to align with modal-header-with-actions */
+}
+.admin-settings-panel {
+    flex: 1;
+    min-width: 0;
+    /* FIX: Enable flex to make the inner lists occupy available vertical space */
+    display: flex;
+    flex-direction: column;
+    /* Optional max-height for tablets */
+    max-height: 320px; 
+}
+.admin-settings-panel h4 {
+    /* Ensure the height of H4 is constant and doesn't get squashed */
+    flex-shrink: 0; 
+    margin: 0 0 0.5rem 0;
+}
+.admin-settings-panel .scrollable,
+.admin-settings-panel .court-availability-list {
+    /* Allow the list itself to grow and manage the overflow */
+    flex-grow: 1; 
+    overflow-y: auto; 
+    
+    /* FIX: Set margin to 0 for vertical alignment */
+    padding: 0;
+    margin: 0; 
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+}
+
+
+/* NEW: Style for the Admin Settings modal header containing title and icon */
+.modal-content .modal-header-with-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem; /* Reduced margin */
+}
+
+.modal-content .modal-header-with-actions h3 {
+    margin: 0;
+}
+
 .modal-player-list {
     display: flex;
     flex-wrap: wrap;
@@ -683,6 +753,58 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     padding-top: 0.5rem;
 }
 
+/* Specific styling for the new 3-button layout in Manage Courts Modal */
+#manage-court-players-modal .modal-actions {
+    /* Define 2 columns of equal width (1fr 1fr) and let rows define themselves */
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    /* Default is 2 rows */
+    grid-template-rows: auto auto; 
+}
+
+/* Card 1: Select Court (Only Close button visible) - Single button, full width on top row */
+/* This ensures the single button is centered/full-width on the top row when others are hidden */
+#manage-court-players-modal .modal-actions[data-card-mode="card1"] #manage-players-close-btn {
+    grid-column: 1 / 3; 
+    grid-row: 1 / 2; /* Forces Close button to Row 1 when alone */
+}
+
+/* Back button (Gray) - Top Left, Row 1 (Card 2/3) */
+#manage-court-players-modal .modal-actions #manage-players-back-btn:not(.hidden) {
+    grid-column: 1 / 2; 
+    grid-row: 1 / 2; /* Explicit Row 1 */
+    background-color: var(--neutral-color) !important;
+    border-color: var(--neutral-color) !important;
+}
+
+/* Add Player button (Green) - Top Right, Row 1 (Card 2) */
+#manage-court-players-modal .modal-actions #manage-players-add-btn:not(.hidden) {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2; /* Explicit Row 1 */
+}
+
+/* Confirm button (Green/Inactive) - Top Right, Row 1 (Card 3) */
+#manage-court-players-modal .modal-actions #manage-players-confirm-btn:not(.hidden) {
+    grid-column: 2 / 3; 
+    grid-row: 1 / 2; /* Explicit Row 1 */
+}
+
+/* Close button (Red) - Bottom Row, spans both columns (Card 2 and 3) */
+#manage-court-players-modal .modal-actions #manage-players-close-btn {
+    grid-column: 1 / 3; /* Span both columns */
+    grid-row: 2 / 3; /* Forces Close button to the bottom row for Card 2/3 */
+    background-color: var(--cancel-color);
+    border-color: var(--cancel-color);
+}
+
+/* Ensure hidden buttons don't take up grid space */
+#manage-court-players-modal .modal-actions .action-btn.hidden {
+    display: none;
+}
+
+
 #end-game-modal .modal-actions button {
     flex-basis: 150px;
 }
@@ -701,19 +823,25 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 
 #modal-confirm-teams-btn,
 #guest-confirm-btn,
-#end-game-confirm-btn {
+#end-game-confirm-btn,
+#sound-confirm-btn,
+#manage-players-confirm-btn { /* FIXED: Correctly uses # selector */
     background-color: var(--inactive-color);
     color: white;
     border: 1px solid var(--inactive-color);
 }
 #modal-confirm-teams-btn:not(:disabled):hover,
 #guest-confirm-btn:not(:disabled):hover,
-#end-game-confirm-btn:not(:disabled):hover {
+#end-game-confirm-btn:not(:disabled):hover,
+#sound-confirm-btn:not(:disabled):hover,
+#manage-players-confirm-btn:not(:disabled):hover { 
     background-color: var(--confirm-hover-color);
 }
 #modal-confirm-teams-btn:disabled:hover,
 #guest-confirm-btn:disabled:hover,
-#end-game-confirm-btn:disabled:hover {
+#end-game-confirm-btn:disabled:hover,
+#sound-confirm-btn:disabled:hover,
+#manage-players-confirm-btn:disabled:hover { 
     background-color: var(--inactive-hover-color);
 }
 
@@ -724,7 +852,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 #end-game-cancel-btn,
 #history-close-btn,
 #modal-btn-no,
-#admin-close-btn {
+#admin-close-btn,
+#sound-cancel-btn {
     background-color: var(--cancel-color);
     color: white;
     border: 1px solid var(--cancel-color);
@@ -736,7 +865,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 #end-game-cancel-btn:hover,
 #history-close-btn:hover,
 #modal-btn-no:hover,
-#admin-close-btn:hover {
+#admin-close-btn:hover,
+#sound-cancel-btn:hover {
     background-color: var(--cancel-hover-color);
 }
 
@@ -816,6 +946,15 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     padding: 0;
     margin: 1.5rem 0;
 }
+/* Ensure the lists in the Manage Court Players modal have consistent margin */
+#manage-court-players-modal .modal-action-list {
+    margin: 1rem 0;
+}
+#manage-court-players-modal #remove-players-list {
+    margin-top: 0;
+}
+
+
 .modal-action-list li {
     display: flex;
     justify-content: space-between;
@@ -1042,7 +1181,14 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     min-height: 50px;
     position: relative;
 }
-#keypad-display[data-placeholder]::before {
+/* MODIFIED: Rely on JS for masking and remove non-standard text-security properties */
+#keypad-display[data-mode="admin"] {
+    font-family: 'Verdana', sans-serif; 
+    letter-spacing: 5px; 
+    text-align: center;
+}
+/* MODIFIED: Changed placeholder targeting to only show on non-admin mode */
+#keypad-display:not([data-mode="admin"])[data-placeholder]::before {
     content: attr(data-placeholder);
     position: absolute;
     left: 0.5rem;
@@ -1060,13 +1206,13 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     gap: 0.5rem;
 }
 @keyframes shake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-  40%, 60% { transform: translate3d(4px, 0, 0); }
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
 }
 .shake {
-  animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
 }
 
 
@@ -1232,7 +1378,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .court-availability-list {
     list-style: none;
     padding: 0;
-    margin: 1rem 0;
+    /* FIX: Set margin to 0 for vertical alignment */
+    margin: 0; 
     border: 1px solid var(--border-color);
     border-radius: 5px;
 }
@@ -1300,8 +1447,8 @@ input:checked + .slider:before {
 }
 
 /* =================================
-   REORDER PLAYERS MODAL STYLES
-   ================================= */
+    REORDER PLAYERS MODAL STYLES
+    ================================= */
 #reorder-players-list li {
     display: flex;
     align-items: center;
@@ -1346,4 +1493,238 @@ input:checked + .slider:before {
 
 #reorder-save-btn:hover {
     background-color: var(--confirm-hover-color);
+}
+
+/* =================================
+    NEW SOUND SELECTION MODAL STYLES
+    ================================= */
+#sound-selection-modal .modal-content {
+    max-width: 400px;
+}
+
+.sound-selection-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    max-height: 300px; /* Make it scrollable */
+    overflow-y: auto;
+}
+
+.sound-selection-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+
+.sound-selection-item:last-child {
+    border-bottom: none;
+}
+
+.sound-selection-label {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.sound-selection-label input[type="radio"] {
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.sound-preview-btn {
+    background-color: var(--neutral-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sound-preview-btn:hover {
+    background-color: var(--primary-blue);
+}
+
+/* ------------------------------------------------ */
+/* FIX: ADMIN MODAL BELL (SELECT SOUND BUTTON) STYLES */
+/* ------------------------------------------------ */
+#admin-settings-modal .admin-icon-btn,
+#sound-selection-modal .admin-icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem; /* Ensures the bell is a good size */
+    cursor: pointer;
+    color: var(--neutral-color);
+    transition: color 0.2s;
+    padding: 0;
+    line-height: 1;
+    /* AGGRESSIVE FIX: Ensure visibility and proper box size */
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    text-align: center;
+    z-index: 100; /* Ensure it's above other elements in the modal header */
+}
+
+#admin-settings-modal .admin-icon-btn:hover,
+#sound-selection-modal .admin-icon-btn:hover {
+    color: var(--primary-blue);
+}
+
+.modal-header-icons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+
+
+
+/* =================================
+    NEW ALERT STATUS TIMER STYLES
+    ================================= */
+#alert-status-display {
+    font-size: 0.75rem;
+    color: var(--neutral-color); /* Light gray for subtle info */
+    font-weight: 700; /* Bolder text for visibility */
+    /* AGGRESSIVE FIX: Ensure it takes visible space */
+    display: inline-block; 
+    
+    margin-right: 0.25rem; 
+    padding: 0.2rem;
+    min-width: 90px; 
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.summary-card .card-header .header-controls {
+    /* Ensure the elements align vertically */
+    align-items: center; 
+    /* AGGRESSIVE FIX: High z-index and tight spacing */
+    z-index: 100;
+    gap: 0.25rem; 
+    position: relative; 
+    min-width: fit-content;
+}
+/* Style for the new notify button's hide state */
+#notify-now-btn.hidden {
+    /* Kept for safety, though JS now avoids using it when condition fails */
+    display: none;
+}
+/* Style for the new Manage On-Court Players button */
+#manage-court-players-btn {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+}
+
+/* =================================
+    MANAGE ON-COURT PLAYERS MODAL STYLES (3-Card Flow)
+    ================================= */
+
+/* Hide lists for Card 2 and 3 initially */
+#remove-players-list.hidden, 
+#add-players-list.hidden {
+    display: none;
+}
+
+/* Style for the current on-court players list (Card 2) and selection list (Card 3) */
+#remove-players-list li,
+#add-players-list li {
+    position: relative;
+    padding-right: 2.5rem; /* Space for the icon */
+}
+
+/* Make court list more compact */
+#court-list-for-management li {
+    padding: 1rem 1rem;
+}
+
+/* Style for the 'Add Player' button in the modal actions */
+#manage-players-add-btn {
+    background-color: var(--confirm-color) !important;
+    border-color: var(--confirm-color) !important;
+    color: white;
+}
+
+#manage-players-add-btn:hover:not(:disabled) {
+    background-color: var(--confirm-hover-color) !important;
+}
+
+/* Style for the 'Confirm' button in the modal actions (Card 3) */
+#manage-players-confirm-btn {
+    /* Color is set via script.js to switch between inactive and confirm */
+}
+
+/* Special styling for players selected for removal (Card 2) */
+#remove-players-list li[style*="background-color: rgb(251, 233, 235)"], /* Target the temporary styling */
+#remove-players-list li:has(.action-icon.add) {
+    background-color: #fbe9eb !important; 
+    border-left: 4px solid var(--cancel-color);
+}
+
+/* --- BUTTON LAYOUT FIX FOR 3-CARD FLOW (Two-Row Layout) --- */
+
+#manage-court-players-modal .modal-actions {
+    /* Define 2 columns of equal width (1fr 1fr) and let rows define themselves */
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    /* Default is 2 rows */
+    grid-template-rows: auto auto; 
+}
+
+/* Card 1: Select Court (Only Close button visible) - Single button, full width on top row */
+/* This ensures the single button is centered/full-width on the top row when others are hidden */
+#manage-court-players-modal .modal-actions[data-card-mode="card1"] #manage-players-close-btn {
+    grid-column: 1 / 3; 
+    grid-row: 1 / 2; /* Forces Close button to Row 1 when alone */
+}
+
+/* Back button (Gray) - Top Left, Row 1 (Card 2/3) */
+#manage-court-players-modal .modal-actions #manage-players-back-btn:not(.hidden) {
+    grid-column: 1 / 2; 
+    grid-row: 1 / 2; /* Explicit Row 1 */
+    background-color: var(--neutral-color) !important;
+    border-color: var(--neutral-color) !important;
+}
+
+/* Add Player button (Green) - Top Right, Row 1 (Card 2) */
+#manage-court-players-modal .modal-actions #manage-players-add-btn:not(.hidden) {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2; /* Explicit Row 1 */
+}
+
+/* Confirm button (Green/Inactive) - Top Right, Row 1 (Card 3) */
+#manage-court-players-modal .modal-actions #manage-players-confirm-btn:not(.hidden) {
+    grid-column: 2 / 3; 
+    grid-row: 1 / 2; /* Explicit Row 1 */
+}
+
+/* Close button (Red) - Bottom Row, spans both columns (Card 2 and 3) */
+#manage-court-players-modal .modal-actions #manage-players-close-btn {
+    grid-column: 1 / 3; /* Span both columns */
+    grid-row: 2 / 3; /* Forces Close button to the bottom row for Card 2/3 */
+    background-color: var(--cancel-color);
+    border-color: var(--cancel-color);
+}
+
+/* Ensure hidden buttons don't take up grid space */
+#manage-court-players-modal .modal-actions .action-btn.hidden {
+    display: none;
 }

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eldoraigne Tennis Club - Social Day</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -51,17 +52,58 @@
 
     <div id="admin-settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Admin Settings</h3>
-            <h4>Select Member on Duty</h4>
-            <ul id="committee-member-list" class="modal-action-list scrollable">
-            </ul>
-            <h4 style="margin-top: 1.5rem;">Court Availability</h4>
-            <ul id="court-availability-list" class="court-availability-list">
-            </ul>
-            <div class="modal-actions">
+            <div class="modal-header-with-actions">
+                <h3>Admin Settings</h3>
+                <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
+            </div>
+            
+            <div class="admin-settings-grid-2col">
+                <div class="admin-settings-panel">
+                    <h4>Select Member on Duty</h4>
+                    <ul id="committee-member-list" class="modal-action-list scrollable">
+                    </ul>
+                </div>
+                <div class="admin-settings-panel">
+                    <h4>Court Availability</h4>
+                    <ul id="court-availability-list" class="court-availability-list">
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1.5rem; padding-top: 0.5rem;">
                 <button id="view-reorder-log-btn" class="action-btn" style="background-color: #6c757d;">View Reorder Log</button>
                 <button id="reorder-players-btn" class="action-btn" style="background-color: var(--primary-blue);">Reorder Players</button>
-                <button id="admin-close-btn">Close</button>
+                <button id="manage-court-players-btn" class="action-btn" style="background-color: #007bff; border-color: #007bff;">Manage On-Court Players</button>
+            </div>
+            <div class="modal-actions" style="display: flex; justify-content: center; margin-top: 1rem; padding-top: 0;">
+                <button id="admin-close-btn" style="flex-grow: 0; min-width: 150px;">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="sound-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Select Alert Sound</h3>
+                <div>
+                    <button id="mute-btn" class="admin-icon-btn" title="Mute All Sounds">
+                        <i class="mdi mdi-volume-high"></i>
+                    </button>
+                    <button id="minimize-notifications-btn" class="admin-icon-btn" title="Minimize Notifications">
+                        <i class="mdi mdi-arrow-expand-vertical"></i>
+                    </button>
+                    <button id="no-speech-btn" class="admin-icon-btn" title="Turn Off Speech">
+                        <i class="mdi mdi-microphone-message"></i>
+                    </button>
+                </div>
+            </div>
+            <p style="text-align: center; color: var(--neutral-color);">Choose the sound to play for notifications.</p>
+
+            <div id="sound-selection-list" class="sound-selection-list scrollable">
+                </div>
+
+            <div class="modal-actions">
+                <button id="sound-cancel-btn" class="action-btn">Cancel</button>
+                <button id="sound-confirm-btn" class="action-btn" disabled>Confirm Selection</button>
             </div>
         </div>
     </div>
@@ -73,7 +115,7 @@
             <div id="reorder-history-list" class="history-list scrollable" style="max-height: 400px; padding: 0;">
                 </div>
             <div class="modal-actions">
-                <button id="reorder-log-close-btn">Close</button>
+                <button id="reorder-log-back-btn" class="action-btn" style="background-color: #6c757d;">Back to Settings</button>
             </div>
         </div>
     </div>
@@ -85,7 +127,7 @@
             <ul id="reorder-players-list" class="modal-action-list scrollable">
                 </ul>
             <div class="modal-actions">
-                <button id="reorder-cancel-btn">Cancel</button>
+                <button id="reorder-cancel-btn" class="action-btn" style="background-color: #6c757d;">Back to Settings</button>
                 <button id="reorder-save-btn">Save Changes</button>
             </div>
         </div>
@@ -195,7 +237,7 @@
             
             <div class="result-section hidden" id="tie-breaker-area">
                 <h4>3. Enter Tie-Break Score</h4>
-                 <div class="score-input-area">
+                   <div class="score-input-area">
                     <div class="score-input-wrapper winning">
                         <label for="winner-tiebreak">Winner's Points</label>
                         <input type="number" id="winner-tiebreak" readonly>
@@ -258,6 +300,30 @@
             </div>
         </div>
     </div>
+    
+    <div id="manage-court-players-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Manage On-Court Players</h3>
+            <p id="manage-court-players-instructions">Select a court with an active game.</p>
+            
+            <ul id="court-list-for-management" class="modal-action-list scrollable">
+                </ul>
+            
+            <ul id="remove-players-list" class="modal-action-list scrollable hidden">
+                </ul>
+            
+            <ul id="add-players-list" class="modal-action-list scrollable hidden">
+                </ul>
+                
+            <div class="modal-actions">
+                <button id="manage-players-back-btn" class="action-btn hidden" style="background-color: #6c757d;">Back</button>
+                <button id="manage-players-add-btn" class="action-btn hidden" style="background-color: var(--confirm-color);">Add Player</button>
+                <button id="manage-players-confirm-btn" class="action-btn hidden">Confirm</button>
+                <button id="manage-players-close-btn" class="action-btn" style="background-color: #dc3545;">Close</button>
+            </div>
+        </div>
+    </div>
+    
         <script src="script.js"></script>
 </body>
 </html>
