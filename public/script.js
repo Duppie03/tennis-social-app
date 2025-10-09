@@ -1438,11 +1438,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-        function confirmEndGame(){
+    function confirmEndGame(){
         const courtId = endGameModal.dataset.courtId;
         const court = state.courts.find(c => c.id === courtId);
         const winnerValue = endGameModal.dataset.winner;
-        // ... (rest of the score and game object creation logic) ...
         const finalWinningScore = parseInt(winningScoreInput.value, 10);
         const finalLosingScore = parseInt(losingScoreInput.value, 10);
         let score1, score2, tiebreak1 = null, tiebreak2 = null;
@@ -1481,15 +1480,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
         state.availablePlayers.push(...playersToRequeue); 
 
-        // Announce the result
+        court.becameAvailableAt = Date.now();
+        
         const nextAvailableCourtId = findNextAvailableCourtId();
         const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name.split(' ')[0] : 'The next players';
+        
+        // --- MODIFIED LOGIC: Simplified the announcement message ---
         const openCourtMessage = nextAvailableCourtId 
             ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
             : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
+        
+        // Play alert sound with only the single court announcement
         playAlertSound(openCourtMessage);
+        // --- END MODIFICATION ---
 
-        // Reset court using the helper and close modal
         resetCourtAfterGame(courtId);
         endGameModal.classList.add("hidden");
         checkAndPlayAlert(false);
