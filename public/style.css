@@ -10,7 +10,7 @@
     --card-background: #ffffff;
     --court-background: #0A0A57;
     --court-line-color: white;
-    --gap: 1.5rem;
+    --gap: 0.75rem; /* REDUCED: Was 1.5rem */
     --confirm-color: #28a745; /* Green */
     --confirm-hover-color: #218838;
     --cancel-color: #dc3545; /* Red */
@@ -35,31 +35,50 @@ body {
 header {
     background-color: #0A0A57;
     color: white;
-    padding: 1rem 2rem;
+    padding: var(--gap) var(--gap) calc(var(--gap) / 2);
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* Simple layout: items at each end */
     align-items: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
+header h1 { margin: 0; } /* This can remain as a general rule */
 
+.header-title {
+    font-size: 1.875rem;
+    font-weight: 500;
+    color: white; /* Ensure text color is set */
+}
+
+#header-logo {
+    height: 50px;
+    width: auto;
+}
+
+.header-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+    justify-content: flex-end;
+}
 .container {
     display: flex;
     flex-direction: column;
-    padding: 1.5rem 2rem 2rem 2rem;
-    gap: 1.5rem;
+    padding: var(--gap); /* MODIFIED: Was a mix of rem values */
+    gap: var(--gap);
 }
 
 .content-columns {
     display: flex;
-    gap: 2rem;
+    gap: var(--gap);
     align-items: flex-start;
 }
 
 
 .player-column {
-    flex: 0 0 400px;
+    flex: 1 1 300px; /* Allow it to grow and shrink from a base of 300px */
+    min-width: 280px;   /* Prevent it from getting too narrow */
+    max-width: 400px;   /* Prevent it from getting too wide */
 }
 
 #availablePlayersSection {
@@ -92,6 +111,106 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 
 #courtsSection { flex: 1; }
 
+/* =================================
+    Time Overlay Styles
+    ================================= */
+#time-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 85px; /* Adjust this to match your header's exact height */
+
+    /* Centering the text inside the overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    /* This makes the container transparent and allows clicks to pass through */
+    pointer-events: none;
+}
+
+/* =================================
+    Weather Display Styles
+    ================================= */
+#weather-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+#icon-fader, #temp-fader {
+    position: relative;
+    height: 28px; /* Ensure container is tall enough for icons */
+    display: flex;
+    align-items: center;
+}
+
+#icon-fader {
+    width: 34px; /* Adjust width to fit the widest icon */
+}
+
+#temp-fader {
+    width: 60px;
+}
+
+.weather-icon, #temp-fader span {
+    position: absolute;
+    left: 0;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.5s ease-in-out; /* The fade animation */
+}
+
+.weather-icon {
+    font-size: 1.8rem;
+}
+
+.weather-icon.is-visible, #temp-fader span.is-visible {
+    opacity: 1; /* Made visible by the script */
+}
+
+.temp-max { color: #FF6B6B; } /* Red for high temp */
+.temp-min { color: #A9E1FF; } /* Light blue for low temp */
+.temp-dew { color: #82E0AA; } /* A pleasant green for dew point */
+
+/* =================================
+    Time Overlay Styles
+    ================================= */
+#time-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 85px; /* Adjust to match your header's exact height */
+    padding: 0 var(--gap); /* Match horizontal padding of the header */
+    box-sizing: border-box;
+
+    /* Create a 3-column layout */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    pointer-events: none; /* Allows clicks to pass through */
+}
+
+#time-overlay > * {
+    pointer-events: auto; /* Make the text selectable again if needed */
+}
+
+.header-title {
+    font-size: 1.875rem;
+    font-weight: 500;
+    color: white;
+    text-align: center;
+    flex-grow: 1; /* Allows title to take available space */
+}
+
+#left-spacer, #right-spacer {
+    flex-shrink: 0; /* Prevent spacers from shrinking */
+}
 
 /* =================================
     Player List Styling
@@ -134,17 +253,143 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 #availablePlayersList li {
     display: flex;
     align-items: center;
-    padding: 0.8rem 0.5rem;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
     border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+    /* --- ADDED LINES --- */
+    border: 3px solid transparent; /* Reserve space with a transparent border */
+    margin: 2px 0;                 /* Apply consistent margin */
+}
+
+#availablePlayersList li:last-child { border-bottom: none; }
+#availablePlayersList li:hover { background-color: #f1f1f1; cursor: pointer; }
+
+/* NEW styles for the two-line info */
+.player-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Prevents text overflow issues */
+}
+
+.player-name-container {
+    display: flex;
+    align-items: center;
+}
+
+.player-name {
     font-weight: 500;
     color: var(--dark-text);
-    transition: background-color 0.2s;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-#availablePlayersList li:last-child { border-bottom: none; }
-#availablePlayersList li:hover { background-color: #f1f1f1; cursor: pointer; }
+
+.player-status {
+    font-size: 0.8rem;
+    color: var(--neutral-color);
+}
+
+.player-priority {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--inactive-color); /* Orange for low priority */
+}
+
+/* NEW styles for the stats on the right */
+/* NEW styles for the stats on the right */
+.player-stats {
+    display: flex;
+    align-items: center; /* This vertically centers the circle and the playtime */
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: var(--gap);
+}
+
+/* --- ADDED RULE --- */
+.player-type-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* --- ADDED RULE --- */
+.player-type-selector .radio-group {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+}
+
+/* --- ADDED RULE --- */
+.gender-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.gender-selector .radio-group {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+}
+
+/* --- ADDED RULE --- */
+/* Styles the radio button group on the Player Stats history page */
+#history-page .gender-selector .radio-group {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+}
+
+/* --- ADDED RULE --- */
+/* Enforces consistent width and alignment for radio button groups in modals */
+.gender-selector .radio-group,
+.player-type-selector .radio-group {
+    min-width: 180px;         /* Sets a minimum width for both groups */
+    justify-content: center;  /* Centers the radio buttons within the group */
+}
+
+/* NEW: The colored circle container */
+.gender-container {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%; /* Makes it a perfect circle */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* NEW: Color rules for the circles */
+.gender-container.gender-M {
+    background-color: #007bff; /* Medium Blue */
+}
+.gender-container.gender-F {
+    background-color: #E83E8C; /* Deep Pink */
+}
+
+/* Text inside the circle */
+.player-gender {
+    color: white;
+    font-weight: bold;
+    line-height: 1; /* Helps with precise centering */
+}
+
+.player-playtime {
+    font-size: 0.9em;
+    color: #6c757d;
+    width: 55px; /* Give it a fixed width to align nicely */
+    text-align: right;
+}
 
 #availablePlayersList li.waiting-message {
     justify-content: center;
@@ -152,6 +397,47 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     font-style: italic;
     background-color: transparent !important;
     cursor: default;
+}
+
+/* =================================
+    Player List Header Styles
+    ================================= */
+.player-list-header {
+    display: flex;
+    justify-content: space-between; /* Pushes "Players" left and the others right */
+    align-items: baseline;        /* Aligns the text along the bottom */
+    padding: 0 0.8rem 0 0;        /* Match list item padding on the right */
+    margin-top: 1rem;             /* Add space above the new header line */
+}
+
+.player-list-header h4 {
+    margin: 0; /* Remove default margin from the h4 */
+}
+
+.player-list-sub-headers {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Matches the gap in the .player-stats container */
+}
+
+.player-list-sub-headers span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--neutral-color);
+}
+
+/* Aligning the sub-headers with the columns below */
+.header-sex {
+    width: 24px; /* Matches the width of the .gender-container */
+    text-align: center;
+
+}
+
+.header-time {
+    width: 55px; /* Matches the width of the .player-playtime */
+    text-align: right;
+    padding-right: 17.5px;
 }
 
 /* =================================
@@ -189,24 +475,43 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .settings-btn:hover {
     color: var(--primary-blue);
 }
-.settings-btn#notify-now-btn {
-    font-size: 1.5rem; /* Base size for announcement icon */
-    margin-right: 0;
-    /* AGGRESSIVE FIX: Ensure it takes space and is visible */
-    width: 28px;
-    height: 28px;
-    line-height: 1;
-    flex-shrink: 0;
-    padding: 0;
-}
 
+/* REMOVED: Styles for settings-btn#notify-now-btn and #alert-status-display */
 
 .on-duty-section {
     display: flex;
-    align-items: center;
+    align-items: center; /* Reverted from flex-end */
+    justify-content: space-between;
     gap: 1rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid #eee;
+}
+
+.duty-info-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#alert-status-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Right-aligns the text */
+    /*line-height: 1.2; */
+}
+
+#alert-status-display .timer-value {
+    font-size: 1.2rem;      /* Matches .duty-name */
+    font-weight: 500;       /* Matches .duty-name */
+    color: var(--dark-text);
+}
+
+#alert-status-display .timer-label {
+    font-size: 0.85rem;     /* Matches .duty-label */
+    font-weight: 400;       /* Matches .duty-label */
+    color: var(--neutral-color);
+    width: 100%;
+    text-align: right; /* ADDED: This will right-align the text even when it wraps */
 }
 .duty-image-placeholder {
     width: 60px;
@@ -214,12 +519,78 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     background-color: #f0f0f0;
     border-radius: 50%;
     border: 2px solid var(--border-color);
-    display: flex;
+    display: flex; /* Use flexbox to center content */
     align-items: center;
     justify-content: center;
+    flex-direction: column; /* Stack icon and text vertically */
     font-size: 2rem;
     color: #ccc;
     flex-shrink: 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative; /* For absolute positioning of children */
+    overflow: hidden; /* Hide parts of text/icon that go outside */
+}
+
+.duty-image-placeholder:hover {
+    background-color: #e0e0e0;
+}
+
+/* MODIFIED: Central transform is now defined here, not in the animation */
+.duty-icon, .duty-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center them perfectly */
+    transition: opacity 0.5s ease-in-out;
+}
+
+.duty-icon {
+    font-size: 2.2rem;
+    color: var(--confirm-color);
+    /* MODIFIED: Changed bounce to scaleBounce */
+    animation: fadeCycle 10s infinite ease-in-out, scaleBounce 2s infinite ease-in-out;
+    line-height: 1;
+}
+
+.duty-text {
+    font-size: 0.9rem; /* Smaller text */
+    font-weight: bold;
+    color: var(--confirm-color); /* Green "PRESS" text */
+    opacity: 0; /* Start hidden */
+    animation: fadeCycleText 10s infinite ease-in-out; /* Apply animation for text */
+}
+
+/* MODIFIED: Keyframes updated for a 10s cycle with a visual gap */
+@keyframes fadeCycle {
+    0%, 35% { opacity: 1; }   /* Icon is fully visible */
+    45%, 90% { opacity: 0; }   /* Icon is fully hidden, creating a gap */
+    100% { opacity: 1; }  /* Icon fades back in at the very end */
+}
+
+/* MODIFIED: Keyframes updated for a 10s cycle with a visual gap */
+@keyframes fadeCycleText {
+    0%, 45% { opacity: 0; }   /* Text is fully hidden */
+    55%, 80% { opacity: 1; }   /* Text becomes visible after the gap */
+    90%, 100% { opacity: 0; }  /* Text fades out, creating the second gap */
+}
+
+/* --- MODIFIED RULE --- */
+@keyframes bounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2); /* Increase size to 120% at the halfway point */
+    }
+}
+@keyframes scaleBounce {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+    }
 }
 .duty-info p {
     margin: 0;
@@ -518,10 +889,7 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 /* =================================
     Button & Interactive Styles
     ================================= */
-.header-buttons {
-    display: flex;
-    gap: 1rem;
-}
+
 .header-btn {
     background-color: var(--card-background);
     color: var(--primary-blue);
@@ -587,10 +955,13 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     opacity: 0.7;
 }
 
+/* --- MODIFIED RULE --- */
 #availablePlayersList li.selected {
-    background-color: var(--light-blue);
+    border-color: var(--confirm-color); /* --- MODIFIED: Only change the color --- */
+    border-radius: 5px;
     font-weight: bold;
     color: var(--primary-blue);
+    background-color: var(--light-blue);
 }
 #availablePlayersList li.disabled {
     color: #aaa;
@@ -632,7 +1003,8 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem 1.5rem;
+    /* --- MODIFIED LINE --- */
+    padding: 0.5rem var(--gap); /* Reduced vertical padding from 1rem to 0.5rem */
     border-radius: 8px;
     min-height: 40px;
     box-sizing: border-box;
@@ -643,6 +1015,7 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 #info-bar p {
     margin: 0;
     font-weight: bold;
+    font-size: 1.5rem; /* --- ADDED LINE --- */
 }
 
 #info-bar.green-theme {
@@ -735,6 +1108,11 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 
 .modal-content .modal-header-with-actions h3 {
     margin: 0;
+}
+
+.modal-header-icons {
+    display: flex;
+    gap: 0.5rem;
 }
 
 .modal-player-list {
@@ -935,10 +1313,23 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
     border-color: var(--primary-blue);
 }
 #availablePlayersList li.first-player {
-    background-color: var(--primary-blue);
-    font-weight: bold;
-    color: white;
+    background-color: transparent;
+    color: var(--dark-text);
+    border: 3px solid var(--confirm-color);
+    border-radius: 5px;
+    /* margin: 2px 0; */ /* --- REMOVED --- */
+    animation: pulse-green 2s infinite;
 }
+
+/* --- REPLACED RULE --- */
+/* This rule styles the new div that will wrap the next set of players */
+#availablePlayersList .next-players-group {
+    border: 3px solid var(--inactive-color);
+    border-radius: 5px;
+    /* margin: 2px 0; */ /* --- REMOVED --- */
+    padding: 0.5rem;
+}
+
 #availablePlayersSection.locked #availablePlayersList {
     opacity: 0.5;
     pointer-events: none;
@@ -1011,6 +1402,16 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 #end-game-teams {
     margin-bottom: 1rem;
 }
+/* --- ADDED RULE --- */
+.modal-actions .action-btn.neutral {
+    background-color: var(--neutral-color);
+    color: white;
+    border-color: var(--neutral-color);
+}
+.modal-actions .action-btn.neutral:hover {
+    background-color: var(--neutral-hover-color);
+}
+
 .score-input-area {
     display: flex;
     align-items: center;
@@ -1070,6 +1471,12 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 .history-teams .winner {
     font-weight: bold;
     color: var(--confirm-color);
+}
+
+/* --- ADDED RULE --- */
+.history-teams .loser {
+    font-weight: bold;
+    color: var(--cancel-color);
 }
 
 /* =================================
@@ -1166,8 +1573,9 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 /* =================================
     KEYPAD STYLES
     ================================= */
+/* --- MODIFIED RULE --- */
 #custom-keypad-modal {
-    align-items: flex-end;
+    align-items: center; /* Changed from flex-end to center */
 }
 
 .keypad-content {
@@ -1297,8 +1705,9 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
 /* =================================
     ALPHA KEYPAD STYLES
     ================================= */
+/* --- MODIFIED RULE --- */
 #custom-alpha-keypad-modal {
-    align-items: flex-end;
+    align-items: center; /* Changed from flex-end to center */
 }
 
 #alpha-keypad-grid {
@@ -1486,6 +1895,23 @@ input:checked + .slider:before {
     padding: 0;
 }
 
+/* --- ADDED RULES --- */
+.reorder-position {
+    font-weight: bold;
+    color: var(--primary-blue);
+    cursor: pointer;
+    border: 2px solid var(--border-color);
+    border-radius: 5px;
+    padding: 0.3rem 0.6rem;
+    min-width: 25px; /* Ensures a consistent width */
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.reorder-position:hover {
+    background-color: #f0f0f0;
+}
+
 .reorder-btn:hover {
     background-color: var(--neutral-hover-color);
 }
@@ -1598,49 +2024,9 @@ input:checked + .slider:before {
     color: var(--primary-blue);
 }
 
-.modal-header-icons {
-    display: flex;
-    gap: 0.5rem;
-}
 
+/* REMOVED: Styles for #alert-status-display, #notify-now-btn and related classes */
 
-
-
-/* =================================
-    NEW ALERT STATUS TIMER STYLES
-    ================================= */
-#alert-status-display {
-    font-size: 0.75rem;
-    color: var(--neutral-color); /* Light gray for subtle info */
-    font-weight: 700; /* Bolder text for visibility */
-    /* AGGRESSIVE FIX: Ensure it takes visible space */
-    display: inline-block; 
-    
-    margin-right: 0.25rem; 
-    padding: 0.2rem;
-    min-width: 90px; 
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-.summary-card .card-header .header-controls {
-    /* Ensure the elements align vertically */
-    align-items: center; 
-    /* AGGRESSIVE FIX: High z-index and tight spacing */
-    z-index: 100;
-    gap: 0.25rem; 
-    position: relative; 
-    min-width: fit-content;
-}
-/* Style for the new notify button's hide state */
-#notify-now-btn.hidden {
-    /* Kept for safety, though JS now avoids using it when condition fails */
-    display: none;
-}
-/* Style for the new Manage On-Court Players button */
-#manage-court-players-btn {
-    background-color: #007bff !important;
-    border-color: #007bff !important;
-}
 
 /* =================================
     MANAGE ON-COURT PLAYERS MODAL STYLES (3-Card Flow)
@@ -1761,8 +2147,9 @@ input:checked + .slider:before {
 
     /* Allow player column to take full width */
     .player-column {
-        flex: 1 1 100%;
-        max-width: 100%; /* Ensure it respects 100% width */
+        flex: 1 1 300px; /* Allow it to grow and shrink from a base of 300px */
+        min-width: 280px;   /* Prevent it from getting too narrow */
+        max-width: 400px;   /* Prevent it from getting too wide */
     }
     
     /* Ensure available players list scrolls within the max width */
@@ -1825,4 +2212,11 @@ input:checked + .slider:before {
         padding-top: 0.5rem;
         padding-bottom: 1rem;
     }
+}
+
+/* =================================
+    MODAL STACKING FIX
+    ================================= */
+#cancel-confirm-modal {
+    z-index: 1001;
 }

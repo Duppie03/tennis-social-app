@@ -9,16 +9,23 @@
 </head>
 <body>
     <header>
-        <h1 id="header-clock">Social Day Manager</h1>
+        <img src="source/eldorainge-tennis-logo.png" alt="Club Logo" id="header-logo">
         <div class="header-buttons">
+            <div id="weather-display"></div>
             <button id="historyBtn" class="header-btn secondary">History</button>
         </div>
     </header>
 
+    <div id="time-overlay">
+        <div id="left-spacer"></div>
+        <h1 id="header-clock" class="header-title">Social Day Manager</h1>
+        <div id="right-spacer"></div>
+    </div>
+
     <main class="container">
         <div id="info-bar" class="info-bar hidden">
             <p id="info-bar-text">Dynamic message goes here.</p>
-            </div>
+        </div>
         
         <div class="content-columns">
             <section class="player-column">
@@ -36,9 +43,17 @@
                             <button id="mode-doubles" class="mode-btn active">Doubles</button>
                             <button id="mode-singles" class="mode-btn">Singles</button>
                         </div>
-                        <h4>Players</h4>
+                        
+                        <div class="player-list-header">
+                            <h4>Players</h4>
+                            <div class="player-list-sub-headers">
+                                <span class="header-sex">SEX</span>
+                                <span class="header-time">TIME</span>
+                            </div>
+                        </div>
+
                         <ul id="availablePlayersList">
-                            </ul>
+                        </ul>
                     </div>
                 </div>
             </section>
@@ -54,7 +69,12 @@
         <div class="modal-content">
             <div class="modal-header-with-actions">
                 <h3>Admin Settings</h3>
-                <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
+                <div class="modal-header-icons">
+                    <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
+                    <button id="reset-app-btn" class="admin-icon-btn" title="Reset Application Data">
+                        <i class="mdi mdi-refresh"></i>
+                    </button>
+                </div>
             </div>
             
             <div class="admin-settings-grid-2col">
@@ -84,7 +104,7 @@
         <div class="modal-content">
             <div class="modal-header-with-actions">
                 <h3>Select Alert Sound</h3>
-                <div>
+                <div class="modal-header-icons">
                     <button id="mute-btn" class="admin-icon-btn" title="Mute All Sounds">
                         <i class="mdi mdi-volume-high"></i>
                     </button>
@@ -99,7 +119,7 @@
             <p style="text-align: center; color: var(--neutral-color);">Choose the sound to play for notifications.</p>
 
             <div id="sound-selection-list" class="sound-selection-list scrollable">
-                </div>
+            </div>
 
             <div class="modal-actions">
                 <button id="sound-cancel-btn" class="action-btn">Cancel</button>
@@ -113,7 +133,7 @@
             <h3>Queue Reorder History</h3>
             <p>Log of all administrative changes to the player queue.</p>
             <div id="reorder-history-list" class="history-list scrollable" style="max-height: 400px; padding: 0;">
-                </div>
+            </div>
             <div class="modal-actions">
                 <button id="reorder-log-back-btn" class="action-btn" style="background-color: #6c757d;">Back to Settings</button>
             </div>
@@ -125,7 +145,7 @@
             <h3>Reorder Available Players</h3>
             <p>Use the arrows to change the player queue order. The player at the top is first in line.</p>
             <ul id="reorder-players-list" class="modal-action-list scrollable">
-                </ul>
+            </ul>
             <div class="modal-actions">
                 <button id="reorder-cancel-btn" class="action-btn" style="background-color: #6c757d;">Back to Settings</button>
                 <button id="reorder-save-btn">Save Changes</button>
@@ -156,9 +176,9 @@
         </div>
     </div>
 
-    <div id="guest-name-modal" class="modal-overlay hidden">
+<div id="guest-name-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Add New Guest</h3>
+            <h3>Add New Player</h3>
             <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
                 <label for="guest-name-input">First Name:</label>
                 <input type="text" id="guest-name-input" readonly placeholder="Tap to enter name">
@@ -180,9 +200,20 @@
                 </div>
             </div>
 
+            <div class="player-type-selector">
+                <label>Player Type:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="player-type" value="guest" checked> Guest
+                    </label>
+                    <label>
+                        <input type="radio" name="player-type" value="member"> Member
+                    </label>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button id="guest-cancel-btn">Cancel</button>
-                <button id="guest-confirm-btn" disabled>Confirm Guest</button>
+                <button id="guest-confirm-btn" disabled>Confirm Player</button>
             </div>
         </div>
     </div>
@@ -218,7 +249,7 @@
             <div class="result-section">
                 <h4>1. Select Winning Team</h4>
                 <div id="end-game-teams">
-                    </div>
+                </div>
             </div>
     
             <div class="result-section hidden" id="score-section">
@@ -251,6 +282,7 @@
     
             <div class="modal-actions">
                 <button id="end-game-cancel-btn">Cancel</button>
+                <button id="end-game-skip-btn" class="action-btn neutral">Skip Scores</button>
                 <button id="end-game-confirm-btn" disabled>Confirm</button>
             </div>
         </div>
@@ -307,13 +339,13 @@
             <p id="manage-court-players-instructions">Select a court with an active game.</p>
             
             <ul id="court-list-for-management" class="modal-action-list scrollable">
-                </ul>
+            </ul>
             
             <ul id="remove-players-list" class="modal-action-list scrollable hidden">
-                </ul>
+            </ul>
             
             <ul id="add-players-list" class="modal-action-list scrollable hidden">
-                </ul>
+            </ul>
                 
             <div class="modal-actions">
                 <button id="manage-players-back-btn" class="action-btn hidden" style="background-color: #6c757d;">Back</button>
