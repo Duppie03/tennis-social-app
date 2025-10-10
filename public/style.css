@@ -111,6 +111,98 @@ header h1 { margin: 0; } /* This can remain as a general rule */
 
 #courtsSection { flex: 1; }
 
+/* ADD THIS NEW BLOCK */
+.court-selection-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    background-color: rgba(10, 10, 87, 0.85); /* Dark Blue Overlay */
+    z-index: 5;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+/* Style for the Select Button */
+.court-confirm-btn.select-court {
+    /* VISUAL TRANSFORMATION TO TENNIS BALL IMAGE */
+    background-image: url('source/tennis-ball.png');
+    background-color: transparent; 
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: none;
+    
+    /* SHAPE AND SIZE: Doubled from 60px to 120px */
+    width: 120px; /* Fixed size */
+    height: 120px;
+    border-radius: 50%; /* Make it a perfect circle */
+    
+    /* TEXT VISIBILITY & STYLING */
+    text-indent: 0; /* Make text visible */
+    white-space: normal; /* Allow text wrapping */
+    text-align: center;
+    color: white; 
+    font-weight: bold;
+    font-size: 1.2rem; /* Adjusted font size for larger button */
+    line-height: 1.1; /* Tighter line height for two lines */
+    
+    /* MODIFIED: Thicker and Darker Shadow */
+    text-shadow: 
+        2px 2px 4px rgba(0, 0, 0, 1),   /* Primary thick, dark shadow */
+        0 0 10px rgba(0, 0, 0, 0.8);    /* Soft glow effect for depth */
+
+    /* Overrides to center text inside button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Override inherited style constraints */
+    flex: 0 0 120px !important; /* Fixed flex basis to maintain size */
+    padding: 0 !important; /* Remove all padding */
+    max-height: none !important; 
+    height: 120px !important;
+}
+
+.court-confirm-btn.select-court:hover {
+    background-color: rgba(255, 255, 255, 0.1); 
+    transform: scale(1.05);
+    opacity: 1;
+}
+
+@keyframes spinAndShrink {
+    0% { 
+        transform: rotate(0deg); /* Start rotation */
+        opacity: 1; /* Ball is fully visible */
+        color: white; /* Text is fully visible */
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    /* Text fade out completes almost instantly (10% of 2s = 200ms) */
+    10% { 
+        color: transparent; 
+        text-shadow: none; 
+    }
+    /* Ball rotates 720 degrees and fades out completely over the full 2 seconds */
+    100% { 
+        transform: rotate(720deg); /* Spin two full rotations */
+        opacity: 0; /* Fade out completely */
+        color: transparent; 
+        text-shadow: none;
+    }
+}
+
+/* The trigger class duration must be 2 seconds */
+.court-confirm-btn.select-court.hide-anim {
+    animation: spinAndShrink 2s forwards; /* NEW: 2-second duration */
+}
+
+
 /* =================================
     Time Overlay Styles
     ================================= */
@@ -254,12 +346,18 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.6rem 0.8rem;
+    padding: 0.4rem 0.8rem; /* MODIFIED: Was 0.6rem */
     border-bottom: 1px solid #f0f0f0;
     transition: background-color 0.2s;
     /* --- ADDED LINES --- */
     border: 3px solid transparent; /* Reserve space with a transparent border */
     margin: 2px 0;                 /* Apply consistent margin */
+}
+
+/* ADD THIS NEW RULE */
+/* This rule overrides the padding for disabled players INSIDE the orange group */
+#availablePlayersList .next-players-group li.disabled {
+    padding: 0.4rem 0.8rem;
 }
 
 #availablePlayersList li:last-child { border-bottom: none; }
@@ -739,7 +837,7 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     gap: 1rem;
     background-color: rgba(10, 10, 87, 0.85);
     z-index: 5;
-    padding: 1rem;
+    padding: 1rem; /* <-- This line will be removed */
     box-sizing: border-box;
 }
 
@@ -785,9 +883,240 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     border: 1px solid white;
 }
 .court-confirm-btn.choose {
-    background-color: var(--neutral-color);
+    background-color: var(--confirm-color); /* Change to Green */
+    color: white; /* Ensure text is white */
+}
+/* Add a specific hover state for the new green color */
+.court-confirm-btn.choose:hover {
+    background-color: var(--confirm-hover-color);
 }
 
+/* The animation keyframes you provided */
+@keyframes bounceSelect {
+    0% { 
+        transform: rotate(0deg) scale(1); 
+        opacity: 1;
+        color: white; /* Default start color */
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    10% { 
+        color: transparent; 
+        text-shadow: none; 
+    }
+    20% { transform: rotate(180deg) scale(1.1); } 
+    45% { transform: rotate(360deg) scale(1.05); } 
+    70% { transform: rotate(540deg) scale(1.0); } 
+    100% { 
+        transform: rotate(900deg) scale(0.25); 
+        opacity: 0; 
+        color: transparent;
+        text-shadow: none;
+    }
+}
+
+/* New class to style the End Game button as a tennis ball */
+.court-confirm-btn.end-game-ball {
+    /* MODIFIED: Uses the new red tennis ball image directly */
+    background-image: url('source/tennis-ball-red.png');
+    
+    background-color: transparent;
+    background-size: cover;
+    background-position: center;
+    border: none;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    
+    /* Text color remains white as requested */
+    color: white; 
+
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 120px !important;
+    padding: 0 !important;
+    max-height: none !important;
+    height: 120px !important;
+    transition: transform 0.2s;
+}
+
+.court-confirm-btn.end-game-ball:hover {
+    transform: scale(1.05);
+}
+
+/* This new class will trigger your animation on the End Game button */
+.court-confirm-btn.end-game-ball.hide-anim {
+    animation: bounceSelect 2s forwards;
+}
+
+/* NEW Animation: Simulates a ball dropping and bouncing three times */
+@keyframes ballHop {
+    0% {
+        transform: scale(1.2); /* Starts slightly larger */
+        opacity: 1;
+        color: white; /* Text is visible */
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    5% {
+        /* MODIFIED: Text now fades out almost instantly */
+        color: transparent;
+        text-shadow: none;
+    }
+    15% {
+        transform: scale(0.7); /* First drop */
+    }
+    30% {
+        transform: scale(1);   /* First bounce (highest) */
+    }
+    45% {
+        transform: scale(0.75); /* Second drop */
+    }
+    60% {
+        transform: scale(0.85); /* Second bounce (medium) */
+    }
+    75% {
+        transform: scale(0.78); /* Third drop */
+    }
+    90% {
+        transform: scale(0.82); /* Third bounce (smallest) */
+    }
+    100% {
+        transform: scale(0);   /* Fades away */
+        opacity: 0;
+        color: transparent;    /* Ensure text stays hidden */
+        text-shadow: none;     /* Ensure shadow stays hidden */
+    }
+}
+
+/* New class to trigger the ballHop animation */
+.court-confirm-btn.select-court.start-game-hop {
+    animation: ballHop 2s forwards;
+}
+
+/* ADD THIS NEW ANIMATION */
+@keyframes hitWinner {
+    0% {
+        transform: translate(0, 0) rotate(0) scale(1);
+        opacity: 1;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    10% {
+        /* Text fades out first */
+        color: transparent;
+        text-shadow: none;
+    }
+    100% {
+        /* MODIFIED: Ball now travels a shorter distance */
+        transform: translate(140%, -140%) rotate(720deg) scale(0);
+        opacity: 0;
+        color: transparent;
+        text-shadow: none;
+    }
+}
+
+/* UPDATE THE EXISTING TRIGGER CLASS FOR THE END GAME BUTTON */
+.court-confirm-btn.end-game-ball.hide-anim {
+    /* This now uses your new "winning shot" animation */
+    animation: hitWinner 1.5s forwards ease-in;
+}
+
+/* ADD THIS NEW ANIMATION FOR THE BALLS FLYING ONTO THE COURT */
+@keyframes serveBall {
+    0% {
+        /* Starts where 'hitWinner' ends, spinning the opposite way */
+        transform: translate(140%, -140%) rotate(-720deg) scale(0);
+        opacity: 0;
+        color: transparent;
+        text-shadow: none;
+    }
+    70% {
+        /* Ball arrives and settles, but text is still hidden */
+        transform: translate(0, 0) rotate(0) scale(1);
+        opacity: 1;
+        color: transparent;
+        text-shadow: none;
+    }
+    100% {
+        /* Text fades in at the end of the animation */
+        transform: translate(0, 0) rotate(0) scale(1);
+        opacity: 1;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+}
+
+
+/* ADD THIS NEW RULE to hide the balls before their animation begins */
+.court-card.selectable .court-confirm-btn.select-court {
+    opacity: 0;
+}
+
+/* MODIFIED RULE: Triggers the 'serveBall' animation only when the court becomes selectable */
+/* This class is now added by JavaScript to trigger the animation sequentially */
+.court-confirm-btn.select-court.serve-in {
+    animation: serveBall 1.5s forwards ease-out;
+}
+
+/* ADD THIS NEW RULE to make the unselected balls fly off the court */
+.court-confirm-btn.select-court.serve-out {
+    animation: hitWinner 1.5s forwards ease-in;
+}
+
+/* ADD THIS NEW ANIMATION for the red ball bouncing IN */
+@keyframes endGameAppear {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+        color: transparent;
+        text-shadow: none;
+    }
+    10% {
+        transform: scale(0.92); /* Smallest bounce */
+    }
+    25% {
+        transform: scale(0.88);
+    }
+    40% {
+        transform: scale(0.95); /* Medium bounce */
+    }
+    55% {
+        transform: scale(0.85);
+    }
+    70% {
+        transform: scale(1);   /* Highest bounce */
+    }
+    85% {
+        transform: scale(0.8);
+    }
+    95% {
+        /* Ball settles, but text is still hidden */
+        transform: scale(1.2);
+        opacity: 1;
+        color: transparent;
+        text-shadow: none;
+    }
+    100% {
+        transform: scale(1);   /* Final size with text visible */
+        opacity: 1;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+}
+
+/* ADD THIS RULE to hide the end-game ball initially */
+.court-card.status-in_progress .end-game-ball {
+    opacity: 0;
+    transform: scale(0);
+}
+
+/* ADD THIS RULE to trigger the new animation */
+.court-card.status-in_progress .end-game-ball.animate-in {
+    animation: endGameAppear 2s forwards;
+}
 
 .court-inner {
     position: relative;
@@ -962,11 +1291,14 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     font-weight: bold;
     color: var(--primary-blue);
     background-color: var(--light-blue);
+    border-bottom: 3px solid var(--confirm-color); /* ADD THIS LINE */
 }
+
 #availablePlayersList li.disabled {
     color: #aaa;
     background-color: #f9f9f9;
     cursor: not-allowed;
+    padding: 0.6rem 1.3rem; /* MODIFIED: Was 1.1rem */
 }
 
 .court-card.selectable:hover,
@@ -1034,6 +1366,7 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     background-color: var(--cancel-color);
     color: white;
 }
+
 
 /* =================================
     MODAL & ACTION BUTTON STYLES
@@ -1319,7 +1652,13 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     border-radius: 5px;
     /* margin: 2px 0; */ /* --- REMOVED --- */
     animation: pulse-green 2s infinite;
+    padding: 0.6rem 1.3rem;
+    cursor: default;
+    border-bottom: 3px solid var(--confirm-color); /* ADD THIS LINE */
 }
+
+
+
 
 /* --- REPLACED RULE --- */
 /* This rule styles the new div that will wrap the next set of players */
@@ -1330,9 +1669,12 @@ header h1 { margin: 0; } /* This can remain as a general rule */
     padding: 0.5rem;
 }
 
+
+
 #availablePlayersSection.locked #availablePlayersList {
     opacity: 0.5;
     pointer-events: none;
+    
 }
 
 
@@ -2219,4 +2561,46 @@ input:checked + .slider:before {
     ================================= */
 #cancel-confirm-modal {
     z-index: 1001;
+}
+
+.pause-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--neutral-color);
+    cursor: pointer;
+    padding: 0;
+    margin-right: 0.2rem;
+    font-size: 1.1rem;
+    transition: color 0.2s;
+    line-height: 1;
+    width: 20px; /* Ensure consistent width */
+    height: 20px; /* Ensure consistent height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pause-toggle-btn:hover {
+    color: var(--primary-blue);
+}
+
+/* --- NEW: Paused Player State --- */
+#availablePlayersList li.paused-player {
+    opacity: 0.5;
+    pointer-events: none; /* Make the whole LI unclickable for selection/hover */
+    background-color: #f9f9f9 !important; /* Visual change for all paused players */
+}
+
+/* Allow interaction with the pause button even if the LI is disabled */
+#availablePlayersList li.paused-player .pause-toggle-btn {
+    pointer-events: all;
+    opacity: 1;
+    color: var(--cancel-color); /* Red for visual emphasis on Pause state/Play icon */
+}
+
+/* --- FIX: Ensure the paused player at index 0 remains aligned and correctly styled --- */
+/* The paused player at index 0 is not the selector, so remove green border/animation */
+#availablePlayersList li.paused-player:nth-child(1) {
+    padding: 0.6rem 1.3rem !important; /* Must use standalone padding */
+    border-color: transparent !important;
+    animation: none;
 }

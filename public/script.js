@@ -1,35 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // DEFINITIVE MASTER LIST OF ALL MEMBERS
+// DEFINITIVE MASTER LIST OF ALL MEMBERS
     const MASTER_MEMBER_LIST = [
-        { name: "Francois du Plessis", gender: "M", guest: false, committee: "Chairman" },
-        { name: "Franco da Silva", gender: "M", guest: false, committee: "Vice Chairman" },
-        { name: "Rene da Silva", gender: "F", guest: false, committee: "Treasurer" },
-        { name: "Deirdre du Plessis", gender: "F", guest: false, committee: "Secretary" },
-        { name: "Reinier du Plessis", gender: "M", guest: false, committee: "Maintenance" },
-        { name: "Lehan van Aswegen", gender: "M", guest: false, committee: "Committee Social" },
-        { name: "Dave Bester", gender: "M", guest: false, committee: "Committee Social" },
-        { name: "Raymond Jasi", gender: "M", guest: false, committee: "Committee" },
-        { name: "Rosco Dredge", gender: "M", guest: false },
-        { name: "Claire Dredge", gender: "F", guest: false },
-        { name: "Karla Agenbag", gender: "F", guest: false },
-        { name: "Justin Hammann", gender: "M", guest: false },
-        { name: "Carin Venter", gender: "F", guest: false },
-        { name: "Ivan Erasmus", gender: "M", guest: false },
-        { name: "Reece Erasmus", gender: "M", guest: false },
-        { name: "Jan Erasmus", gender: "M", guest: false },
-        { name: "Lusanda Chirwa", gender: "F", guest: false },
-        { name: "Simon Smith", gender: "M", guest: false },
-        { name: "Peter Jones", gender: "M", guest: false },
-        { name: "Mary Jane", gender: "F", guest: false },
-        { name: "John Doe", gender: "M", guest: false },
-        { name: "Sarah Connor", gender: "F", guest: false },
-        { name: "Mike Williams", gender: "M", guest: false },
-        { name: "Linda Green", gender: "F", guest: false },
-        { name: "Tom Harris", gender: "M", guest: false },
-        { name: "Patricia King", gender: "F", guest: false },
-        { name: "David Wright", gender: "M", guest: false },
-        { name: "Susan Hill", gender: "F", guest: false }
+        { name: "Francois du Plessis", gender: "M", guest: false, committee: "Chairman", isPaused: false },
+        { name: "Franco da Silva", gender: "M", guest: false, committee: "Vice Chairman", isPaused: false },
+        { name: "Rene da Silva", gender: "F", guest: false, committee: "Treasurer", isPaused: false },
+        { name: "Deirdre du Plessis", gender: "F", guest: false, committee: "Secretary", isPaused: false },
+        { name: "Reinier du Plessis", gender: "M", guest: false, committee: "Maintenance", isPaused: false },
+        { name: "Lehan van Aswegen", gender: "M", guest: false, committee: "Committee Social", isPaused: false },
+        { name: "Dave Bester", gender: "M", guest: false, committee: "Committee Social", isPaused: false },
+        { name: "Raymond Jasi", gender: "M", guest: false, committee: "Committee", isPaused: false },
+        { name: "Rosco Dredge", gender: "M", guest: false, isPaused: false },
+        { name: "Claire Dredge", gender: "F", guest: false, isPaused: false },
+        { name: "Karla Agenbag", gender: "F", guest: false, isPaused: false },
+        { name: "Justin Hammann", gender: "M", guest: false, isPaused: false },
+        { name: "Carin Venter", gender: "F", guest: false, isPaused: false },
+        { name: "Ivan Erasmus", gender: "M", guest: false, isPaused: false },
+        { name: "Reece Erasmus", gender: "M", guest: false, isPaused: false },
+        { name: "Jan Erasmus", gender: "M", guest: false, isPaused: false },
+        { name: "Lusanda Chirwa", gender: "F", guest: false, isPaused: false },
+        { name: "Simon Smith", gender: "M", guest: false, isPaused: false },
+        { name: "Peter Jones", gender: "M", guest: false, isPaused: false },
+        { name: "Mary Jane", gender: "F", guest: false, isPaused: false },
+        { name: "John Doe", gender: "M", guest: false, isPaused: false },
+        { name: "Sarah Connor", gender: "F", guest: false, isPaused: false },
+        { name: "Mike Williams", gender: "M", guest: false, isPaused: false },
+        { name: "Linda Green", gender: "F", guest: false, isPaused: false },
+        { name: "Tom Harris", gender: "M", guest: false, isPaused: false },
+        { name: "Patricia King", gender: "F", guest: false, isPaused: false },
+        { name: "David Wright", gender: "M", guest: false, isPaused: false },
+        { name: "Susan Hill", gender: "F", guest: false, isPaused: false }
     ];
     
     // Define the preferred court hierarchy
@@ -251,7 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CORE FUNCTIONS ---
     function getAllKnownPlayers() { const playersOnCourt = state.courts.flatMap(court => court.players); const allPlayers = [ ...state.clubMembers, ...state.availablePlayers, ...playersOnCourt ]; const uniquePlayers = Array.from(new Map(allPlayers.map(p => [p.name, p])).values()); state.gameHistory.forEach(game => { [...game.teams.team1, ...game.teams.team2].forEach(name => { if (!uniquePlayers.some(p => p.name === name)) { uniquePlayers.push({ name: name, gender: '?', guest: true }); } }); }); return uniquePlayers; }
-    function getPlayerByName(name) { let player = state.availablePlayers.find(p => p.name === name); if (player) return player; player = MASTER_MEMBER_LIST.find(p => p.name === name); if (player) return player; for (const court of state.courts) { player = court.players.find(p => p.name === name); if (player) return player; } return { name: name, gender: '?', guest: true }; }
+    function getPlayerByName(name) { 
+        let player = state.availablePlayers.find(p => p.name === name); 
+        if (player) return player; 
+        player = MASTER_MEMBER_LIST.find(p => p.name === name); 
+        if (player) return player; 
+        for (const court of state.courts) { 
+            player = court.players.find(p => p.name === name); 
+            if (player) return player; 
+        } 
+        return { name: name, gender: '?', guest: true, isPaused: false }; 
+    }
     function getPlayerNames(playerObjects) { return playerObjects.map(p => p.name); }
     function totalPlayersAtClub(){ let total = state.availablePlayers.length; state.courts.forEach(court => { if (court.players) { total += court.players.length; } }); return total; }
     function saveState(){ localStorage.setItem("tennisSocialAppState", JSON.stringify(state)); }
@@ -298,6 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.clubMembers = MASTER_MEMBER_LIST.filter(p => !checkedInNames.has(p.name));
             state.clubMembers.sort((a,b) => a.name.localeCompare(b.name));
             state.availablePlayers = ensurePlayerObjects(state.availablePlayers, MASTER_MEMBER_LIST);
+             state.availablePlayers.forEach(p => p.isPaused = p.isPaused || false); // ADD THIS LINE
             state.courts.forEach(court => {
                 // FIXED: Ensure becameAvailableAt is set on old state data for consistency
                 if (court.status === 'available' && court.becameAvailableAt === undefined) {
@@ -564,11 +575,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculatePlayerPlaytime() { const stats = calculatePlayerStats(); const now = Date.now(); state.courts.forEach(court => { if (court.status === 'in_progress' && court.gameStartTime) { const elapsed = Date.now() - court.gameStartTime; court.players.forEach(player => { const name = player.name; stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 }; stats[name].totalDurationMs += elapsed; }); } }); return stats; }
 
     function createCourtCard(court) {
-        const isSelectable = state.selection.players.length > 0 && court.status === 'available';
+        // --- LOGIC: Calculate required players and check completion state ---
+        const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
+        const playersSelected = state.selection.players.length;
+        // Condition for Select Overlay: selection is complete AND court is available
+        const selectionComplete = playersSelected === requiredPlayers;
+        const isSelectableForOverlay = selectionComplete && court.status === 'available'; 
+        // --- END LOGIC ---
+
         const isSelected = court.id === state.selection.courtId;
         
         const courtCard = document.createElement('div');
-        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectable ? 'selectable' : ''}`;
+        // Apply 'selectable' class only when the selection is complete
+        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectableForOverlay ? 'selectable' : ''}`;
         courtCard.dataset.courtId = court.id;
         
         let cancelBtnHTML = '';
@@ -607,7 +626,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="court-confirm-btn confirm" data-action="confirm-selection">Confirm</button>
                 </div>
             `;
-        } else if (court.status === 'selecting_teams') {
+        } else if (isSelectableForOverlay) { 
+            // Select Court Overlay (Green Tennis Ball)
+            overlayHTML = `
+                <div class="court-selection-overlay">
+                    <button class="court-confirm-btn select-court" data-action="select-court-action">SELECT<br>COURT ${court.id}</button>
+                </div>
+            `;
+        }
+        else if (court.status === 'selecting_teams') {
+            // Team Selection Overlay
             overlayHTML = `
                 <div class="team-selection-overlay">
                     <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
@@ -615,15 +643,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (court.status === 'game_pending') {
+            // Game Pending Overlay: NOW USES THE 'select-court' CLASS FOR TENNIS BALL STYLE
             overlayHTML = `
                 <div class="game-action-overlay">
-                    <button class="court-confirm-btn confirm" data-action="start-game">Start Game</button>
+                    <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
                 </div>
             `;
         } else if (court.status === 'in_progress') {
+            // In Progress Overlay
             overlayHTML = `
                 <div class="game-action-overlay">
-                    <button class="court-confirm-btn cancel" data-action="end-game">End Game</button>
+                    <button class="court-confirm-btn end-game-ball" data-action="end-game">END<br>MATCH</button>
                 </div>
             `;
         }
@@ -640,8 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="court-inner">
                     <div class="center-service-line"></div>
                     ${playerSpotsHTML}
+                    ${overlayHTML} 
                 </div>
-                ${overlayHTML}
                 ${cancelBtnHTML}
             </div>`;
         
@@ -766,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ADDED HELPER FUNCTION ---
-    function createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers) {
+    function createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase = false, sliceEnd = 8, specialHighlightIndex = -1, isSelector = false, inGroup = false) {
         const li = document.createElement("li");
         const playerName = player.name;
         
@@ -787,6 +817,11 @@ document.addEventListener('DOMContentLoaded', () => {
             iconHtml += '<span style="color: #007bff; margin-left: 5px;">⏱️</span>';
         }
         
+        // NEW: Pause/Play icon logic
+        const isPaused = player.isPaused;
+        const pauseIcon = isPaused ? 'mdi-play' : 'mdi-pause';
+        const pauseAction = isPaused ? 'resume' : 'pause';
+
         const playtime = playerStats[playerName] ? formatDuration(playerStats[playerName].totalDurationMs) : '00h00m';
         
         li.innerHTML = `
@@ -798,6 +833,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${priorityText ? `<span class="${priorityClass}">${priorityText}</span>` : `<span class="player-status">${statusText}</span>`}
             </div>
             <div class="player-stats">
+                <button class="pause-toggle-btn" data-player-name="${playerName}" data-action="${pauseAction}" title="${isPaused ? 'Resume Game Play' : 'Pause Game Play'}">
+                    <i class="mdi ${pauseIcon}"></i>
+                </button>
                 <div class="gender-container gender-${player.gender}">
                     <span class="player-gender">${player.gender}</span>
                 </div>
@@ -806,19 +844,60 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         li.dataset.playerName = playerName;
 
-        if (index === 0) {
-            li.classList.add("first-player");
+        // NEW: Add paused class
+        if (player.isPaused) {
+            li.classList.add("paused-player");
         }
+        
+        // --- REMOVED: Redundant lone-gender-highlight class check (now handled by structure) ---
 
         const isSelected = selectedPlayerNames.includes(playerName);
         if (isSelected) {
             li.classList.add("selected");
         } else {
             const isSelectionFull = selectedPlayerNames.length === requiredPlayers;
-            const isOutsideTop8 = index >= 8;
-            if (isSelectionFull || isOutsideTop8) {
+            let isDisabled = false;
+
+            // This is the key logic that determines who is selectable
+            if (isSpecialCase) {
+                // In special case, only players outside the shortened slice end are disabled
+                if (index >= sliceEnd) {
+                    isDisabled = true;
+                }
+            } else {
+                // In the normal case, a player is disabled if their index is outside the top 8.
+                if (index >= sliceEnd) { 
+                    isDisabled = true;
+                }
+            }
+
+            // ADDED: Pause state overrides all other selection status, making it disabled for selection
+            if (player.isPaused) {
+                isDisabled = true;
+            }
+            
+            // --- CRITICAL FIX: Explicitly re-enable the special highlighted player ---
+            if (index === specialHighlightIndex) {
+                isDisabled = false; 
+            }
+            
+            if (isSelectionFull || isDisabled) {
                 li.classList.add("disabled");
             }
+        }
+        
+        // RENDER FIX: Add first-player class only to the item that should have the green box style (the actual selector)
+        if (isSelector) {
+            li.classList.add("first-player");
+        } 
+        
+        // The player at index 0 must have the class for CSS to target it structurally, then remove it if not the selector.
+        if (index === 0) { 
+            li.classList.add("first-player");
+        }
+        
+        if (!isSelector) { // Functional removal of green border/animation if not the selector
+            li.classList.remove("first-player");
         }
         
         return li;
@@ -835,51 +914,147 @@ document.addEventListener('DOMContentLoaded', () => {
         const {gameMode, players: selectedPlayerNames, courtId: selectedCourtId} = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
         const playerStats = calculatePlayerPlaytime();
-        const onDutyPlayer = state.onDuty; // Get the name of the player on duty
+        const onDutyPlayer = state.onDuty; 
         
-        // Calculate star players for display icons
         const starPlayers = calculateStarPlayers(); 
         
         availablePlayersList.innerHTML = "";
         
-        if (state.availablePlayers.length === 0 && selectedPlayerNames.length === 0){
+        // --- LOGIC TO DETERMINE SELECTOR (GREEN BOX) START INDEX ---
+        let sliceStart = 0;
+        let selectorPlayer = state.availablePlayers[0];
+        
+        if (selectorPlayer && selectorPlayer.isPaused) {
+            const firstUnpausedIndex = state.availablePlayers.findIndex(p => !p.isPaused);
+            if (firstUnpausedIndex > 0) {
+                sliceStart = firstUnpausedIndex;
+                selectorPlayer = state.availablePlayers[sliceStart];
+            } else {
+                selectorPlayer = null;
+            }
+        }
+        
+        const renderQueue = state.availablePlayers;
+        
+        if (renderQueue.length === 0 && selectedPlayerNames.length === 0){
             const li = document.createElement("li");
             li.className = "waiting-message";
             li.textContent = totalPlayersAtClub() > 0 ? "All players are on court." : "Waiting For Players To Check In...";
             availablePlayersList.appendChild(li);
         } else {
-            // --- MODIFIED LOGIC TO GROUP PLAYERS ---
-            if (state.availablePlayers.length > 0) {
-                // Handle the first player (index 0) separately
-                const firstPlayer = state.availablePlayers[0];
-                const firstPlayerLi = createPlayerListItem(firstPlayer, 0, selectedPlayerNames, requiredPlayers, playerStats, starPlayers);
-                availablePlayersList.appendChild(firstPlayerLi);
+            // --- CORE LOGIC: EXPANSION, IMBALANCE, and SLICE END (FIXED) ---
+            let isSpecialCase = false;
+            let selectableGroupBaseSize = 7; 
+            let specialHighlightIndex = -1;
+            let nextPlayerSliceEnd = renderQueue.length; 
 
-                // Group the next players (indices 1-7) in a div
-                const nextPlayers = state.availablePlayers.slice(1, 8);
-                if (nextPlayers.length > 0) {
+            const playersAfterSelector = renderQueue.slice(sliceStart + 1);
+            
+            // Collect the first 8 available (unpaused) players after the selector
+            const firstEightUnpaused = [];
+            for (const player of playersAfterSelector) {
+                if (!player.isPaused) {
+                    firstEightUnpaused.push(player);
+                }
+                if (firstEightUnpaused.length === 8) break; 
+            }
+
+            // Check the first 7 available slots for imbalance
+            const availableInSelectableRange = firstEightUnpaused.slice(0, selectableGroupBaseSize); 
+
+            if (availableInSelectableRange.length === selectableGroupBaseSize) {
+                const selectorGender = selectorPlayer ? selectorPlayer.gender : null;
+                
+                const isImbalanced = availableInSelectableRange.every(p => p.gender !== selectorGender);
+
+                if (isImbalanced) {
+                    // Imbalance detected. The orange box must be shortened to exclude the 7th available player initially.
+                    
+                    // 1. Find the 7th available player (e.g., David Wright). This is the player to be excluded.
+                    const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
+                    
+                    // 2. Find the absolute index of the 7th available player in the full queue.
+                    let searchStartIndex = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name);
+                    
+                    // Initial assumption: shorten the orange group to the player BEFORE the 7th.
+                    nextPlayerSliceEnd = searchStartIndex; 
+                    isSpecialCase = true;
+                    
+                    // 3. Find the first available player of the selector's gender to highlight.
+                    const searchPool = renderQueue.slice(searchStartIndex); 
+                    const foundPlayerIndexInSearchPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
+
+                    if (foundPlayerIndexInSearchPool !== -1) {
+                        specialHighlightIndex = searchStartIndex + foundPlayerIndexInSearchPool;
+                    } else {
+                        // CRITICAL FIX: No suitable player found after the initial 7. 
+                        // Revert the orange group to include the full 7 players (index after the 7th player).
+                        nextPlayerSliceEnd = searchStartIndex + 1; // Index of the player AFTER the 7th
+                        isSpecialCase = false;
+                        specialHighlightIndex = -1; // Ensure no player is highlighted
+                    }
+                } else {
+                    // Normal case: No imbalance. The orange box ends after the 7th available player.
+                    const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
+                    nextPlayerSliceEnd = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name) + 1;
+                }
+            } else {
+                nextPlayerSliceEnd = renderQueue.length;
+            }
+            // --- END CORE LOGIC ---
+
+            if (renderQueue.length > 0) {
+                
+                // 1. Render all players BEFORE the selector (paused players at the front).
+                const playersBeforeSelector = renderQueue.slice(0, sliceStart);
+                playersBeforeSelector.forEach((player, index) => {
+                    const li = createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
+                    availablePlayersList.appendChild(li);
+                });
+
+                // 2. Render the actual SELECTOR player (the green box).
+                if (selectorPlayer) {
+                    const selectorIndex = sliceStart;
+                    const liSelector = createPlayerListItem(selectorPlayer, selectorIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, true, false); 
+                    availablePlayersList.appendChild(liSelector);
+                }
+
+                // 3. Render the main orange group (starts immediately AFTER the selector).
+                const orangeGroupPlayers = renderQueue.slice(sliceStart + 1, nextPlayerSliceEnd);
+                if (orangeGroupPlayers.length > 0) {
                     const groupDiv = document.createElement('div');
                     groupDiv.className = 'next-players-group';
-                    nextPlayers.forEach((player, index) => {
-                        // The actual index in the original array is index + 1
-                        const playerLi = createPlayerListItem(player, index + 1, selectedPlayerNames, requiredPlayers, playerStats, starPlayers);
+                    orangeGroupPlayers.forEach((player, index) => {
+                        const playerIndex = sliceStart + 1 + index;
+                        const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, true);
                         groupDiv.appendChild(playerLi);
                     });
                     availablePlayersList.appendChild(groupDiv);
                 }
+                
+                // 4. Render ALL remaining players sequentially (FIXED ORDER).
+                const playersAfterOrangeGroup = renderQueue.slice(nextPlayerSliceEnd);
 
-                // Handle the rest of the players (index 8 onwards)
-                const remainingPlayers = state.availablePlayers.slice(8);
-                remainingPlayers.forEach((player, index) => {
-                    // The actual index in the original array is index + 8
-                    const playerLi = createPlayerListItem(player, index + 8, selectedPlayerNames, requiredPlayers, playerStats, starPlayers);
-                    availablePlayersList.appendChild(playerLi);
+                playersAfterOrangeGroup.forEach((player, index) => {
+                    const playerIndex = nextPlayerSliceEnd + index; // Absolute index in renderQueue
+                    const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
+                    
+                    // If this player is the specially highlighted player, wrap them.
+                    if (playerIndex === specialHighlightIndex) {
+                        const groupDiv = document.createElement('div');
+                        groupDiv.className = 'next-players-group';
+                        groupDiv.appendChild(playerLi);
+                        availablePlayersList.appendChild(groupDiv);
+                    } else {
+                        // Otherwise, append the player item as normal.
+                        availablePlayersList.appendChild(playerLi);
+                    }
                 });
+                
             }
-            // --- END MODIFIED LOGIC ---
         }
         
-        if (state.availablePlayers.length > 0 && state.availablePlayers.length < 4) {
+        if (renderQueue.length > 0 && renderQueue.length < 4) {
             const li = document.createElement("li");
             li.textContent = "Waiting For More Players...";
             li.className = "waiting-message";
@@ -900,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const courtInSetup = state.courts.find(c => c.status === "selecting_teams" || c.status === "game_pending");
         const courtSelectingTeams = state.courts.find(c => c.status === "selecting_teams");
         const courtGamePending = state.courts.find(c => c.status === "game_pending");
-        const firstAvailablePlayer = state.availablePlayers[0] ? state.availablePlayers[0].name : null;
+        const firstAvailablePlayer = selectorPlayer ? selectorPlayer.name : null; 
         const remainingToSelect = requiredPlayers - selectedPlayerNames.length;
         const allCourtsBusy = state.courts.filter(c => state.courtSettings.visibleCourts.includes(c.id)).every(c => c.status !== "available");
 
@@ -925,7 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (selectedPlayerNames.length === 0 && firstAvailablePlayer) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("green-theme");
-            infoBarText.textContent = `${firstAvailablePlayer}, please select players for a game.`;
+            infoBarText.textContent = `${firstAvailablePlayer.split(' ')[0]}, please select players for a game.`;
         } else if (selectedPlayerNames.length > 0 && selectedPlayerNames.length < requiredPlayers) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("green-theme");
@@ -944,10 +1119,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         modeDoublesBtn.classList.toggle("active", gameMode === "doubles");
         modeSinglesBtn.classList.toggle("active", gameMode === "singles");
-        modeDoublesBtn.disabled = state.availablePlayers.length < 4;
+        modeDoublesBtn.disabled = renderQueue.length < 4;
 
         availablePlayersSection.classList.toggle("locked", !!courtInSetup || (selectedPlayerNames.length === 0 && allCourtsBusy));
-        // NEW: Call the function to re-initialize elements on the summary card
         initSummaryCardElements();
 
         setTimeout(setPlayerListHeight, 0);
@@ -966,50 +1140,116 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleCourtGridClick(e){
-        const courtCard = e.target.closest(".court-card");
-        if (!courtCard) return;
+    const courtCard = e.target.closest(".court-card");
+    if (!courtCard) return;
 
-        const action = e.target.dataset.action;
-        const courtId = courtCard.dataset.courtId;
+    const action = e.target.dataset.action;
+    const courtId = courtCard.dataset.courtId;
 
-        if (action === 'confirm-selection') {
-            handleConfirmSelection();
-            return;
-        }
-        if (action === 'cancel-selection') {
-            handleCancelSelection();
-            return;
-        }
-        if (action === 'randomize-teams') {
-            handleRandomizeTeams(courtId);
-            return;
-        }
-        if (action === 'choose-teams') {
-            handleChooseTeams(courtId);
-            return;
-        }
-        if (action === 'cancel-game-setup') {
-            handleCancelGame(courtId);
-            return;
-        }
-        if (action === 'start-game') {
-            handleStartGame(courtId);
-            return;
-        }
-        if (action === 'end-game') {
+    // --- Explicit Action Handlers ---
+
+    // These actions are on the team selection overlay
+    if (action === 'randomize-teams') {
+        handleRandomizeTeams(courtId);
+        return;
+    }
+    if (action === 'choose-teams') {
+        handleChooseTeams(courtId);
+        return;
+    }
+
+    // These actions handle other game states
+    if (action === 'cancel-game-setup') {
+        handleCancelGame(courtId);
+        return;
+    }
+    if (action === 'start-game') {
+        handleStartGame(courtId);
+        return;
+    }
+    if (action === 'end-game') {
+    const button = e.target.closest('.end-game-ball');
+    if (button) {
+        // This is the fix: Remove the class that made it appear
+        button.classList.remove('animate-in');
+        
+        // Now, add the class that makes it disappear
+        button.classList.add('hide-anim');
+
+        setTimeout(() => {
+            // After the animation, call the original function to open the modal
             handleEndGame(courtId);
-            return;
-        }
+        }, 1500); // 1.5-second delay for the hitWinner animation
+    } else {
+        // Fallback if the button can't be found
+        handleEndGame(courtId);
+    }
+    return;
+}
+    
+    // This is the main action to select a court and immediately set it up
+    if (action === 'select-court-action') {
+    const clickedButton = e.target.closest('.court-confirm-btn');
+    if (!clickedButton) return;
 
-        const {gameMode, players: selectedPlayerNames} = state.selection;
+    // Get all the selectable tennis ball buttons currently on screen
+    const allSelectableButtons = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+
+    // 1. Animate the SELECTED ball using the spin animation
+    clickedButton.classList.remove('serve-in'); // Remove the serve-in class to avoid conflicts
+    clickedButton.classList.add('hide-anim'); // This triggers bounceSelect
+
+    // 2. Animate the OTHER balls sequentially using the hitWinner animation
+    let delay = 0;
+    allSelectableButtons.forEach(button => {
+        if (button !== clickedButton) {
+            setTimeout(() => {
+                button.classList.remove('serve-in');
+                button.classList.add('serve-out');
+            }, delay);
+            delay += 200; // Stagger the fly-off animation
+        }
+    });
+
+    // 3. After the main animation is done, proceed with the game logic
+    setTimeout(() => {
+        const { players: selectedPlayerNames, gameMode } = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
 
-        if (courtCard.classList.contains("selectable") && selectedPlayerNames.length === requiredPlayers) {
-            state.selection.courtId = courtId === state.selection.courtId ? null : courtId;
-            render();
-            saveState();
+        if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
+
+        const court = state.courts.find(c => c.id === courtId);
+        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+
+        court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
+        court.players = [...selectedPlayerObjects];
+        court.gameMode = gameMode;
+
+        if (gameMode === 'doubles') {
+            court.status = "selecting_teams";
+            court.teams.team1 = [];
+            court.teams.team2 = [];
+        } else {
+            court.teams.team1 = [selectedPlayerObjects[0]];
+            court.teams.team2 = [selectedPlayerObjects[1]];
+            court.status = "game_pending";
+            court.autoStartTimeTarget = Date.now() + 60000;
+            court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
         }
-    }
+
+        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+        state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
+
+        updateGameModeBasedOnPlayerCount();
+        enforceDutyPosition();
+        render();
+        saveState();
+
+    }, 2000); // Wait 2 seconds for the bounceSelect animation to finish
+    
+    return;
+}
+}
     
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
     function calculatePlayerStats(){
@@ -1052,6 +1292,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return stats;
     }
     function formatWinPercentage(played, won){ return played === 0 ? "N/A" : `${Math.round(won / played * 100)}%`; }
+
+// ADD NEW FUNCTION: Pause/Resume game play click handler
+    function handlePauseToggleClick(e) {
+        const button = e.target.closest(".pause-toggle-btn");
+        // We know button exists because it was checked in handlePlayerClick
+        
+        const playerName = button.dataset.playerName;
+        const action = button.dataset.action; // 'pause' or 'resume'
+        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+
+        if (!playerObj) return;
+
+        const verb = action === 'pause' ? 'pause' : 'resume';
+        const message = action === 'pause' 
+            ? `Are you sure you want to pause your game play? You will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
+            : `Are you sure you want to resume your game play? You will be immediately restored to position #${state.availablePlayers.indexOf(playerObj) + 1}.`;
+
+        cancelConfirmModal.querySelector("h3").textContent = `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`;
+        cancelConfirmModal.querySelector("p").textContent = message;
+        modalBtnYesConfirm.textContent = verb.charAt(0).toUpperCase() + verb.slice(1);
+        modalBtnNo.textContent = "Close";
+        
+        cancelConfirmModal.dataset.mode = "pauseToggle";
+        cancelConfirmModal.dataset.player = playerName;
+        cancelConfirmModal.dataset.verb = action;
+
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+// ADD NEW FUNCTION: Pause/Resume game play click handler (IMMEDIATE ACTION)
+    function handlePauseToggleClick(e) {
+        const button = e.target.closest(".pause-toggle-btn");
+        if (!button) return;
+        
+        const playerName = button.dataset.playerName;
+        const action = button.dataset.action;
+        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+
+        if (playerObj) {
+            // IMMEDIATE ACTION: Toggle the paused state
+            playerObj.isPaused = (action === 'pause');
+            
+            // Re-run necessary updates
+            updateGameModeBasedOnPlayerCount();
+            enforceDutyPosition();
+            render();
+            saveState();
+            checkAndPlayAlert(false);
+        }
+    }
+
     function handleSort(key) { if (state.statsFilter.sortKey === key) { state.statsFilter.sortOrder = state.statsFilter.sortOrder === 'asc' ? 'desc' : 'asc'; } else { state.statsFilter.sortKey = key; state.statsFilter.sortOrder = key === 'name' ? 'asc' : 'desc'; } renderHistory(); saveState(); }
     function renderHistory(){
         const stats = calculatePlayerStats();
@@ -1245,7 +1536,61 @@ document.addEventListener('DOMContentLoaded', () => {
     // Player selection and game setup functions (no alert calls here)
     function handleCancelSelection(){ state.selection.players = []; state.selection.courtId = null; render(); saveState(); }
     function handleModeChange(mode){ state.selection.gameMode = mode; state.selection.players = []; state.selection.courtId = null; render(); saveState(); }
-    function handlePlayerClick(e){ const li = e.target.closest("li"); if (!li || li.classList.contains("disabled") || li.classList.contains("waiting-message") || state.availablePlayers.length === 0) return; const playerName = li.dataset.playerName; const firstAvailablePlayer = state.availablePlayers[0].name; const {players: selectedPlayerNames, gameMode} = state.selection; const requiredPlayers = gameMode === "doubles" ? 4 : 2; if (selectedPlayerNames.length === 0) { if (playerName !== firstAvailablePlayer) { selectedPlayerNames.push(firstAvailablePlayer, playerName); } else { selectedPlayerNames.push(playerName); } } else { if (selectedPlayerNames.includes(playerName)) { selectedPlayerNames.splice(selectedPlayerNames.indexOf(playerName), 1); if (selectedPlayerNames.length === 1) { state.selection.players = []; } } else if (selectedPlayerNames.length < requiredPlayers) { selectedPlayerNames.push(playerName); } } render(); saveState(); }
+    function handlePlayerClick(e){
+    // 1. Check for the Pause button click first
+    const pauseButton = e.target.closest(".pause-toggle-btn");
+    if (pauseButton) {
+        handlePauseToggleClick(pauseButton);
+        return;
+    }
+    
+    const li = e.target.closest("li");
+    
+    let firstAvailablePlayer = state.availablePlayers[0] ? state.availablePlayers[0].name : null;
+    if (state.availablePlayers[0] && state.availablePlayers[0].isPaused) {
+        const firstUnpaused = state.availablePlayers.find(p => !p.isPaused);
+        firstAvailablePlayer = firstUnpaused ? firstUnpaused.name : null;
+    }
+    
+    if (li && li.dataset.playerName === firstAvailablePlayer) return; 
+    if (!li || li.classList.contains("disabled") || li.classList.contains("waiting-message") || state.availablePlayers.length === 0) return;
+    
+    const playerName = li.dataset.playerName; 
+    const {players: selectedPlayerNames, gameMode} = state.selection; 
+    const requiredPlayers = gameMode === "doubles" ? 4 : 2; 
+
+    // Player selection logic (no changes here)
+    if (selectedPlayerNames.length === 0) { 
+        if (playerName !== firstAvailablePlayer) { 
+            selectedPlayerNames.push(firstAvailablePlayer, playerName); 
+        } else { 
+            selectedPlayerNames.push(playerName); 
+        } 
+    } else { 
+        if (selectedPlayerNames.includes(playerName)) { 
+            selectedPlayerNames.splice(selectedPlayerNames.indexOf(playerName), 1); 
+            if (selectedPlayerNames.length === 1) { 
+                state.selection.players = []; 
+            } 
+        } else if (selectedPlayerNames.length < requiredPlayers) { 
+            selectedPlayerNames.push(playerName); 
+        } 
+    }
+
+    // First, render the UI to add the '.selectable' class to the courts
+    render(); 
+    saveState();
+
+    // NEW LOGIC: If selection is now complete, trigger the sequential animation
+    if (state.selection.players.length === requiredPlayers) {
+        const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+        selectableCourts.forEach((button, index) => {
+            setTimeout(() => {
+                button.classList.add('serve-in');
+            }, index * 200); // Stagger each animation by 200ms
+        });
+    }
+}
     function handleConfirmSelection(){
         const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
@@ -1280,21 +1625,43 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleChooseTeams(courtId){ chooseTeamsModal.classList.remove("hidden"); modalPlayerList.innerHTML = ""; const court = state.courts.find(c => c.id === courtId); court.players.forEach(player => { const div = document.createElement("div"); div.className = "modal-player"; div.textContent = player.name; div.dataset.player = player.name; modalPlayerList.appendChild(div); }); chooseTeamsModal.dataset.courtId = courtId; }
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
     function handleModalConfirm(){ const courtId = chooseTeamsModal.dataset.courtId; const court = state.courts.find(c => c.id === courtId); const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player); if (team1Names.length === 2) { const team1Players = team1Names.map(name => getPlayerByName(name)); const team2Players = court.players.filter(player => !team1Names.includes(player.name)); court.teams.team1 = team1Players; court.teams.team2 = team2Players; court.status = "game_pending"; chooseTeamsModal.classList.add("hidden"); court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); } else { alert("Please select exactly 2 players for Team 1."); } }
-    function handleStartGame(courtId){ 
-        const court = state.courts.find(c => c.id === courtId); 
-        if(court.autoStartTimer) { 
-            clearTimeout(court.autoStartTimer); 
-            court.autoStartTimer = null; 
-        } 
-        court.status = "in_progress"; 
-        court.gameStartTime = Date.now(); 
-        court.autoStartTimeTarget = null; 
-        render(); 
-        saveState();
-        
-        // NEW: Explicitly reset the alert schedule, then re-evaluate conditions
-        resetAlertSchedule(); 
-        checkAndPlayAlert(false); 
+    function handleStartGame(courtId){
+        const court = state.courts.find(c => c.id === courtId);
+        if (!court) return;
+
+        const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+        const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
+
+        if (startButton) {
+            startButton.classList.add('start-game-hop');
+        }
+
+        setTimeout(() => {
+            if(court.autoStartTimer) {
+                clearTimeout(court.autoStartTimer);
+                court.autoStartTimer = null;
+            }
+            court.status = "in_progress";
+            court.gameStartTime = Date.now();
+            court.autoStartTimeTarget = null;
+            
+            // This redraws the court with the invisible red ball
+            render();
+            saveState();
+            
+            // MODIFIED: Find the new red ball and trigger its animation
+            const newCourtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+            const endGameButton = newCourtCardEl ? newCourtCardEl.querySelector('.end-game-ball') : null;
+            if (endGameButton) {
+                // Add a tiny delay to ensure the element is fully in the DOM before animating
+                setTimeout(() => {
+                    endGameButton.classList.add('animate-in');
+                }, 50);
+            }
+            
+            resetAlertSchedule();
+            checkAndPlayAlert(false);
+        }, 2000); // Wait for the "start-game-hop" animation to finish
     }
 
     function handleEndGame(courtId){
@@ -1483,16 +1850,13 @@ document.addEventListener('DOMContentLoaded', () => {
         court.becameAvailableAt = Date.now();
         
         const nextAvailableCourtId = findNextAvailableCourtId();
-        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name.split(' ')[0] : 'The next players';
+        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
         
-        // --- MODIFIED LOGIC: Simplified the announcement message ---
         const openCourtMessage = nextAvailableCourtId 
             ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
             : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
         
-        // Play alert sound with only the single court announcement
         playAlertSound(openCourtMessage);
-        // --- END MODIFICATION ---
 
         resetCourtAfterGame(courtId);
         endGameModal.classList.add("hidden");
@@ -1522,7 +1886,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersToRequeue = [...court.players].filter(p => !p.guest);
         state.availablePlayers.push(...playersToRequeue);
 
-        resetCourtAfterGame(courtId);
+        // --- THIS IS THE MISSING ANNOUNCEMENT LOGIC ---
+        const nextAvailableCourtId = findNextAvailableCourtId();
+        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
+        const openCourtMessage = nextAvailableCourtId 
+            ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
+            : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
+        playAlertSound(openCourtMessage);
+        // --- END OF LOGIC ---
+
+        resetCourtAfterGame(court.id);
         endGameModal.classList.add("hidden");
         checkAndPlayAlert(false);
     }
@@ -1555,7 +1928,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
         state.availablePlayers.push(...playersToRequeue);
 
-        resetCourtAfterGame(courtId);
+        // --- THIS IS THE MISSING ANNOUNCEMENT LOGIC ---
+        const nextAvailableCourtId = findNextAvailableCourtId();
+        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
+        const openCourtMessage = nextAvailableCourtId 
+            ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
+            : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
+        playAlertSound(openCourtMessage);
+        // --- END OF LOGIC ---
+
+        resetCourtAfterGame(court.id);
         endGameModal.classList.add("hidden");
         checkAndPlayAlert(false);
     }
@@ -1668,8 +2050,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * UPDATED FUNCTION: Plays the sound and schedules subsequent TTS announcements sequentially.
      * @param {string} courtMessage - The initial message to play after the sound (e.g., court announcement).
      * @param {string} dutyMessage - The second message to play after the first TTS finishes (e.g., duty call).
+     * @param {string} soundFileNameOverride - NEW: Optional file name to override the default selectedAlertSound.
      */
-    function playAlertSound(courtMessage = null, dutyMessage = null) {
+    function playAlertSound(courtMessage = null, dutyMessage = null, soundFileNameOverride = null) { // <-- MODIFIED SIGNATURE
         
         // NEW: Check if all notifications are muted
         if (state.notificationControls.isMuted) return; 
@@ -1682,7 +2065,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!msg1 && !msg2) return;
 
             // 1. Play first message (msg1)
-            const utterance1 = getUtterance(msg1 || msg2); // Use msg2 as msg1 if msg1 is empty
+            const utterance1 = getUtterance(msg1 || msg2); 
             
             if (!utterance1) return;
 
@@ -1697,42 +2080,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
 
-            // Important: Cancel any existing speech before starting the sequence
-            if (window.speechSynthesis.speaking) {
-                 window.speechSynthesis.cancel();
-            }
+            // The cancel call has been removed from here.
             window.speechSynthesis.speak(utterance1);
         };
         // --- End Sequenced TTS Handler ---
 
-        if (!state.selectedAlertSound) {
-            // If no sound is selected, play TTS directly and sequenced
-            playSequencedTTS(courtMessage, dutyMessage);
-            return;
-        }
-        
         // Stop previous sound
         if (currentAudio) {
             currentAudio.pause();
             currentAudio.currentTime = 0;
         }
         
-        const audioPath = `source/${state.selectedAlertSound}`;
+        // CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
+        if (window.speechSynthesis.speaking) {
+             window.speechSynthesis.cancel();
+        }
+        
+        // --- MODIFIED LOGIC: Use override if provided, otherwise use state.selectedAlertSound ---
+        const soundFile = soundFileNameOverride || state.selectedAlertSound; // <-- NEW LOGIC
+
+        if (!soundFile) {
+            // If no sound is selected (and no override), play TTS directly and sequenced
+            playSequencedTTS(courtMessage, dutyMessage);
+            return;
+        }
+        
+        const audioPath = `source/${soundFile}`; // <-- Use the determined soundFile
         currentAudio = new Audio(audioPath);
         
-        currentAudio.play().then(() => {
-            // Wait for the sound to finish playing before starting sequenced TTS
-            currentAudio.addEventListener('ended', function onSoundEnd() {
-                currentAudio.removeEventListener('ended', onSoundEnd);
-                playSequencedTTS(courtMessage, dutyMessage);
-            });
-        }).catch(error => {
+        currentAudio.addEventListener('ended', function onSoundEnd() {
+            currentAudio.removeEventListener('ended', onSoundEnd);
+            playSequencedTTS(courtMessage, dutyMessage);
+        });
+
+        currentAudio.play().catch(error => {
             console.error(`Error playing alert sound ${audioPath}: `, error);
             // Fallback: Play sequenced TTS immediately if sound fails
             playSequencedTTS(courtMessage, dutyMessage);
         });
     }
-
 
     // UPDATED FUNCTION: Logic maintains alertScheduleTime unless overridden or conditions are missed.
     // @param {boolean} forceCheck - If true, triggers the alert/sound/TTS immediately and resets the timer.
@@ -1742,38 +2128,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const FIVE_MINUTES_MS = 5 * 60 * 1000;
         const now = Date.now();
 
-        // 1. Determine if the basic condition for starting the timer is met
         const hasEnoughPlayers = availablePlayerCount >= 4;
-        
-        // Find if any court is available AND visible
-        const availableCourtId = findNextAvailableCourtId(); 
-        
+        const availableCourtId = findNextAvailableCourtId();
         const conditionMet = hasEnoughPlayers && availableCourtId;
 
         if (!conditionMet) {
-            // Condition is not met: DO NOT reset alertScheduleTime or alertState.
             return;
         }
 
-        // --- Core Logic based on Alert State ---
-        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name.split(' ')[0] : 'The next players';
+        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
         const courtMessage = `Attention, ${firstPlayerName}. Please come and select your match. Court ${availableCourtId} is available.`;
 
         if (alertState === 'initial_check' || forceCheck) {
             if (forceCheck) {
-                // Manual override: Play now and reset to 5-minute repeat mode
                 playAlertSound(courtMessage);
-                
-                // NEW: If minimized, stop scheduling the repeat
                 if (state.notificationControls.isMinimized) {
-                    alertScheduleTime = 0; // Don't schedule a repeat
-                    alertState = 'initial_check'; // Reset state for the next condition trigger
+                    alertScheduleTime = 0;
+                    alertState = 'initial_check';
                 } else {
                     alertScheduleTime = now + FIVE_MINUTES_MS;
                     alertState = '5_min_repeat';
                 }
             } else {
-                // Conditions just met: Start the 2-minute initial timer.
                 alertScheduleTime = now + TWO_MINUTES_MS;
                 alertState = '2_min_countdown';
             }
@@ -1781,23 +2157,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (now >= alertScheduleTime) {
-            // Alert fire time reached!
-
-            // 1. Play the alert and court message (no duty message for general alert)
             playAlertSound(courtMessage);
-            
-            // 2. Schedule the next alert (always 5 minutes after firing the sound)
-            // NEW: If minimized, stop scheduling the repeat
             if (state.notificationControls.isMinimized) {
-                alertScheduleTime = 0; // Don't schedule a repeat
-                alertState = 'initial_check'; // Reset state for the next condition trigger
+                alertScheduleTime = 0;
+                alertState = 'initial_check';
             } else {
                 alertScheduleTime = now + FIVE_MINUTES_MS;
                 alertState = '5_min_repeat';
             }
-        } 
-        // If conditions are met and now < alertScheduleTime, the timer is already running.
+        }
     }
+
+
 
     function initQuoteRotator() { 
         const quoteTextEl = document.getElementById('quote-text'); 
@@ -1857,18 +2228,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function handleNotifyNow() {
-        const hasEnoughPlayers = state.availablePlayers.length >= 4;
+        const availablePlayerCount = state.availablePlayers.length;
+        const hasEnoughPlayers = availablePlayerCount >= 4;
         const isAnyCourtAvailable = findNextAvailableCourtId();
 
-        if (!hasEnoughPlayers || !isAnyCourtAvailable) {
-            alert("Notification cannot be sent: There are not enough players or no courts are available.");
+        cancelConfirmModal.querySelector("h3").textContent = "Confirm Announcement";
+        modalBtnYesConfirm.textContent = "Confirm";
+        modalBtnNo.textContent = "Close";
+
+        if (!hasEnoughPlayers) {
+            cancelConfirmModal.querySelector("p").textContent = "There are not enough players for a doubles match. Announce to waiting players?";
+            cancelConfirmModal.dataset.mode = "forceAnnouncementNotEnoughPlayers";
+            cancelConfirmModal.classList.remove("hidden");
             return;
         }
 
-        cancelConfirmModal.querySelector("h3").textContent = "Confirm Announcement";
+        if (!isAnyCourtAvailable) {
+            // This is a hard stop, so a simple alert is appropriate.
+            alert("Notification cannot be sent: No courts are available.");
+            return;
+        }
+
+        // This is the standard case where everything is ready.
         cancelConfirmModal.querySelector("p").textContent = "Are you sure you want to force a player announcement now?";
-        modalBtnYesConfirm.textContent = "Confirm"; // Standardized Text
-        modalBtnNo.textContent = "Close";      // Standardized Text
         cancelConfirmModal.dataset.mode = "forceAnnouncement";
         cancelConfirmModal.classList.remove("hidden");
     }
@@ -2458,49 +2840,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return handleManageClose();
         }
         
-        // --- 1. Determine New State and Announcement Message ---
-        
-        // Final court roster (before check for cancellation)
         let newCourtPlayers = currentCourtPlayers.filter(p => !removedPlayers.some(rp => rp.name === p.name));
         newCourtPlayers = [...newCourtPlayers, ...addedPlayers];
         
         const newGameMode = newCourtPlayers.length === 2 ? 'singles' : 'doubles';
         const removedCount = removedPlayers.length;
-        const removedNames = removedPlayers.map(p => p.name.split(' ')[0]).join(' and ');
-        const addedNames = addedPlayers.map(p => p.name.split(' ')[0]).join(' and ');
+        const removedNames = removedPlayers.map(p => p.name).join(' and ');
+        const addedNames = addedPlayers.map(p => p.name).join(' and ');
         const newPlayerCount = newCourtPlayers.length;
 
         let rosterChangeAnnouncement = '';
-        let finalAnnouncement; // Used if game is cancelled
+        let finalAnnouncement;
 
         if (newCourtPlayers.length < 2) {
             // Cancellation is handled in the if block below
         } else if (removedPlayers.length > 0 && addedPlayers.length > 0) {
-            // Case 1: Substitutions (who is replaced by who)
             const removedSubjectVerb = removedCount === 1 ? 'was' : 'were';
             rosterChangeAnnouncement = `Attention on Court ${courtId}: Player substitution complete. ${removedNames} ${removedSubjectVerb} replaced by ${addedNames}.`;
         } else if (removedPlayers.length > 0) {
-            // Case 2: Only Removals
             if (newPlayerCount === 2) {
                 rosterChangeAnnouncement = `Attention on Court ${courtId}: Game simplified to singles. ${removedNames} have left the court.`;
             } else {
                 rosterChangeAnnouncement = `Attention on Court ${courtId}: ${removedNames} have left the court. The match continues with ${newPlayerCount} players.`;
             }
         } else if (addedPlayers.length > 0) {
-            // Case 3: Only Additions
             rosterChangeAnnouncement = `Attention on Court ${courtId}: ${addedNames} have joined the game.`;
         } else {
-            // Case 4: No change. Should not happen if button was disabled.
             return handleManageClose();
         }
 
-        // --- 2. Apply Changes and Check for Cancellation (Core logic) ---
         if (newCourtPlayers.length < 2) {
-            // Game is cancelled!
             if(court.autoStartTimer) clearTimeout(court.autoStartTimer);
             
-            // Return *all* previous court members (original players) to the front of the queue
-            // Guests are filtered out by the logic below.
             const originalPlayers = court.players.filter(p => !p.guest);
             state.availablePlayers = [...originalPlayers, ...state.availablePlayers];
 
@@ -2511,42 +2882,29 @@ document.addEventListener('DOMContentLoaded', () => {
             court.gameMode = null;
             court.gameStartTime = null;
             
-            // Announce cancellation
             finalAnnouncement = `Attention on court: Game on Court ${courtId} has been cancelled due to insufficient players.`;
 
         } else {
-            // Game continues/updates
             court.gameMode = newGameMode;
             court.players = newCourtPlayers;
             
-            // Re-assign teams based on new player list
             if (newGameMode === 'singles') {
                 court.teams.team1 = [newCourtPlayers[0]];
                 court.teams.team2 = [newCourtPlayers[1]];
             } else {
-                // Simple re-assignment for doubles (2v2, 3v1, etc.)
                 const teamSize = Math.ceil(newCourtPlayers.length / 2);
                 court.teams.team1 = newCourtPlayers.slice(0, teamSize);
                 court.teams.team2 = newCourtPlayers.slice(teamSize);
             }
             
-            // Final announcement uses the constructed string
             finalAnnouncement = rosterChangeAnnouncement;
         }
         
-        // Play the final announcement
         playCustomTTS(finalAnnouncement);
         
-        // --- 3. Update Available Players Queue ---
-        
-        // Removed players go to the BOTTOM of the available queue (if they are not guests)
         const membersToRequeue = removedPlayers.filter(p => !p.guest); 
         state.availablePlayers.push(...membersToRequeue);
         
-        // Added players are already consumed from the available queue in the click handler 
-        // in Card 3, so no need to adjust the queue for them here.
-        
-        // --- 4. Clean up and Close ---
         state.adminCourtManagement = {
             mode: 'card1_select_court',
             courtId: null,
@@ -2557,11 +2915,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         manageCourtPlayersModal.classList.add('hidden');
         updateGameModeBasedOnPlayerCount();
-        enforceDutyPosition(); // --- ADDED LINE ---
+        enforceDutyPosition();
         render();
         saveState();
         
-        // FIX: Explicitly reset the alert schedule, then re-evaluate conditions
         resetAlertSchedule();
         checkAndPlayAlert(false);
     }
@@ -2624,24 +2981,6 @@ document.addEventListener('DOMContentLoaded', () => {
         keypadConfirmBtn.disabled = displayValue.length === 0;
     }
 
-    modalBtnYesConfirm.addEventListener("click",()=>{
-        const mode = cancelConfirmModal.dataset.mode;
-        if (mode === "checkOutPlayer") {
-            executePlayerCheckOut();
-        } else if (mode === "checkInPlayer") {
-            executePlayerCheckIn();
-        } else if (mode === "cancelGame") {
-            executeGameCancellation();
-        } else if (mode === "forceAnnouncement") {
-            checkAndPlayAlert(true);
-            cancelConfirmModal.classList.add("hidden");
-        } else if (mode === "callDuty") {
-            executeCallDuty();
-        } else if (mode === "executeReset") {
-            executeAppReset();
-        }
-        resetConfirmModal();
-    });
 
     // MODIFIED: Added data-mode to display and adjusted placeholder logic for admin mode
     function showKeypad(input, config = {}) {
@@ -2734,42 +3073,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function populateCheckInModal(){ checkInList.innerHTML = ""; if (state.clubMembers.length === 0){ const li = document.createElement("li"); li.textContent = "All club members are currently checked in."; li.style.justifyContent = "center"; checkInList.appendChild(li); } else { state.clubMembers.forEach(player => { const li = document.createElement("li"); const displayName = player.guest ? `${player.name} (Guest)` : player.name; li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon add" data-player="${player.name}">+</span> `; checkInList.appendChild(li); }); } }
     function populateCheckOutModal(){ checkOutList.innerHTML = ""; if (state.availablePlayers.length === 0){ const li = document.createElement("li"); li.textContent = "There are no players currently checked in."; li.style.justifyContent = "center"; checkOutList.appendChild(li); } else { state.availablePlayers.forEach(player => { const li = document.createElement("li"); const displayName = player.guest ? `${player.name} (Guest)` : player.name; li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon remove" data-player="${player.name}">&times;</span> `; checkOutList.appendChild(li); }); } }
-    function playCustomSoundAndTTS(soundFile, ttsMessage) {
-        // Check if all notifications are muted
-        if (state.notificationControls.isMuted) return;
 
-        const playTTS = (message) => {
-            if (state.notificationControls.isTTSDisabled || !message) return;
 
-            const utterance = getUtterance(message);
-            if (utterance) {
-                if (window.speechSynthesis.speaking) {
-                    window.speechSynthesis.cancel();
-                }
-                window.speechSynthesis.speak(utterance);
-            }
-        };
+// NEW, DECOUPLED FUNCTION: Handles only the Committee Call announcement sequence
+    function playUntimedCall(ttsMessage) {
+        // 1. Check if all notifications are muted or TTS is disabled
+        if (state.notificationControls.isMuted || state.notificationControls.isTTSDisabled) return;
 
+        const utterance = getUtterance(ttsMessage);
+        if (!utterance) return;
+        
+        // 2. CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
+        if (window.speechSynthesis.speaking) {
+             window.speechSynthesis.cancel();
+        }
+        
+        // 3. Stop previous audio
         if (currentAudio) {
             currentAudio.pause();
             currentAudio.currentTime = 0;
         }
 
-        const audioPath = `source/${soundFile}`;
-        currentAudio = new Audio(audioPath);
+        // 4. Create new audio object
+        const customAudio = new Audio('source/CommitteeCall.mp3');
 
-        currentAudio.play().then(() => {
-            currentAudio.addEventListener('ended', function onSoundEnd() {
-                currentAudio.removeEventListener('ended', onSoundEnd);
-                playTTS(ttsMessage);
+        // --- DEFINITIVE FIX: Use the 'playing' event to reliably attach the 'ended' listener ---
+        
+        // Stage 1: Attach listener for when audio STARTs playing
+        customAudio.addEventListener('playing', function onSoundPlaying() {
+            customAudio.removeEventListener('playing', onSoundPlaying);
+            
+            // Stage 2: Only now attach the listener for when the audio ENDS
+            customAudio.addEventListener('ended', function onSoundEnd() {
+                customAudio.removeEventListener('ended', onSoundEnd);
+                
+                // Play TTS only AFTER the audio ends
+                window.speechSynthesis.speak(utterance); 
             });
-        }).catch(error => {
-            console.error(`Error playing custom sound ${audioPath}: `, error);
+        });
+
+        // 5. Play the sound (no promise chain)
+        customAudio.play().catch(error => {
+            console.error(`Error playing custom sound: `, error);
             // Fallback: Play TTS immediately if sound fails
-            playTTS(ttsMessage);
+            window.speechSynthesis.speak(utterance);
         });
     }
-
     function handleCallDuty() {
         cancelConfirmModal.querySelector("h3").textContent = "Confirm Call";
         cancelConfirmModal.querySelector("p").textContent = "Are you sure you want to call the committee member on duty?";
@@ -2788,14 +3137,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let ttsMessage;
         if (onDutyName === 'None' || isPlaying) {
-            ttsMessage = "Committee member required for assistance, please report to your station for assistance.";
+            // User's preferred general message
+            ttsMessage = "Committee member required. Please report to your station for assistance."; 
         } else {
+            // Targeted message
             const firstName = onDutyName.split(' ')[0];
             ttsMessage = `${firstName}, please report to your station for assistance.`;
         }
-
-        playCustomSoundAndTTS('CommitteeCall.mp3', ttsMessage);
+        
+        // 1. Synchronous Fix: Reset the main alert timer schedule. 
+        //resetAlertSchedule(); // <-- COMMENTED OUT AS REQUESTED
+        
+        // 2. Use the main system's stable alert function (playAlertSound), 
+        //    passing the special sound name as an override.
+        playAlertSound(ttsMessage, null, 'CommitteeCall.mp3'); // <-- NEW, CORRECT CALL
+        
+        // 3. Close modal
         cancelConfirmModal.classList.add("hidden");
+    }
+
+    // ADD NEW FUNCTION: Execute the actual pause/resume state change
+    function executePauseToggle() {
+        const playerName = cancelConfirmModal.dataset.player;
+        const verb = cancelConfirmModal.dataset.verb;
+        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+
+        if (playerObj) {
+            playerObj.isPaused = (verb === 'pause');
+            
+            const fullName = playerObj.name;
+            let ttsMessage;
+            if (playerObj.isPaused) {
+                ttsMessage = `${fullName} is now taking a well-deserved break.`;
+            } else {
+                ttsMessage = `${fullName} is back on court and ready to play.`;
+            }
+            
+            playAlertSound(ttsMessage);
+
+            cancelConfirmModal.classList.add("hidden");
+            updateGameModeBasedOnPlayerCount();
+            enforceDutyPosition();
+            render();
+            saveState();
+            checkAndPlayAlert(false);
+        }
+    }
+
+    function handlePauseToggleClick(button) {
+        // We use the button element passed directly from the main click handler
+        const playerName = button.dataset.playerName;
+        const action = button.dataset.action; // 'pause' or 'resume'
+        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+
+        if (!playerObj) return;
+
+        const verb = action === 'pause' ? 'pause' : 'resume';
+        const message = action === 'pause' 
+            ? `Are you sure you want to pause your game play? You will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
+            : `Are you sure you want to resume your game play? You will be immediately restored to position #${state.availablePlayers.indexOf(playerObj) + 1}.`;
+
+        cancelConfirmModal.querySelector("h3").textContent = `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`;
+        cancelConfirmModal.querySelector("p").textContent = message;
+        modalBtnYesConfirm.textContent = verb.charAt(0).toUpperCase() + verb.slice(1);
+        modalBtnNo.textContent = "Close";
+        
+        cancelConfirmModal.dataset.mode = "pauseToggle";
+        cancelConfirmModal.dataset.player = playerName;
+        cancelConfirmModal.dataset.verb = action;
+
+        cancelConfirmModal.classList.remove("hidden");
     }
 
     // --- ADDED FUNCTION ---
@@ -2920,12 +3331,58 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSkipButtonClick() {
         const skipBtn = document.getElementById('end-game-skip-btn');
         const action = skipBtn.dataset.action;
+        const courtId = endGameModal.dataset.courtId;
+        const court = state.courts.find(c => c.id === courtId);
+        if (!court) return;
 
-        if (action === 'skip-result') {
-            confirmSkipResult();
-        } else if (action === 'skip-scores') {
-            confirmSkipScores();
+        const team1Names = getPlayerNames(court.teams.team1);
+        const team2Names = getPlayerNames(court.teams.team2);
+        let playersToRequeue = [];
+        
+        // Create a new game entry for the history
+        const newGame = {
+            id: Date.now(),
+            court: court.id,
+            startTime: court.gameStartTime,
+            endTime: Date.now(),
+            duration: document.getElementById(`timer-${court.id}`).textContent,
+            teams: { team1: team1Names, team2: team2Names },
+            score: null, // Score is always null when skipping
+            winner: 'skipped' // Default winner state
+        };
+
+        if (action === 'skip-scores') {
+            // If we are only skipping scores, a winner was selected
+            const winnerValue = endGameModal.dataset.winner;
+            if (!winnerValue) return; // Safety check
+            
+            newGame.winner = winnerValue;
+            const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
+            const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
+            playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
+
+        } else { // This handles 'skip-result'
+            playersToRequeue = [...court.players].filter(p => !p.guest);
         }
+
+        // Save the game to history and update the player queue
+        state.gameHistory.push(newGame);
+        state.availablePlayers.push(...playersToRequeue);
+
+        // --- THIS IS THE CONSOLIDATED ANNOUNCEMENT LOGIC ---
+        const nextAvailableCourtId = findNextAvailableCourtId();
+        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
+        const openCourtMessage = nextAvailableCourtId 
+            ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
+            : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
+        
+        // This will now fire correctly in all skip scenarios
+        playAlertSound(openCourtMessage);
+        
+        // Finalize the process
+        resetCourtAfterGame(court.id);
+        endGameModal.classList.add("hidden");
+        checkAndPlayAlert(false);
     }
 
         // --- ADDED FUNCTION ---
@@ -3046,9 +3503,11 @@ document.addEventListener('DOMContentLoaded', () => {
     historyToggleViewBtn.addEventListener("click",()=>{state.historyViewMode="games"===state.historyViewMode?"stats":"games";renderHistory();saveState()});
     checkInBtn.addEventListener("click",()=>{populateCheckInModal(),checkInModal.classList.remove("hidden")});
     checkInCancelBtn.addEventListener("click",()=>checkInModal.classList.add("hidden"));
-    document.getElementById('end-game-skip-btn').addEventListener('click', confirmSkipScores);
+    
     document.getElementById('end-game-skip-btn').addEventListener('click', handleSkipButtonClick);
     document.getElementById('reset-app-btn').addEventListener('click', handleResetAppClick);
+
+
 
     // MODIFIED: Restored listener to show confirmation modal for Check-in
     checkInList.addEventListener("click",e=>{
@@ -3083,7 +3542,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    endGameCancelBtn.addEventListener("click",()=>endGameModal.classList.add("hidden"));
+    endGameCancelBtn.addEventListener("click", () => {
+        const courtId = endGameModal.dataset.courtId;
+        if (courtId) {
+            const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+            const button = courtCardEl ? courtCardEl.querySelector('.end-game-ball') : null;
+            if (button) {
+                // This is the fix: Reset the button's state and re-animate it
+                
+                // 1. Remove any existing animation classes to reset the button
+                button.classList.remove('hide-anim', 'animate-in');
+                
+                // 2. Use a tiny delay to force the browser to re-apply the animation
+                setTimeout(() => {
+                    button.classList.add('animate-in');
+                }, 50);
+            }
+        }
+        endGameModal.classList.add("hidden");
+    });
     endGameConfirmBtn.addEventListener("click",confirmEndGame);
     
     // MODIFIED: No button now handles closing and restoring the correct modal
@@ -3098,20 +3575,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // MODIFIED: Yes button now handles check-in/out and the force announcement
+    // MODIFIED: Yes button now handles check-in/out and the force announcement
     modalBtnYesConfirm.addEventListener("click",()=>{
-        if (cancelConfirmModal.dataset.mode === "checkOutPlayer") {
+        const mode = cancelConfirmModal.dataset.mode;
+
+        if (mode === "checkOutPlayer") {
             executePlayerCheckOut();
-        } else if (cancelConfirmModal.dataset.mode === "checkInPlayer") {
-            executePlayerCheckIn();
-        } else if (cancelConfirmModal.dataset.mode === "cancelGame") {
+        } else if (mode === "checkInPlayer") {
+            executePlayerIn();
+        } else if (mode === "cancelGame") {
             executeGameCancellation();
-        } else if (cancelConfirmModal.dataset.mode === "forceAnnouncement") {
-            // This is the correct execution path for forcing the alert
-            checkAndPlayAlert(true);
-            cancelConfirmModal.classList.add("hidden"); // Must manually close
-        } else if (cancelConfirmModal.dataset.mode === "callDuty") {
+        } else if (mode === "callDuty") {
             executeCallDuty();
+        } else if (mode === "executeReset") {
+            executeAppReset();
+        } else if (mode === "pauseToggle") {
+            executePauseToggle();
+        } 
+        
+        else if (mode === "forceAnnouncement") {
+            cancelConfirmModal.classList.add("hidden"); 
+            checkAndPlayAlert(true);
+        } else if (mode === "forceAnnouncementNotEnoughPlayers") {
+            
+            const now = Date.now();
+            const FIVE_MINUTES_MS = 5 * 60 * 1000;
+            
+            if (state.notificationControls.isMinimized) {
+                alertScheduleTime = 0; 
+                alertState = 'initial_check'; 
+            } else {
+                alertScheduleTime = now + FIVE_MINUTES_MS;
+                alertState = '5_min_repeat';
+            }
+            
+            const availablePlayerCount = state.availablePlayers.length;
+            const playerNames = state.availablePlayers.map(p => p.name).join(' and ');
+            const playersNeeded = 4 - availablePlayerCount;
+            const pluralS = playersNeeded > 1 ? 's' : '';
+            let message = `Attention ${playerNames}, we are waiting for ${playersNeeded} more player${pluralS} before we can start a match.`;
+            if (availablePlayerCount >= 2) {
+                message += " or start a singles game in the meantime.";
+            }
+            playAlertSound(message); 
+
+            cancelConfirmModal.classList.add("hidden"); 
         }
+
         resetConfirmModal();
     });
     
@@ -3161,6 +3671,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.reorderHistory.push(historyEntry);
             }
         }
+        
+        // --- NEW LINE ADDED HERE ---
+        enforceDutyPosition();
 
         reorderPlayersModal.classList.add('hidden');
         adminSettingsModal.classList.remove('hidden');
