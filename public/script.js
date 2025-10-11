@@ -40,15 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
         clubMembers: [...MASTER_MEMBER_LIST].sort((a, b) => a.name.localeCompare(b.name)),
         availablePlayers: [],
         courts: [
-            { id: 'A', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now() },
-            { id: 'B', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now() },
-            { id: 'C', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now() },
-            { id: 'D', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now() },
-            { id: 'E', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now() },
+            // ADD isCollapsed: false to each court object
+            { id: 'A', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
+            { id: 'B', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
+            { id: 'C', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
+            { id: 'D', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
+            { id: 'E', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
         ],
         courtSettings: {
             visibleCourts: ['A', 'B', 'C', 'D', 'E']
         },
+
+        mobileControls: {
+            isSummaryExpanded: true,
+            isPlayersExpanded: true,
+        },
+
         selection: {
             gameMode: 'doubles',
             players: [],
@@ -109,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Players selected to be added to the court on Card 3 (consumed from available queue on confirm)
             addedPlayers: [] 
         }
+        
+
     };
 
     // NEW/ADJUSTED STATE VARIABLES FOR ALERT SCHEDULING
@@ -116,6 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAudio = null; // Track the currently playing audio object
     // Tracks the state of the alert cycle: 'initial_check' -> '2_min_countdown' -> '5_min_repeat'
     let alertState = 'initial_check'; 
+    // NEW: Announcement Queue System
+    let announcementQueue = [];
+    let isAnnouncementPlaying = false;
+
 
     // --- DOM ELEMENTS ---
     const headerClock = document.getElementById('header-clock');
@@ -282,6 +295,11 @@ document.addEventListener('DOMContentLoaded', () => {
             state.statsFilter = state.statsFilter || { gender: 'all', sortKey: 'totalDurationMs', sortOrder: 'desc' };
             state.selectedAlertSound = state.selectedAlertSound || 'Alert1.mp3';
             
+            // Initialize new mobile controls
+            if (!state.mobileControls) {
+                state.mobileControls = { isSummaryExpanded: true, isPlayersExpanded: true };
+            }
+            
             // Ensure the new notification state exists on load
             if (!state.notificationControls) {
                 state.notificationControls = {
@@ -308,12 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
             state.clubMembers = MASTER_MEMBER_LIST.filter(p => !checkedInNames.has(p.name));
             state.clubMembers.sort((a,b) => a.name.localeCompare(b.name));
             state.availablePlayers = ensurePlayerObjects(state.availablePlayers, MASTER_MEMBER_LIST);
-             state.availablePlayers.forEach(p => p.isPaused = p.isPaused || false); // ADD THIS LINE
+            state.availablePlayers.forEach(p => p.isPaused = p.isPaused || false);
             state.courts.forEach(court => {
                 // FIXED: Ensure becameAvailableAt is set on old state data for consistency
                 if (court.status === 'available' && court.becameAvailableAt === undefined) {
                     court.becameAvailableAt = Date.now();
                 }
+                // Initialize court-specific collapse state
+                court.isCollapsed = court.isCollapsed === undefined ? false : court.isCollapsed;
 
                 court.players = ensurePlayerObjects(court.players, MASTER_MEMBER_LIST);
                 court.teams.team1 = ensurePlayerObjects(court.teams.team1, MASTER_MEMBER_LIST);
@@ -575,19 +595,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculatePlayerPlaytime() { const stats = calculatePlayerStats(); const now = Date.now(); state.courts.forEach(court => { if (court.status === 'in_progress' && court.gameStartTime) { const elapsed = Date.now() - court.gameStartTime; court.players.forEach(player => { const name = player.name; stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 }; stats[name].totalDurationMs += elapsed; }); } }); return stats; }
 
     function createCourtCard(court) {
-        // --- LOGIC: Calculate required players and check completion state ---
         const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
         const playersSelected = state.selection.players.length;
-        // Condition for Select Overlay: selection is complete AND court is available
-        const selectionComplete = playersSelected === requiredPlayers;
+        const selectionComplete = playersSelected === requiredPlayers; // This line determines readiness
         const isSelectableForOverlay = selectionComplete && court.status === 'available'; 
-        // --- END LOGIC ---
-
         const isSelected = court.id === state.selection.courtId;
         
+        // Determine initial icon and class based on court state
+        const isCollapsed = court.isCollapsed;
+        const bodyClass = isCollapsed ? 'is-collapsed' : '';
+        const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
+        
         const courtCard = document.createElement('div');
-        // Apply 'selectable' class only when the selection is complete
-        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectableForOverlay ? 'selectable' : ''}`;
+        // APPLY isCollapsed CLASS TO THE MAIN CARD
+        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectableForOverlay ? 'selectable' : ''} ${bodyClass}`;
         courtCard.dataset.courtId = court.id;
         
         let cancelBtnHTML = '';
@@ -620,14 +641,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let overlayHTML = '';
         if (isSelected) {
+            // ADDED is-ready CLASS
+            const readyClass = selectionComplete ? 'is-ready' : ''; 
             overlayHTML = `
                 <div class="confirmation-overlay">
                     <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
-                    <button class="court-confirm-btn confirm" data-action="confirm-selection">Confirm</button>
+                    <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
                 </div>
             `;
         } else if (isSelectableForOverlay) { 
-            // Select Court Overlay (Green Tennis Ball)
             overlayHTML = `
                 <div class="court-selection-overlay">
                     <button class="court-confirm-btn select-court" data-action="select-court-action">SELECT<br>COURT ${court.id}</button>
@@ -635,7 +657,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
         else if (court.status === 'selecting_teams') {
-            // Team Selection Overlay
             overlayHTML = `
                 <div class="team-selection-overlay">
                     <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
@@ -643,17 +664,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (court.status === 'game_pending') {
-            // Game Pending Overlay: NOW USES THE 'select-court' CLASS FOR TENNIS BALL STYLE
             overlayHTML = `
                 <div class="game-action-overlay">
                     <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
                 </div>
             `;
         } else if (court.status === 'in_progress') {
-            // Decide which class to use based on the isNewGame flag
             const ballClass = court.isNewGame ? 'animate-in' : 'visible';
 
-            // In Progress Overlay
             overlayHTML = `
                 <div class="game-action-overlay">
                     <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
@@ -667,6 +685,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${timerHTML}
                 <div class="header-controls">
                     <span class="status-tag">${statusText}</span>
+                    <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
+                        <i class="mdi ${iconClass}"></i>
+                    </button>
                 </div>
             </div>
             <div class="card-body">
@@ -726,21 +747,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = totalPlayersAtClub();
         const available = state.availablePlayers.length;
         const onCourt = total - available;
-        
         const availableCourtsCount = state.courts.filter(
             c => state.courtSettings.visibleCourts.includes(c.id) && c.status === 'available'
         ).length;
-
         const totalVisibleCourts = state.courtSettings.visibleCourts.length;
-        
         const onDutyName = state.onDuty === 'None' ? 'Nobody' : state.onDuty;
+        
+        // Determine initial icon and class based on state
+        const isExpanded = state.mobileControls.isSummaryExpanded;
+        const bodyClass = isExpanded ? '' : 'is-collapsed';
+        const iconClass = isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down';
 
-        // HTML structure updated to use the correct MDI icon tag
         return `
-            <div class="summary-card">
+            <div class="summary-card ${bodyClass}">
                 <div class="card-header">
                     <h3>Information</h3>
                     <div class="header-controls">
+                        <button class="settings-btn summary-toggle-btn" data-card-type="summary" title="Toggle Details">
+                            <i class="mdi ${iconClass}"></i>
+                        </button>
                         <button class="settings-btn" id="notify-now-btn" title="Force Notification Now">📢</button>
                         <button class="settings-btn" id="settings-btn" title="Admin Settings">⚙️</button>
                     </div>
@@ -1064,6 +1089,15 @@ document.addEventListener('DOMContentLoaded', () => {
             availablePlayersList.appendChild(li);
         }
         
+        // --- UPDATE AVAILABLE PLAYERS COLLAPSE STATE ---
+        const playersToggleIcon = document.querySelector('#players-toggle-btn i');
+        if (playersToggleIcon) {
+            const isExpanded = state.mobileControls.isPlayersExpanded;
+            playersToggleIcon.className = `mdi ${isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'}`;
+        }
+        availablePlayersSection.classList.toggle('is-collapsed', !state.mobileControls.isPlayersExpanded);
+        
+        
         courtGrid.innerHTML = "";
         
         courtGrid.insertAdjacentHTML('afterbegin', createSummaryCard());
@@ -1128,6 +1162,40 @@ document.addEventListener('DOMContentLoaded', () => {
         initSummaryCardElements();
 
         setTimeout(setPlayerListHeight, 0);
+    }
+
+    // NEW FUNCTION: Resets collapse state when screen is wide (desktop/tablet)
+    function resetCollapseOnResize() {
+        // Breakpoint for switching from stacked to two-column layout
+        const DESKTOP_BREAKPOINT = 900; 
+
+        // We only need to reset the state if the window is wider than the mobile/stacked breakpoint
+        if (window.innerWidth > DESKTOP_BREAKPOINT) {
+            let stateChanged = false;
+
+            if (!state.mobileControls.isSummaryExpanded) {
+                state.mobileControls.isSummaryExpanded = true;
+                stateChanged = true;
+            }
+
+            if (!state.mobileControls.isPlayersExpanded) {
+                state.mobileControls.isPlayersExpanded = true;
+                stateChanged = true;
+            }
+
+            state.courts.forEach(court => {
+                if (court.isCollapsed) {
+                    court.isCollapsed = false;
+                    stateChanged = true;
+                }
+            });
+
+            if (stateChanged) {
+                // Save the state immediately and re-render the UI
+                saveState();
+                render();
+            }
+        }
     }
     
     // UTILITY: Finds the ID of the first available and visible court based on hierarchy
@@ -1625,7 +1693,50 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     }
     function handleRandomizeTeams(courtId){ const court = state.courts.find(c => c.id === courtId); let players = [...court.players].sort(() => 0.5 - Math.random()); court.teams.team1 = [players[0], players[1]]; court.teams.team2 = [players[2], players[3]]; court.status = "game_pending"; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
-    function handleChooseTeams(courtId){ chooseTeamsModal.classList.remove("hidden"); modalPlayerList.innerHTML = ""; const court = state.courts.find(c => c.id === courtId); court.players.forEach(player => { const div = document.createElement("div"); div.className = "modal-player"; div.textContent = player.name; div.dataset.player = player.name; modalPlayerList.appendChild(div); }); chooseTeamsModal.dataset.courtId = courtId; }
+    //function handleChooseTeams(courtId){ chooseTeamsModal.classList.remove("hidden"); modalPlayerList.innerHTML = ""; const court = state.courts.find(c => c.id === courtId); court.players.forEach(player => { const div = document.createElement("div"); div.className = "modal-player"; div.textContent = player.name; div.dataset.player = player.name; modalPlayerList.appendChild(div); }); chooseTeamsModal.dataset.courtId = courtId; }
+    function handleChooseTeams(courtId){ 
+        chooseTeamsModal.classList.remove("hidden"); 
+        
+        // Clear and reset the modal list
+        modalPlayerList.innerHTML = ""; 
+        modalPlayerList.classList.remove('two-row-grid');
+        
+        // FIX: Update button text immediately upon showing modal
+        document.getElementById('modal-confirm-teams-btn').textContent = "Confirm";
+        document.getElementById('modal-cancel-btn').textContent = "Close";
+        
+        const court = state.courts.find(c => c.id === courtId);
+        
+        // Set up the player list in a two-row grid style
+        if (court && court.players.length === 4) {
+            modalPlayerList.classList.add('two-row-grid'); // Add new class for layout
+            
+            court.players.forEach(player => { 
+                const div = document.createElement("div"); 
+                div.className = "modal-player"; 
+                div.textContent = player.name; 
+                div.dataset.player = player.name; 
+                modalPlayerList.appendChild(div); 
+            }); 
+            chooseTeamsModal.dataset.courtId = courtId; 
+        }
+        
+        // Reset confirmation button state
+        modalConfirmBtn.disabled = true; 
+        modalConfirmBtn.classList.remove('modal-confirm-ready');
+        
+        // Add event listener to handle visual readiness
+        modalPlayerList.addEventListener('click', () => {
+            const selectedCount = modalPlayerList.querySelectorAll(".selected").length;
+            if (selectedCount === 2) {
+                modalConfirmBtn.disabled = false;
+                modalConfirmBtn.classList.add('modal-confirm-ready');
+            } else {
+                modalConfirmBtn.disabled = true;
+                modalConfirmBtn.classList.remove('modal-confirm-ready');
+            }
+        });
+    }
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
     function handleModalConfirm(){ const courtId = chooseTeamsModal.dataset.courtId; const court = state.courts.find(c => c.id === courtId); const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player); if (team1Names.length === 2) { const team1Players = team1Names.map(name => getPlayerByName(name)); const team2Players = court.players.filter(player => !team1Names.includes(player.name)); court.teams.team1 = team1Players; court.teams.team2 = team2Players; court.status = "game_pending"; chooseTeamsModal.classList.add("hidden"); court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); } else { alert("Please select exactly 2 players for Team 1."); } }
     function handleStartGame(courtId){
@@ -1659,6 +1770,71 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000); // Wait for the "start-game-hop" animation to finish
     }
 
+    function handleStartGame(courtId){
+        const court = state.courts.find(c => c.id === courtId);
+        if (!court) return;
+
+        const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+        const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
+
+        if (startButton) {
+            startButton.classList.add('start-game-hop');
+        }
+
+        setTimeout(() => {
+            if(court.autoStartTimer) {
+                clearTimeout(court.autoStartTimer);
+                court.autoStartTimer = null;
+            }
+            court.status = "in_progress";
+            court.gameStartTime = Date.now();
+            court.autoStartTimeTarget = null;
+            court.isNewGame = true; 
+
+            // --- NEW GAME START ANNOUNCEMENT LOGIC ---
+            const team1Names = getPlayerNames(court.teams.team1);
+            const team2Names = getPlayerNames(court.teams.team2);
+            let announcementMessage;
+            
+            const formatTeamNames = (names) => {
+                if (names.length === 1) return names[0];
+                if (names.length === 2) return `${names[0]} and ${names[1]}`;
+                // For social tennis matches with 3+ in a team (e.g., in a 3v3 match)
+                return names.slice(0, -1).join(', ') + ` and ${names.slice(-1)[0]}`;
+            };
+
+            if (court.gameMode === 'singles') {
+                // Singles format: Player A and Player B are on Court X.
+                announcementMessage = `${team1Names[0]} and ${team2Names[0]} ....are on Court ${court.id}.... Lekker Speel!`;
+            } else if (court.gameMode === 'doubles') {
+                // Doubles format: its player w & playerx vs player y & player z on Court X... Lekker Speel!
+                const team1String = formatTeamNames(team1Names);
+                const team2String = formatTeamNames(team2Names);
+                
+                announcementMessage = `It's team ${team1String} versus team ${team2String} ....on Court ${court.id}.... Lekker Speel!`;
+            } else {
+                // Fallback for other player counts/modes
+                const playerNames = getPlayerNames(court.players);
+                const namesList = playerNames.join(' and ');
+                announcementMessage = `${namesList} are on Court ${court.id}. Game in progress!`;
+            }
+            
+            // Announce the players and court
+            playAlertSound(announcementMessage, null);
+            // --- END NEW GAME START ANNOUNCEMENT LOGIC --
+
+
+            render(); 
+
+            court.isNewGame = false;
+            saveState();
+
+            resetAlertSchedule();
+            checkAndPlayAlert(false);
+        }, 2000); // Wait for the "start-game-hop" animation to finish
+    }
+
+
     function handleEndGame(courtId){
         const court = state.courts.find(c => c.id === courtId);
         if(!court) return;
@@ -1685,6 +1861,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tieBreakerArea.classList.add('hidden');
         winningScoreInput.value = '';
         losingScoreInput.value = '';
+        winnerTiebreakInput.value = '';
+        loserTiebreakInput.value = '';
         endGameModal.removeAttribute('data-winner');
         
         // --- MODIFIED LOGIC ---
@@ -1715,7 +1893,6 @@ document.addEventListener('DOMContentLoaded', () => {
         validateEndGameForm();
         endGameModal.classList.remove("hidden");
     }
-
 
     function handleCancelGame(courtId){ 
         cancelConfirmModal.querySelector("h3").textContent = "Confirm Cancellation"; 
@@ -2041,78 +2218,154 @@ document.addEventListener('DOMContentLoaded', () => {
          }
     }
     
-    /**
-     * UPDATED FUNCTION: Plays the sound and schedules subsequent TTS announcements sequentially.
-     * @param {string} courtMessage - The initial message to play after the sound (e.g., court announcement).
-     * @param {string} dutyMessage - The second message to play after the first TTS finishes (e.g., duty call).
-     * @param {string} soundFileNameOverride - NEW: Optional file name to override the default selectedAlertSound.
-     */
-    function playAlertSound(courtMessage = null, dutyMessage = null, soundFileNameOverride = null) { // <-- MODIFIED SIGNATURE
-        
-        // NEW: Check if all notifications are muted
-        if (state.notificationControls.isMuted) return; 
+// NEW FUNCTION: Function that handles the actual sound + TTS sequence for a single item
+function _playAnnouncementSequence(item, callback) {
+    isAnnouncementPlaying = true;
+    const { msg1, msg2, soundFile } = item;
+    
+    const playSequencedTTS = (msg1, msg2, onDone) => {
+        if (state.notificationControls.isTTSDisabled) return onDone();
 
-        // --- Sequenced TTS Handler ---
-        const playSequencedTTS = (msg1, msg2) => {
-            // NEW: Check if TTS is disabled
-            if (state.notificationControls.isTTSDisabled) return;
+        if (!msg1 && !msg2) return onDone();
 
-            if (!msg1 && !msg2) return;
+        const utterance1 = getUtterance(msg1 || msg2); 
+        if (!utterance1) return onDone();
 
-            // 1. Play first message (msg1)
-            const utterance1 = getUtterance(msg1 || msg2); 
-            
-            if (!utterance1) return;
-
-            // If there's a second message to chain
+        utterance1.onend = () => {
             if (msg1 && msg2) {
-                utterance1.onend = () => {
-                    // 2. Play second message (msg2) after the first one ends
-                    const utterance2 = getUtterance(msg2);
-                    if (utterance2) {
-                        window.speechSynthesis.speak(utterance2);
-                    }
-                };
+                const utterance2 = getUtterance(msg2);
+                if (utterance2) {
+                    utterance2.onend = onDone; // Call final callback after the second message
+                    window.speechSynthesis.speak(utterance2);
+                } else {
+                    onDone();
+                }
+            } else {
+                onDone(); // Done after the first message
             }
-
-            // The cancel call has been removed from here.
-            window.speechSynthesis.speak(utterance1);
         };
-        // --- End Sequenced TTS Handler ---
 
-        // Stop previous sound
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-        }
-        
-        // CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
+        // Ensure no pending TTS is running before starting the new sequence.
         if (window.speechSynthesis.speaking) {
-             window.speechSynthesis.cancel();
+            window.speechSynthesis.cancel();
         }
-        
-        // --- MODIFIED LOGIC: Use override if provided, otherwise use state.selectedAlertSound ---
-        const soundFile = soundFileNameOverride || state.selectedAlertSound; // <-- NEW LOGIC
+        window.speechSynthesis.speak(utterance1);
+    };
 
-        if (!soundFile) {
-            // If no sound is selected (and no override), play TTS directly and sequenced
-            playSequencedTTS(courtMessage, dutyMessage);
-            return;
-        }
-        
-        const audioPath = `source/${soundFile}`; // <-- Use the determined soundFile
-        currentAudio = new Audio(audioPath);
+    if (state.notificationControls.isTTSDisabled) {
+        // If TTS is disabled, we only worry about the audio playing, then call back.
+        if (!soundFile) return callback();
+    }
+    
+    // Stop previous sound
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+    }
+
+    // CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
+    if (window.speechSynthesis.speaking) {
+         window.speechSynthesis.cancel();
+    }
+    
+    if (!soundFile) {
+        playSequencedTTS(msg1, msg2, callback);
+        return;
+    }
+
+    // NEW LOGIC: If a sound is about to play for this item, suppress the sound
+    // for all subsequent announcements currently waiting in the queue.
+    announcementQueue.forEach(queuedItem => {
+        queuedItem.soundFile = null;
+    });
+
+    const audioPath = `source/${soundFile}`;
+    currentAudio = new Audio(audioPath);
+    
+    // Wait for sound to finish, then start TTS sequence
+    currentAudio.addEventListener('playing', function onSoundPlaying() {
+        currentAudio.removeEventListener('playing', onSoundPlaying);
         
         currentAudio.addEventListener('ended', function onSoundEnd() {
             currentAudio.removeEventListener('ended', onSoundEnd);
-            playSequencedTTS(courtMessage, dutyMessage);
+            // Play sequenced TTS, passing the main callback as the final onDone
+            playSequencedTTS(msg1, msg2, callback); 
         });
+    });
 
-        currentAudio.play().catch(error => {
-            console.error(`Error playing alert sound ${audioPath}: `, error);
-            // Fallback: Play sequenced TTS immediately if sound fails
-            playSequencedTTS(courtMessage, dutyMessage);
-        });
+    currentAudio.play().catch(error => {
+        console.error(`Error playing alert sound ${audioPath}: `, error);
+        // Fallback: Play sequenced TTS immediately if sound fails
+        playSequencedTTS(msg1, msg2, callback);
+    });
+}
+
+// NEW FUNCTION: Function that processes the queue
+function processAnnouncementQueue() {
+    if (announcementQueue.length === 0) {
+        isAnnouncementPlaying = false;
+        return;
+    }
+
+    // NEW LOGIC: Prepend the alert tone if a sequence is starting.
+    if (!isAnnouncementPlaying) {
+        isAnnouncementPlaying = true; // Mark as playing NOW to prevent rapid subsequent calls from getting here.
+        
+        const firstTTSItem = announcementQueue[0];
+        
+        // If the first item doesn't have an override sound (e.g., CommitteeCall.mp3 was passed)
+        if (!firstTTSItem.soundFile) {
+            // Prepend a tone-only item using the standard selected alert sound.
+            announcementQueue.unshift({
+                msg1: null,
+                msg2: null,
+                soundFile: state.selectedAlertSound 
+            });
+        } 
+    }
+
+    const nextItem = announcementQueue.shift(); // Get the next item
+    
+    // Play the item, and when it's done, process the next item in the queue
+    _playAnnouncementSequence(nextItem, processAnnouncementQueue);
+}
+
+// PUBLIC INTERFACE (Replaces old playAlertSound)
+function playAlertSound(courtMessage = null, dutyMessage = null, soundFileNameOverride = null) {
+    
+    // Check if all notifications are muted
+    if (state.notificationControls.isMuted) return; 
+
+    // 1. Add the new announcement to the queue
+    announcementQueue.push({
+        msg1: courtMessage,
+        msg2: dutyMessage,
+        // CRITICAL: Standard alerts are now TTS-only. Sound is only included if it is an OVERRIDE (e.g., CommitteeCall)
+        soundFile: soundFileNameOverride || null
+    });
+
+    // 2. Start the queue processor if it's not already running
+    if (!isAnnouncementPlaying) {
+        processAnnouncementQueue();
+    }
+}
+
+// PUBLIC INTERFACE (Replaces old playCustomTTS)
+function playCustomTTS(message) {
+     // Check if all notifications are muted OR if TTS is disabled
+     if (state.notificationControls.isMuted || state.notificationControls.isTTSDisabled) return;
+
+     const utterance = getUtterance(message);
+     if (utterance) {
+         // Push to queue with no sound and no second message, preserving the null sound file for TTS-only announcements
+         playAlertSound(message, null, null);
+     }
+}
+
+    // NEW HELPER FUNCTION: Finds the name of the first available, non-paused player
+    function getFirstAvailablePlayerName() {
+        const selectorPlayer = state.availablePlayers.find(p => !p.isPaused);
+        return selectorPlayer ? selectorPlayer.name : null;
     }
 
     // UPDATED FUNCTION: Logic maintains alertScheduleTime unless overridden or conditions are missed.
@@ -2126,13 +2379,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasEnoughPlayers = availablePlayerCount >= 4;
         const availableCourtId = findNextAvailableCourtId();
         const conditionMet = hasEnoughPlayers && availableCourtId;
+        
+        // Use the new helper function to get the correct selector's name
+        const firstPlayerName = getFirstAvailablePlayerName(); 
 
-        if (!conditionMet) {
+        if (!conditionMet || !firstPlayerName) { // Ensure there is a player to announce
             return;
         }
 
-        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
-        const courtMessage = `Attention, ${firstPlayerName}. Please come and select your match. Court ${availableCourtId} is available.`;
+        // The announcement is now correctly constructed using the first non-paused player's name
+        const courtMessage = `Attention, ${firstPlayerName.split(' ')[0]}. Please come and select your match. Court ${availableCourtId} is available.`;
 
         if (alertState === 'initial_check' || forceCheck) {
             if (forceCheck) {
@@ -3158,21 +3414,74 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerObj = state.availablePlayers.find(p => p.name === playerName);
 
         if (playerObj) {
-            playerObj.isPaused = (verb === 'pause');
             
-            const fullName = playerObj.name;
-            let ttsMessage;
-            if (playerObj.isPaused) {
-                ttsMessage = `${fullName} is now taking a well-deserved break.`;
-            } else {
-                ttsMessage = `${fullName} is back on court and ready to play.`;
+            // --- 1. DETERMINE CURRENT SELECTOR NAME ---
+            const currentSelectorName = getFirstAvailablePlayerName(); 
+            
+            // Save the current state of the flag for logic in Step 2
+            const wasPlayerHoldingSwapFlag = playerObj.isHoldingDutySwap;
+            const isPlayerPausing = (verb === 'pause');
+            
+            // --- 2. PERFORM UNDO SWAP (ON RESUME, IF THEY CAUSED THE SWAP) ---
+            if (verb === 'resume' && wasPlayerHoldingSwapFlag) {
+                
+                const cmIndex = state.availablePlayers.findIndex(p => p.name === state.onDuty);
+                const playerAtPos2Index = 1;
+
+                // If CM is somewhere in the queue (index > 1)
+                if (cmIndex > playerAtPos2Index) {
+                    // Swap the CM (from cmIndex) with the player currently at Position #2 (index 1).
+                    const playerToSwapWith = state.availablePlayers[playerAtPos2Index];
+
+                    state.availablePlayers[playerAtPos2Index] = state.availablePlayers[cmIndex]; // CM moves to #2
+                    state.availablePlayers[cmIndex] = playerToSwapWith;                           // Old #2 moves to CM's old spot
+                }
+                
+                // Clear the flag regardless of whether the swap was successful, as the player is unpaused
+                playerObj.isHoldingDutySwap = false;
             }
             
-            playAlertSound(ttsMessage);
+            // --- 3. APPLY PAUSE STATE ---
+            playerObj.isPaused = isPlayerPausing;
+
+            // --- 4. SET SWAP FLAG (If pausing, set flag on the now-paused player) ---
+            // Set flag only if the player is pausing and they were the effective selector
+            if (verb === 'pause') {
+                const firstActiveIndex = state.availablePlayers.findIndex(p => !p.isPaused);
+                if (firstActiveIndex === state.availablePlayers.indexOf(playerObj)) {
+                    playerObj.isHoldingDutySwap = true;
+                } else {
+                    playerObj.isHoldingDutySwap = false;
+                }
+            }
+            
+            // --- 5. ENFORCE ORDER/DUTY NOW (The main duty logic runs after resume is processed) ---
+            enforceDutyPosition();
+
+            // --- 6. CONSTRUCT MESSAGES ---
+            const fullName = playerObj.name;
+            let firstMessage = '';
+            let secondMessage = null;
+
+            if (playerObj.isPaused) {
+                firstMessage = `${fullName} is now taking a well-deserved break.`;
+                
+                // Only play the second announcement if the player being paused was the current active selector.
+                if (playerName === currentSelectorName) {
+                    const nextSelectorName = getFirstAvailablePlayerName(); 
+                    if (nextSelectorName) {
+                        secondMessage = `${nextSelectorName}, please select players for a game.`; 
+                    }
+                }
+            } else {
+                firstMessage = `${fullName} is back on court and ready to play.`;
+            }
+            
+            // --- 7. PLAY SEQUENCED ALERT ---
+            playAlertSound(firstMessage, secondMessage); 
 
             cancelConfirmModal.classList.add("hidden");
             updateGameModeBasedOnPlayerCount();
-            enforceDutyPosition();
             render();
             saveState();
             checkAndPlayAlert(false);
@@ -3206,17 +3515,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ADDED FUNCTION ---
     function enforceDutyPosition() {
-        // Check if there are at least two players and someone is on duty
         if (state.availablePlayers.length < 2 || state.onDuty === 'None') {
-            return; // No action needed
+            return;
         }
 
-        const firstPlayerName = state.availablePlayers[0].name;
+        const players = state.availablePlayers;
+        
+        // Find the index of the player who is currently the ACTIVE selector (first non-paused player)
+        const firstActiveIndex = players.findIndex(p => !p.isPaused);
+        
+        // If no active players exist, or the CM is not the active player, exit.
+        if (firstActiveIndex === -1 || players[firstActiveIndex].name !== state.onDuty) {
+            return;
+        }
+        
+        // --- CM IS THE EFFECTIVE SELECTOR (players[firstActiveIndex]) ---
+        
+        // Find the index of the FIRST suitable (available, non-paused, non-duty) player to swap with.
+        // Start searching immediately after the CM's position.
+        const targetSwapIndex = players.findIndex((p, index) => 
+            index > firstActiveIndex &&         // Must be after the CM
+            !p.isPaused &&                      // Must be available/unpaused
+            p.name !== state.onDuty             // Must not be the CM (safety check)
+        );
 
-        // If the first player is the one on duty, swap them with the second player
-        if (firstPlayerName === state.onDuty) {
-            // Simple array swap
-            [state.availablePlayers[0], state.availablePlayers[1]] = [state.availablePlayers[1], state.availablePlayers[0]];
+        // If a suitable player is found, perform the swap.
+        if (targetSwapIndex !== -1) {
+            const cmPlayer = players[firstActiveIndex];
+            const targetPlayer = players[targetSwapIndex];
+            
+            // Perform the clean swap
+            [players[firstActiveIndex], players[targetSwapIndex]] = [targetPlayer, cmPlayer];
         }
     }
 
@@ -3498,7 +3827,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('end-game-skip-btn').addEventListener('click', handleSkipButtonClick);
     document.getElementById('reset-app-btn').addEventListener('click', handleResetAppClick);
 
+    // ADDED GLOBAL CLICK LISTENER FOR ALL CARD TOGGLES
+    document.addEventListener('click', (e) => {
+        const toggleButton = e.target.closest('.summary-toggle-btn');
+        if (!toggleButton) return;
 
+        const cardType = toggleButton.dataset.cardType;
+        const courtId = toggleButton.dataset.courtId;
+
+        if (cardType === 'summary') {
+            state.mobileControls.isSummaryExpanded = !state.mobileControls.isSummaryExpanded;
+        } else if (cardType === 'players') {
+            state.mobileControls.isPlayersExpanded = !state.mobileControls.isPlayersExpanded;
+        } else if (cardType === 'court' && courtId) {
+            const court = state.courts.find(c => c.id === courtId);
+            if (court) {
+                court.isCollapsed = !court.isCollapsed;
+            }
+        }
+        
+        saveState();
+        render();
+    });
+
+    // ADDED WINDOW RESIZE LISTENER FOR AUTOMATIC EXPANSION
+    window.addEventListener('resize', resetCollapseOnResize);
 
     // MODIFIED: Restored listener to show confirmation modal for Check-in
     checkInList.addEventListener("click",e=>{
@@ -3653,7 +4006,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             if (Object.keys(movedPlayers).length > 0) {
-                 const historyEntry = {
+                const historyEntry = {
                     id: Date.now(),
                     adminAction: 'Queue Reorder',
                     players: movedPlayers,
@@ -3663,7 +4016,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // --- NEW LINE ADDED HERE ---
+        // --- ANNOUNCEMENT: Admin action confirmation ---
+        playAlertSound("Players have been re-ordered by the Admin.", null); 
+        // --- END ANNOUNCEMENT ---
+
         enforceDutyPosition();
 
         reorderPlayersModal.classList.add('hidden');

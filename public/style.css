@@ -725,6 +725,64 @@ header h1 { margin: 0; }
     color: var(--cancel-color);
 }
 
+/* --- GENERAL TOGGLE BUTTON STYLES (Hide on Desktop) --- */
+
+.summary-toggle-btn {
+    display: none !important; /* Hide by default on all screens (desktop) */
+    padding: 0.25rem;
+    font-size: 1.5rem;
+    color: var(--primary-blue);
+    z-index: 10;
+    margin-left: 0.5rem; /* Space between button and status tag */
+}
+
+/* --- COLLAPSE MECHANICS --- */
+
+/* 1. Summary Card Collapse */
+.summary-card .card-body {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+}
+.summary-card.is-collapsed .card-body {
+    max-height: 120px; /* Safe height for only on-duty section */
+}
+.summary-card.is-collapsed .summary-stats,
+.summary-card.is-collapsed .quote-section {
+    display: none;
+}
+
+/* 2. Available Players Card Collapse */
+#availablePlayersSection.is-collapsed .card-body {
+    max-height: 80px; /* Safe height for only check-in/out buttons */
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+#availablePlayersSection:not(.is-collapsed) .card-body {
+    max-height: 1000px;
+    transition: max-height 0.3s ease-out;
+}
+#availablePlayersSection.is-collapsed .mode-selector,
+#availablePlayersSection.is-collapsed .player-list-header,
+#availablePlayersSection.is-collapsed #availablePlayersList {
+    display: none;
+}
+
+
+/* 3. Court Card Collapse */
+.court-card .card-body {
+    max-height: 1000px;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+    overflow: hidden;
+}
+.court-card.is-collapsed .card-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+
 
 .status-tag {
     font-size: 0.8rem;
@@ -1352,6 +1410,54 @@ header h1 { margin: 0; }
     color: white;
     font-weight: bold;
 }
+
+/* --- NEW STYLE: Grid Layout for Player Selection in Modal --- */
+.modal-player-list.two-row-grid {
+    display: grid;
+    /* 2 columns, each taking equal fraction of space */
+    grid-template-columns: 1fr 1fr; 
+    /* 2 rows, one for top pair, one for bottom pair */
+    grid-template-rows: 1fr 1fr; 
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.modal-player-list.two-row-grid .modal-player {
+    /* Ensure blocks are centered within their grid cell */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem 0; /* Increase vertical padding for block size */
+}
+
+/* --- NEW STYLE: Visual Continuity for Buttons --- */
+#choose-teams-modal .modal-actions {
+    display: grid;
+    /* Create two columns of equal, flexible width */
+    grid-template-columns: 1fr 1fr; 
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 0.5rem;
+}
+
+/* Ensure the buttons fill their grid cells completely */
+#choose-teams-modal .modal-actions button {
+    flex-grow: 1; 
+    width: 100%;
+}
+
+
+
+/* Target the confirmation button when 2 players are selected (Green) */
+#choose-teams-modal #modal-confirm-teams-btn.modal-confirm-ready {
+    background-color: var(--confirm-color) !important;
+    border-color: var(--confirm-color) !important;
+    cursor: pointer;
+}
+#choose-teams-modal #modal-confirm-teams-btn.modal-confirm-ready:hover {
+    background-color: var(--confirm-hover-color) !important;
+}
+
 
 .modal-actions {
     display: flex;
@@ -2346,6 +2452,21 @@ input:checked + .slider:before {
         gap: 1rem; /* CHANGE THIS FROM 1.5rem */
     }
 
+    /* 1. SHOW TOGGLE BUTTON ON MOBILE */
+    .summary-toggle-btn {
+        display: block !important;
+    }
+
+    /* 2. ENSURE SUMMARY CARD COLLAPSE HEIGHT IS CORRECT FOR MOBILE */
+    .summary-card.is-collapsed .card-body {
+        max-height: 120px; /* Safe height for only on-duty section */
+    }
+
+    #historyBtn {
+        display: none !important;
+    }
+
+
 }
 
 /* For very narrow phones in portrait (e.g., < 500px) */
@@ -2382,6 +2503,19 @@ input:checked + .slider:before {
         gap: 1rem; /* CHANGE THIS FROM 1.5rem */
     }
 
+    /* 1. SHOW TOGGLE BUTTON ON MOBILE */
+    .summary-toggle-btn {
+        display: block !important;
+    }
+    /* 2. ENSURE SUMMARY CARD COLLAPSE HEIGHT IS CORRECT FOR MOBILE */
+    .summary-card.is-collapsed .card-body {
+        max-height: 120px; /* Safe height for only on-duty section */
+    }
+
+    #historyBtn {
+        display: none !important;
+    }
+
 }
 
 #cancel-confirm-modal {
@@ -2408,20 +2542,31 @@ input:checked + .slider:before {
     color: var(--primary-blue);
 }
 
+/* Base style for a paused player item - maintains full size and alignment */
 #availablePlayersList li.paused-player {
-    opacity: 0.5;
+    /* Remove opacity from parent to allow children to be styled independently */
     pointer-events: none;
     background-color: #f9f9f9 !important;
 }
 
+/* Apply fade-out to all non-button content (Player Name, Time, Gender) */
+#availablePlayersList li.paused-player .player-details,
+/* Targets elements inside player-stats that are NOT the pause button */
+#availablePlayersList li.paused-player .player-stats > :not(.pause-toggle-btn) { 
+    opacity: 0.5;
+}
+
+/* Ensure the button remains interactive and fully visible */
 #availablePlayersList li.paused-player .pause-toggle-btn {
     pointer-events: all;
     opacity: 1;
     color: var(--cancel-color);
 }
 
-#availablePlayersList li.paused-player:nth-child(1) {
-    padding: 0.6rem 1.3rem !important;
+/* Reset first-player styling if it gets applied to a paused player at index 0 */
+#availablePlayersList li.paused-player.first-player {
     border-color: transparent !important;
     animation: none;
+    padding: 0.4rem 0.8rem !important; /* Reset padding to standard li */
+    margin: 2px 0; /* Reset margin to standard li */
 }
