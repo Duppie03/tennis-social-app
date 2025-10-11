@@ -2489,8 +2489,9 @@ input:checked + .slider:before {
 
     /* Allow player column to take full width */
     .player-column {
-        /* This removes the width restriction for mobile, allowing it to fill the screen */
-        max-width: none;
+        flex: 1 1 auto;
+        max-width: 100%;
+        min-width: 100%;
     }
     
     /* Ensure available players list scrolls within the max width */
@@ -2545,8 +2546,9 @@ input:checked + .slider:before {
         grid-template-columns: 1fr; /* Single column court view */
     }
     .player-column {
-        /* This removes the width restriction for mobile, allowing it to fill the screen */
-        max-width: none;
+        flex: 1 1 auto;
+        max-width: 100%;
+        min-width: 100%;
     }
     /* Smaller padding */
     header, .container {
