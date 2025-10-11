@@ -2489,9 +2489,8 @@ input:checked + .slider:before {
 
     /* Allow player column to take full width */
     .player-column {
-        flex: 1 1 300px; /* Allow it to grow and shrink from a base of 300px */
-        min-width: 280px;   /* Prevent it from getting too narrow */
-        max-width: 400px;   /* Prevent it from getting too wide */
+        /* This removes the width restriction for mobile, allowing it to fill the screen */
+        max-width: none;
     }
     
     /* Ensure available players list scrolls within the max width */

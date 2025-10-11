@@ -2011,8 +2011,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // TTS VOICE SELECTION (Prioritizing clear English, checking for SA English)
         const voices = window.speechSynthesis.getVoices();
+        // THIS IS THE LINE THAT SELECTS THE en-ZA VOICE
         let preferredVoice = voices.find(voice => voice.lang === 'en-ZA');
 
+        // This part is a fallback in case an en-ZA voice is not found
         if (!preferredVoice) {
             preferredVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.name.includes('Google'));
         }
