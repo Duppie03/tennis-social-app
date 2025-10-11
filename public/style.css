@@ -2489,8 +2489,9 @@ input:checked + .slider:before {
 
     /* Allow player column to take full width */
     .player-column {
-        /* This removes the width restriction for mobile, allowing it to fill the screen */
-        max-width: none;
+        flex: 1 1 300px;
+        min-width: 280px;
+        max-width: none; /* This is the fix for the player column */
     }
     
     /* Ensure available players list scrolls within the max width */
@@ -2546,8 +2547,8 @@ input:checked + .slider:before {
     }
     /* Smaller padding */
     header, .container {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
+        padding-left: 0;
+        padding-right: 0;
     }
     .container {
         padding-top: 0.5rem;
