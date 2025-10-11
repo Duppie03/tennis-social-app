@@ -650,10 +650,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (court.status === 'in_progress') {
+            // Decide which class to use based on the isNewGame flag
+            const ballClass = court.isNewGame ? 'animate-in' : 'visible';
+
             // In Progress Overlay
             overlayHTML = `
                 <div class="game-action-overlay">
-                    <button class="court-confirm-btn end-game-ball" data-action="end-game">END<br>MATCH</button>
+                    <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
                 </div>
             `;
         }
@@ -1644,21 +1647,13 @@ document.addEventListener('DOMContentLoaded', () => {
             court.status = "in_progress";
             court.gameStartTime = Date.now();
             court.autoStartTimeTarget = null;
-            
-            // This redraws the court with the invisible red ball
-            render();
-            saveState();
-            
-            // MODIFIED: Find the new red ball and trigger its animation
-            const newCourtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
-            const endGameButton = newCourtCardEl ? newCourtCardEl.querySelector('.end-game-ball') : null;
-            if (endGameButton) {
-                // Add a tiny delay to ensure the element is fully in the DOM before animating
-                setTimeout(() => {
-                    endGameButton.classList.add('animate-in');
-                }, 50);
-            }
-            
+            court.isNewGame = true; // Flag that this is the first render for this game
+
+            render(); // This will render the card with the animation class
+
+            court.isNewGame = false; // Immediately remove the flag for all future renders
+            saveState(); // Save the final state
+
             resetAlertSchedule();
             checkAndPlayAlert(false);
         }, 2000); // Wait for the "start-game-hop" animation to finish
@@ -1840,22 +1835,23 @@ document.addEventListener('DOMContentLoaded', () => {
             winner: winnerValue
         };
         state.gameHistory.push(newGame);
-        
+
         const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
         const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
-        
-        const playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
+
+        // THIS IS THE FIX: All players, including guests, are now returned to the queue.
+        const playersToRequeue = [...winningPlayers, ...losingPlayers];
         state.availablePlayers.push(...playersToRequeue); 
 
         court.becameAvailableAt = Date.now();
-        
+
         const nextAvailableCourtId = findNextAvailableCourtId();
         const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
-        
+
         const openCourtMessage = nextAvailableCourtId 
             ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
             : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
-        
+
         playAlertSound(openCourtMessage);
 
         resetCourtAfterGame(courtId);
@@ -1967,11 +1963,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const loseScore = parseInt(loseScoreVal, 10);
         let scoresValid = false;
         if (winScoreVal !== '' && loseScoreVal !== '') {
-            // Standard win conditions: 6-0 to 6-4
             if (winScore === 6 && loseScore >= 0 && loseScore <= 4) scoresValid = true;
-            // Win by two games: 7-5
             if (winScore === 7 && loseScore === 5) scoresValid = true;
-            // Tie-break win: 7-6
             if (winScore === 7 && loseScore === 6) scoresValid = true;
         }
         if (!scoresValid) {
@@ -1980,15 +1973,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         let tiebreakValid = true;
         if (!tieBreakerArea.classList.contains('hidden')) {
-            const tbWinner = winnerTiebreakInput.value;
-            const tbLoser = loserTiebreakInput.value;
-            if (tbWinner === '' || tbLoser === '') {
+            const tbWinnerVal = winnerTiebreakInput.value;
+            const tbLoserVal = loserTiebreakInput.value;
+            if (tbWinnerVal === '' || tbLoserVal === '') {
                 tiebreakValid = false;
             } else {
-                const numTbWinner = parseInt(tbWinner, 10);
-                const numTbLoser = parseInt(tbLoser, 10);
-                // Tie-break rule: Must win by at least 2 points, and winner must have at least 7 points (e.g., 7-5, 8-6)
-                tiebreakValid = (numTbWinner >= 7) && (numTbWinner - numTbLoser >= 2);
+                const numTbWinner = parseInt(tbWinnerVal, 10);
+                const numTbLoser = parseInt(tbLoserVal, 10);
+                // THIS IS THE FIX: Correctly validates all valid tie-break scores.
+                tiebreakValid = (numTbWinner >= 7 && (numTbWinner - numTbLoser) >= 2);
             }
         }
         const isReady = winnerSelected && scoresValid && tiebreakValid;
@@ -3340,8 +3333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const team1Names = getPlayerNames(court.teams.team1);
         const team2Names = getPlayerNames(court.teams.team2);
         let playersToRequeue = [];
-        
-        // Create a new game entry for the history
+
         const newGame = {
             id: Date.now(),
             court: court.id,
@@ -3349,39 +3341,36 @@ document.addEventListener('DOMContentLoaded', () => {
             endTime: Date.now(),
             duration: document.getElementById(`timer-${court.id}`).textContent,
             teams: { team1: team1Names, team2: team2Names },
-            score: null, // Score is always null when skipping
-            winner: 'skipped' // Default winner state
+            score: null,
+            winner: 'skipped'
         };
 
         if (action === 'skip-scores') {
-            // If we are only skipping scores, a winner was selected
             const winnerValue = endGameModal.dataset.winner;
-            if (!winnerValue) return; // Safety check
-            
+            if (!winnerValue) return;
+
             newGame.winner = winnerValue;
             const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
             const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
-            playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
+            // THIS IS THE FIX: All players are returned.
+            playersToRequeue = [...winningPlayers, ...losingPlayers];
 
         } else { // This handles 'skip-result'
-            playersToRequeue = [...court.players].filter(p => !p.guest);
+            // THIS IS THE FIX: All players are returned.
+            playersToRequeue = [...court.players];
         }
 
-        // Save the game to history and update the player queue
         state.gameHistory.push(newGame);
         state.availablePlayers.push(...playersToRequeue);
 
-        // --- THIS IS THE CONSOLIDATED ANNOUNCEMENT LOGIC ---
         const nextAvailableCourtId = findNextAvailableCourtId();
         const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
         const openCourtMessage = nextAvailableCourtId 
             ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
             : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
-        
-        // This will now fire correctly in all skip scenarios
+
         playAlertSound(openCourtMessage);
-        
-        // Finalize the process
+
         resetCourtAfterGame(court.id);
         endGameModal.classList.add("hidden");
         checkAndPlayAlert(false);
@@ -3579,53 +3568,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // MODIFIED: Yes button now handles check-in/out and the force announcement
     // MODIFIED: Yes button now handles check-in/out and the force announcement
     modalBtnYesConfirm.addEventListener("click",()=>{
-        const mode = cancelConfirmModal.dataset.mode;
+    const mode = cancelConfirmModal.dataset.mode;
 
-        if (mode === "checkOutPlayer") {
-            executePlayerCheckOut();
-        } else if (mode === "checkInPlayer") {
-            executePlayerIn();
-        } else if (mode === "cancelGame") {
-            executeGameCancellation();
-        } else if (mode === "callDuty") {
-            executeCallDuty();
-        } else if (mode === "executeReset") {
-            executeAppReset();
-        } else if (mode === "pauseToggle") {
-            executePauseToggle();
-        } 
+    if (mode === "checkOutPlayer") {
+        executePlayerCheckOut();
+    } else if (mode === "checkInPlayer") {
+        executePlayerCheckIn();
+    } else if (mode === "cancelGame") {
+        executeGameCancellation();
+    } else if (mode === "callDuty") {
+        executeCallDuty();
+    } else if (mode === "executeReset") {
+        executeAppReset();
+    } else if (mode === "pauseToggle") {
+        executePauseToggle();
+    } 
+    
+    else if (mode === "forceAnnouncement") {
+        cancelConfirmModal.classList.add("hidden"); 
+        checkAndPlayAlert(true);
+    } else if (mode === "forceAnnouncementNotEnoughPlayers") {
         
-        else if (mode === "forceAnnouncement") {
-            cancelConfirmModal.classList.add("hidden"); 
-            checkAndPlayAlert(true);
-        } else if (mode === "forceAnnouncementNotEnoughPlayers") {
-            
-            const now = Date.now();
-            const FIVE_MINUTES_MS = 5 * 60 * 1000;
-            
-            if (state.notificationControls.isMinimized) {
-                alertScheduleTime = 0; 
-                alertState = 'initial_check'; 
-            } else {
-                alertScheduleTime = now + FIVE_MINUTES_MS;
-                alertState = '5_min_repeat';
-            }
-            
-            const availablePlayerCount = state.availablePlayers.length;
-            const playerNames = state.availablePlayers.map(p => p.name).join(' and ');
-            const playersNeeded = 4 - availablePlayerCount;
-            const pluralS = playersNeeded > 1 ? 's' : '';
-            let message = `Attention ${playerNames}, we are waiting for ${playersNeeded} more player${pluralS} before we can start a match.`;
-            if (availablePlayerCount >= 2) {
-                message += " or start a singles game in the meantime.";
-            }
-            playAlertSound(message); 
-
-            cancelConfirmModal.classList.add("hidden"); 
+        const now = Date.now();
+        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+        
+        if (state.notificationControls.isMinimized) {
+            alertScheduleTime = 0; 
+            alertState = 'initial_check'; 
+        } else {
+            alertScheduleTime = now + FIVE_MINUTES_MS;
+            alertState = '5_min_repeat';
         }
+        
+        const availablePlayerCount = state.availablePlayers.length;
+        const playerNames = state.availablePlayers.map(p => p.name).join(' and ');
+        const playersNeeded = 4 - availablePlayerCount;
+        const pluralS = playersNeeded > 1 ? 's' : '';
+        let message = `Attention ${playerNames}, we are waiting for ${playersNeeded} more player${pluralS} before we can start a match.`;
+        if (availablePlayerCount >= 2) {
+            message += " or start a singles game in the meantime.";
+        }
+        playAlertSound(message); 
 
-        resetConfirmModal();
-    });
+        cancelConfirmModal.classList.add("hidden"); 
+    }
+
+    resetConfirmModal();
+});
     
     const scoreInputs = [winningScoreInput, losingScoreInput, winnerTiebreakInput, loserTiebreakInput];
     scoreInputs.forEach(input => {
