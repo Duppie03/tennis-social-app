@@ -12,7 +12,9 @@
         <img src="source/eldorainge-tennis-logo.png" alt="Club Logo" id="header-logo">
         <div class="header-buttons">
             <div id="weather-display"></div>
-            <button id="historyBtn" class="header-btn secondary">History</button>
+            <button id="historyBtn" class="header-btn secondary">
+                <i class="mdi mdi-history"></i>
+            </button>
         </div>
     </header>
 
@@ -159,7 +161,7 @@
     <div id="choose-teams-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Choose Teams</h3>
-            <p>Select 2 players for Team 1. The rest will be Team 2.</p>
+            <p>Select 2 players for Team 1.<br>The rest will be Team 2.</p>
             <div id="modal-player-list" class="modal-player-list"></div>
             <div class="modal-actions">
                 <button id="modal-cancel-btn">Cancel</button>
@@ -179,7 +181,7 @@
         </div>
     </div>
 
-<div id="guest-name-modal" class="modal-overlay hidden">
+    <div id="guest-name-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Add New Player</h3>
             <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
@@ -223,12 +225,32 @@
 
     <div id="check-in-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Check In</h3>
-            <p>Select the '+' next to the player to check in.</p>
-            <ul id="check-in-list" class="modal-action-list scrollable"></ul>
+            <h3>Check In Player</h3>
+            <p>Select a member, choose a returning guest, or add a new player.</p>
+            <div class="list-container">
+                <div id="check-in-abc-index" class="abc-index"></div>
+                <ul id="check-in-list" class="modal-action-list scrollable"></ul>
+            </div>
+            <div class="modal-actions" style="grid-template-columns: 1fr 1fr; display: grid;">
+                <button id="returning-guest-btn" class="action-btn neutral">Returning Guest</button>
+                <button id="add-new-player-btn" class="action-btn">Add New Player</button>
+            </div>
             <div class="modal-actions">
-                <button id="add-guest-btn" class="action-btn" style="background-color: #007bff; border-color: #007bff;">Add Guest</button>
                 <button id="check-in-cancel-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="returning-guest-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Check In Returning Guest</h3>
+            <p>Select the '+' next to the guest to check them in.</p>
+            <div class="list-container">
+                <div id="returning-guest-abc-index" class="abc-index"></div>
+                <ul id="returning-guest-list" class="modal-action-list scrollable"></ul>
+            </div>
+            <div class="modal-actions">
+                <button id="returning-guest-cancel-btn">Back</button>
             </div>
         </div>
     </div>
@@ -237,7 +259,10 @@
         <div class="modal-content">
             <h3>Check Out Player</h3>
             <p>Select the 'X' next to the player to check out.</p>
-            <ul id="check-out-list" class="modal-action-list scrollable"></ul>
+            <div class="list-container">
+                <div id="check-out-abc-index" class="abc-index"></div>
+                <ul id="check-out-list" class="modal-action-list scrollable"></ul>
+            </div>
             <div class="modal-actions">
                 <button id="check-out-cancel-btn">Close</button>
             </div>
@@ -358,7 +383,85 @@
             </div>
         </div>
     </div>
-    
-        <script src="script.js"></script>
+
+    <div id="current-weather-modal" class="modal-overlay hidden">
+        <div class="modal-content weather-modal">
+            <div class="modal-header-with-actions">
+                <h3>Current Weather</h3>
+                <span id="cw-time">8:00 AM</span>
+            </div>
+            <div class="weather-main">
+                <div class="weather-temp-icon">
+                    <span id="cw-icon" class="weather-icon-large"></span>
+                    <span id="cw-temp" class="weather-temp-large">15°</span>
+                </div>
+                <div class="weather-feels-like">
+                    <p>RealFeel® <span id="cw-realfeel">13°</span></p>
+                    <p>RealFeel Shade™ <span id="cw-realfeel-shade">13°</span></p>
+                </div>
+            </div>
+            <p id="cw-description" class="weather-description">Cloudy</p>
+            <div class="weather-grid">
+                <div class="weather-item">
+                    <span>Wind</span>
+                    <strong id="cw-wind">WSW 15 km/h</strong>
+                </div>
+                <div class="weather-item">
+                    <span>Wind Gusts</span>
+                    <strong id="cw-wind-gusts">39 km/h</strong>
+                </div>
+                <div class="weather-item">
+                    <span>Air Quality</span>
+                    <strong id="cw-air-quality" class="aqi-poor">Poor</strong>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cw-close-btn">Close</button>
+                <button id="cw-more-details-btn" class="action-btn">More Details</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailed-weather-modal" class="modal-overlay hidden">
+        <div class="modal-content weather-modal wide">
+            <div id="detailed-weather-content">
+                <div class="weather-section">
+                    <h4>Detailed Current Weather</h4>
+                    <div class="weather-grid">
+                        <div class="weather-item"><span>Max UV Index</span><strong id="dw-uv">0.4 (Low)</strong></div>
+                        <div class="weather-item"><span>Dew Point</span><strong id="dw-dewpoint">12°</strong></div>
+                        <div class="weather-item"><span>Humidity</span><strong id="dw-humidity">81%</strong></div>
+                        <div class="weather-item"><span>Pressure</span><strong id="dw-pressure">↑ 1015 mb</strong></div>
+                        <div class="weather-item"><span>Cloud Cover</span><strong id="dw-cloud-cover">95%</strong></div>
+                        <div class="weather-item"><span>Visibility</span><strong id="dw-visibility">16 km</strong></div>
+                    </div>
+                </div>
+                <div class="weather-section">
+                    <div class="weather-tabs">
+                        <button class="tab active" data-view="day">Day</button>
+                        <button class="tab" data-view="morning">Morning</button>
+                        <button class="tab" data-view="afternoon">Afternoon</button>
+                    </div>
+                    <div class="weather-main-forecast">
+                        <div class="weather-temp-icon">
+                            <span id="forecast-icon" class="weather-icon-large"></span>
+                            <span id="forecast-temp" class="weather-temp-large">25°</span>
+                        </div>
+                        <div class="weather-feels-like">
+                            <p>RealFeel® <span id="forecast-realfeel">27°</span></p>
+                            <p>RealFeel Shade™ <span id="forecast-realfeel-shade">23°</span></p>
+                        </div>
+                    </div>
+                    <p id="forecast-description" class="weather-description">A thunderstorm this morning; otherwise, clouds and sun</p>
+                    <div id="forecast-grid" class="weather-grid">
+                        </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="dw-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>

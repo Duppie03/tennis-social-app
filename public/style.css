@@ -58,7 +58,7 @@ header h1 { margin: 0; }
 .header-buttons {
     display: flex;
     align-items: center;
-    gap: var(--gap);
+    gap: 0; /* Set gap to 0 */
     justify-content: flex-end;
 }
 .container {
@@ -157,6 +157,7 @@ header h1 { margin: 0; }
     padding: 0 !important;
     max-height: none !important; 
     height: 120px !important;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .court-confirm-btn.select-court:hover {
@@ -914,6 +915,7 @@ header h1 { margin: 0; }
     max-height: none !important;
     height: 120px !important;
     transition: transform 0.2s;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .court-confirm-btn.end-game-ball:hover {
@@ -1190,11 +1192,25 @@ header h1 { margin: 0; }
 .header-btn.secondary {
     background-color: transparent;
     color: white;
-    border: 1px solid white;
+    border: none; /* Changed from '1px solid white' */
 }
 .header-btn.secondary:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* --- Styles for the Icon Button --- */
+#historyBtn {
+    padding: 0.5rem;
+    line-height: 1;
+    font-size: 1.8rem;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -1.0rem; /* Add negative margin to pull it closer */
+}
+
 
 .cancel-game-btn.on-court {
     position: absolute;
@@ -2375,10 +2391,50 @@ input:checked + .slider:before {
     display: none;
 }
 
+.list-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.modal-action-list.scrollable {
+    flex-grow: 1;
+}
+
+.abc-index {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-right: 10px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.abc-index div {
+    cursor: pointer;
+    padding: 1px 4px;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--primary-blue);
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.abc-index div:hover {
+    background-color: var(--light-blue);
+    border-radius: 4px;
+}
+
+.abc-index div.active {
+    background-color: var(--primary-blue);
+    color: white;
+    border-radius: 4px;
+}
+
 
 /* =================================
     Responsive Adjustments
-    ================================= */
+================================= */
 @media (max-width: 900px) {
     header {
         padding: 1rem 1rem;
@@ -2437,36 +2493,55 @@ input:checked + .slider:before {
     .history-teams {
         padding-top: 0.5rem;
     }
-    /* Hide the date and time overlay on mobile */
+
     #time-overlay {
         display: none;
     }
     
-    /* Adjust info bar font size on mobile */
     #info-bar p {
         font-size: 1.1rem;
     }
 
     .content-columns {
         flex-direction: column;
-        gap: 1rem; /* CHANGE THIS FROM 1.5rem */
+        gap: 1rem;
     }
 
-    /* 1. SHOW TOGGLE BUTTON ON MOBILE */
     .summary-toggle-btn {
         display: block !important;
     }
 
-    /* 2. ENSURE SUMMARY CARD COLLAPSE HEIGHT IS CORRECT FOR MOBILE */
     .summary-card.is-collapsed .card-body {
-        max-height: 120px; /* Safe height for only on-duty section */
+        max-height: 120px;
     }
 
-    #historyBtn {
-        display: none !important;
+    .modal-overlay {
+        padding: 0 1rem;
+        box-sizing: border-box;
     }
 
+    #custom-keypad-modal,
+    #custom-alpha-keypad-modal {
+        align-items: flex-end;
+    }
 
+    #custom-keypad-modal .keypad-content,
+    #custom-alpha-keypad-modal .keypad-content {
+        border-radius: 8px 8px 0 0;
+        max-width: 100%;
+        margin-bottom: 0;
+        padding-bottom: 1rem;
+    }
+
+    /* Styles for the Weather Modal on mobile */
+    .weather-main, .weather-main-forecast {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    .weather-temp-large { font-size: 3.5rem; }
+    .weather-icon-large { font-size: 3rem; }
 }
 
 /* For very narrow phones in portrait (e.g., < 500px) */
@@ -2512,8 +2587,24 @@ input:checked + .slider:before {
         max-height: 120px; /* Safe height for only on-duty section */
     }
 
-    #historyBtn {
-        display: none !important;
+    /* --- REVISED RULE FOR MOBILE MODAL PADDING --- */
+    .modal-overlay {
+        padding: 0 1rem;
+        box-sizing: border-box; /* Ensures padding is included in the total width */
+    }
+
+    /* --- NEW STYLES FOR MOBILE KEYPADS --- */
+    #custom-keypad-modal,
+    #custom-alpha-keypad-modal {
+        align-items: flex-end; /* Aligns the keypad to the bottom */
+    }
+
+    #custom-keypad-modal .keypad-content,
+    #custom-alpha-keypad-modal .keypad-content {
+        border-radius: 8px 8px 0 0; /* Rounds only the top corners */
+        max-width: 100%; /* Ensures it doesn't exceed screen width */
+        margin-bottom: 0; /* Removes any bottom margin */
+        padding-bottom: 1rem; /* ADD THIS LINE */
     }
 
 }
@@ -2570,3 +2661,144 @@ input:checked + .slider:before {
     padding: 0.4rem 0.8rem !important; /* Reset padding to standard li */
     margin: 2px 0; /* Reset margin to standard li */
 }
+
+.teams-not-set {
+    position: absolute;
+    bottom: 5px;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-shadow: 1px 1px 2px black;
+    z-index: 4;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.court-confirm-btn.choose-later {
+    background-color: var(--neutral-color);
+}
+
+/* =================================
+    New Weather Modal Styles
+    ================================= */
+
+.weather-modal {
+    padding: 1.5rem;
+}
+.weather-modal h3, .weather-modal h4 {
+    margin: 0;
+    color: var(--primary-blue);
+}
+.weather-modal .modal-header-with-actions {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.weather-modal .modal-header-with-actions span {
+    font-size: 0.9em;
+    color: var(--neutral-color);
+}
+
+.weather-main {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+.weather-temp-icon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.weather-icon-large {
+    font-size: 3.5rem;
+    line-height: 1;
+}
+.weather-temp-large {
+    font-size: 4rem;
+    font-weight: 300;
+    line-height: 1;
+}
+.weather-feels-like p {
+    margin: 0;
+    font-size: 0.9em;
+    color: var(--neutral-color);
+}
+.weather-feels-like span {
+    font-weight: bold;
+    color: var(--dark-text);
+}
+.weather-description {
+    font-size: 1.1em;
+    margin: 0.5rem 0 1.5rem 0;
+}
+.weather-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
+.weather-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+.weather-item span {
+    color: var(--neutral-color);
+    font-size: 0.9em;
+}
+.weather-item strong {
+    font-size: 1.1em;
+}
+.aqi-poor {
+    color: var(--inactive-color);
+    font-weight: bold;
+}
+.aqi-good {
+    color: var(--confirm-color);
+}
+
+#detailed-weather-modal.modal-overlay .modal-content {
+    max-width: 700px;
+}
+.weather-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed var(--border-color);
+}
+.weather-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.weather-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.weather-tabs .tab {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background-color: #f0f0f0;
+    color: var(--dark-text);
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.weather-tabs .tab.active {
+    background-color: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+.weather-main-forecast {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 1rem 0 0.5rem 0;
+}
+

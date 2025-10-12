@@ -1,42 +1,44 @@
+
 document.addEventListener('DOMContentLoaded', () => {
 
-// DEFINITIVE MASTER LIST OF ALL MEMBERS
-    const MASTER_MEMBER_LIST = [
-        { name: "Francois du Plessis", gender: "M", guest: false, committee: "Chairman", isPaused: false },
-        { name: "Franco da Silva", gender: "M", guest: false, committee: "Vice Chairman", isPaused: false },
-        { name: "Rene da Silva", gender: "F", guest: false, committee: "Treasurer", isPaused: false },
-        { name: "Deirdre du Plessis", gender: "F", guest: false, committee: "Secretary", isPaused: false },
-        { name: "Reinier du Plessis", gender: "M", guest: false, committee: "Maintenance", isPaused: false },
-        { name: "Lehan van Aswegen", gender: "M", guest: false, committee: "Committee Social", isPaused: false },
-        { name: "Dave Bester", gender: "M", guest: false, committee: "Committee Social", isPaused: false },
-        { name: "Raymond Jasi", gender: "M", guest: false, committee: "Committee", isPaused: false },
-        { name: "Rosco Dredge", gender: "M", guest: false, isPaused: false },
-        { name: "Claire Dredge", gender: "F", guest: false, isPaused: false },
-        { name: "Karla Agenbag", gender: "F", guest: false, isPaused: false },
-        { name: "Justin Hammann", gender: "M", guest: false, isPaused: false },
-        { name: "Carin Venter", gender: "F", guest: false, isPaused: false },
-        { name: "Ivan Erasmus", gender: "M", guest: false, isPaused: false },
-        { name: "Reece Erasmus", gender: "M", guest: false, isPaused: false },
-        { name: "Jan Erasmus", gender: "M", guest: false, isPaused: false },
-        { name: "Lusanda Chirwa", gender: "F", guest: false, isPaused: false },
-        { name: "Simon Smith", gender: "M", guest: false, isPaused: false },
-        { name: "Peter Jones", gender: "M", guest: false, isPaused: false },
-        { name: "Mary Jane", gender: "F", guest: false, isPaused: false },
-        { name: "John Doe", gender: "M", guest: false, isPaused: false },
-        { name: "Sarah Connor", gender: "F", guest: false, isPaused: false },
-        { name: "Mike Williams", gender: "M", guest: false, isPaused: false },
-        { name: "Linda Green", gender: "F", guest: false, isPaused: false },
-        { name: "Tom Harris", gender: "M", guest: false, isPaused: false },
-        { name: "Patricia King", gender: "F", guest: false, isPaused: false },
-        { name: "David Wright", gender: "M", guest: false, isPaused: false },
-        { name: "Susan Hill", gender: "F", guest: false, isPaused: false }
-    ];
+    let MASTER_MEMBER_LIST = []; // Will be populated from the CSV file
+
+    // --- NEW HELPER FUNCTION TO PARSE CSV DATA ---
+    function parseCSV(csvText) {
+        const lines = csvText.trim().split('\n'); // FIX: Changed '\\n' to '\n'
+        const headers = lines[0].split(',').map(h => h.trim());
+        const result = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const entry = {};
+            headers.forEach((header, index) => {
+                const value = values[index];
+                // Convert to appropriate types based on your original data structure
+                if (header === 'guest' || header === 'isPaused') {
+                    entry[header] = (value.toLowerCase() === 'true');
+                } else if (value) { // Only add if there is a value
+                    entry[header] = value;
+                }
+            });
+            // Add the default values that are not in the CSV
+            entry.guest = false;
+            entry.isPaused = false;
+            result.push(entry);
+        }
+        return result;
+    }
+
+    
+
     
     // Define the preferred court hierarchy
     const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E'];
 
     // --- STATE MANAGEMENT ---
     let state = {
+        detailedWeatherView: 'day', // 'day', 'morning', 'afternoon'
+        weatherData: null,
+
         clubMembers: [...MASTER_MEMBER_LIST].sort((a, b) => a.name.localeCompare(b.name)),
         availablePlayers: [],
         courts: [
@@ -61,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             players: [],
             courtId: null
         },
+        guestHistory: [], // NEW: To store guest data
         gameHistory: [],
         reorderHistory: [],
         historyViewMode: 'games',
@@ -278,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getPlayerNames(playerObjects) { return playerObjects.map(p => p.name); }
     function totalPlayersAtClub(){ let total = state.availablePlayers.length; state.courts.forEach(court => { if (court.players) { total += court.players.length; } }); return total; }
     function saveState(){ localStorage.setItem("tennisSocialAppState", JSON.stringify(state)); }
-    function loadState(){
+    function loadState(MASTER_MEMBER_LIST){ // Add parameter here
         const savedState = localStorage.getItem("tennisSocialAppState");
         if (savedState) {
             const loaded = JSON.parse(savedState);
@@ -318,6 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     removedPlayers: [], 
                     addedPlayers: [] 
                 };
+            }
+
+            if (!state.guestHistory) {
+                state.guestHistory = [];
             }
             
             const ensurePlayerObjects = (playerList, defaultList) => { return playerList.map(player => { if (typeof player === 'string') { const defaultPlayer = defaultList.find(p => p.name === player); return defaultPlayer || { name: player, gender: '?', guest: true }; } return player; }); };
@@ -404,12 +411,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function getWindDirection(degrees) {
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
+    }
+
+    function getAqiLabel(value) {
+        if (value <= 20) return 'Good';
+        if (value <= 40) return 'Fair';
+        if (value <= 60) return 'Moderate';
+        if (value <= 80) return 'Poor';
+        if (value <= 100) return 'Very Poor';
+        return 'Extremely Poor';
+    }
+
+
+
  /**
      * Translates a WMO weather code into a display icon.
      * @param {number} code The WMO weather code from the API.
      * @param {boolean} isDay Whether it is currently daytime (defaults to true).
      * @returns {string} An emoji character representing the weather.
      */
+    function wmoCodeToText(code, isSpecificTime = false) {
+        switch (code) {
+            case 0: return 'Clear sky';
+            case 1: return 'Mainly clear';
+            case 2: return 'Partly cloudy';
+            case 3: return 'Overcast';
+            case 45: case 48: return 'Fog';
+            case 51: case 53: case 55: return 'Drizzle';
+            case 56: case 57: return 'Freezing Drizzle';
+            case 61: return 'Slight rain';
+            case 63: return 'Moderate rain';
+            case 65: return 'Heavy rain';
+            case 66: case 67: return 'Freezing Rain';
+            case 71: case 73: case 75: return 'Snow fall';
+            case 77: return 'Snow grains';
+            case 80: case 81: case 82: return 'Rain showers';
+            case 85: case 86: return 'Snow showers';
+            case 95: return 'Thunderstorm';
+            case 96: case 99: return isSpecificTime ? 'Thunderstorm with hail' : 'A thunderstorm this morning; otherwise, clouds and sun';
+            default: return 'Unknown';
+        }
+    }
+
     function getWeatherIcon(code, isDay = true) {
         switch (code) {
             case 0: return isDay ? '☀️' : '🌙'; // Clear sky
@@ -430,10 +477,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Fetches and displays the weather forecast for Eldoraigne, Centurion.
-     * Animates between high temp, low temp, and dew point with corresponding icons.
-     */
+    function getWindDirection(degrees) {
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
+    }
+
+    function getAqiLabel(value) {
+        if (value <= 20) return 'Good';
+        if (value <= 40) return 'Fair';
+        if (value <= 60) return 'Moderate';
+        if (value <= 80) return 'Poor';
+        if (value <= 100) return 'Very Poor';
+        return 'Extremely Poor';
+    }
+
+
+    // A new, dedicated function to set up weather modal listeners
+    function initWeatherListeners() {
+        // Check if listeners are already attached to prevent duplicates
+        if (document.body.dataset.weatherListenersAttached === 'true') {
+            return;
+        }
+
+        const currentWeatherModal = document.getElementById('current-weather-modal');
+        const detailedWeatherModal = document.getElementById('detailed-weather-modal');
+
+        // Main weather display click
+        document.getElementById('weather-display').addEventListener('click', () => {
+            if (state.weatherData) { // Only open if data is loaded
+                currentWeatherModal.classList.remove('hidden');
+            }
+        });
+
+        // Close buttons
+        document.getElementById('cw-close-btn').addEventListener('click', () => {
+            currentWeatherModal.classList.add('hidden');
+        });
+        document.getElementById('dw-close-btn').addEventListener('click', () => {
+            detailedWeatherModal.classList.add('hidden');
+        });
+
+        // "More Details" button
+        document.getElementById('cw-more-details-btn').addEventListener('click', () => {
+            currentWeatherModal.classList.add('hidden');
+            detailedWeatherModal.classList.remove('hidden');
+        });
+
+        // Morning/Afternoon/Day tabs
+        document.querySelectorAll('.weather-tabs .tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                state.detailedWeatherView = e.target.dataset.view;
+                renderDetailedWeatherModal(); // This re-renders the content, updating the view
+            });
+        });
+
+        // Mark listeners as attached to avoid re-adding them
+        document.body.dataset.weatherListenersAttached = 'true';
+    }
+
+
     async function fetchWeather() {
         const weatherDisplay = document.getElementById('weather-display');
         if (!weatherDisplay) return;
@@ -501,36 +604,234 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentState = 0; // 0 = Max, 1 = Min, 2 = Dew
             const totalStates = 3;
 
-            const animate = () => {
+            // Clear any existing interval to prevent multiple animations running
+            if (window.weatherAnimationInterval) {
+                clearInterval(window.weatherAnimationInterval);
+            }
+
+            window.weatherAnimationInterval = setInterval(() => {
                 const nextState = (currentState + 1) % totalStates;
 
-                const iconToHide = elements.icons[currentState];
-                const tempToHide = elements.temps[currentState];
+                elements.icons[currentState].classList.remove('is-visible');
+                elements.temps[currentState].classList.remove('is-visible');
                 
-                const iconToShow = elements.icons[nextState];
-                const tempToShow = elements.temps[nextState];
-
-                // 1. After a delay, fade out the current elements
-                setTimeout(() => {
-                    iconToHide.classList.remove('is-visible');
-                    tempToHide.classList.remove('is-visible');
-                }, 4500); // Start fade-out at 4.5s
-
-                // 2. At the 5s mark, fade in the new elements
-                setTimeout(() => {
-                    iconToShow.classList.add('is-visible');
-                    tempToShow.classList.add('is-visible');
-                    currentState = nextState; // Update the state for the next cycle
-                }, 5000); // This creates the 0.5s gap
-            };
-            
-            setInterval(animate, 5000); // Run this sequence every 5 seconds
+                elements.icons[nextState].classList.add('is-visible');
+                elements.temps[nextState].classList.add('is-visible');
+                
+                currentState = nextState;
+            }, 5000); // Run this sequence every 5 seconds
 
         } catch (error) {
             console.error('Failed to fetch weather:', error);
-            weatherDisplay.textContent = 'Weather unavailable';
+            // Fallback display on API error
+            const lowTemp = 12; // Placeholder low temperature
+            const highTemp = 25; // Placeholder high temperature
+            
+            weatherDisplay.innerHTML = `
+                <div id="temp-fader">
+                    <span class="temp-min is-visible">${lowTemp}°C</span>
+                    <span class="temp-max">${highTemp}°C</span>
+                </div>`;
+
+            if (window.weatherAnimationInterval) {
+                clearInterval(window.weatherAnimationInterval);
+            }
+            
+            let isLowVisible = true;
+            window.weatherAnimationInterval = setInterval(() => {
+                const lowEl = weatherDisplay.querySelector('.temp-min');
+                const highEl = weatherDisplay.querySelector('.temp-max');
+                if (lowEl && highEl) {
+                    lowEl.classList.toggle('is-visible', !isLowVisible);
+                    highEl.classList.toggle('is-visible', isLowVisible);
+                    isLowVisible = !isLowVisible;
+                }
+            }, 5000);
         }
     }
+
+    function renderCurrentWeatherModal() {
+        if (!state.weatherData) return;
+        const { current } = state.weatherData;
+
+        document.getElementById('cw-time').textContent = current.time;
+        document.getElementById('cw-icon').textContent = getWeatherIcon(current.weatherCode);
+        document.getElementById('cw-temp').textContent = `${current.temp}°`;
+        document.getElementById('cw-realfeel').textContent = `${current.realFeel}°`;
+        document.getElementById('cw-realfeel-shade').textContent = `${current.realFeel}°`; // Current doesn't have shade
+        document.getElementById('cw-description').textContent = wmoCodeToText(current.weatherCode);
+        document.getElementById('cw-wind').textContent = `${current.windDir} ${current.windSpeed} km/h`;
+        document.getElementById('cw-wind-gusts').textContent = `${current.windGusts} km/h`;
+        const aqiEl = document.getElementById('cw-air-quality');
+        aqiEl.textContent = getAqiLabel(current.aqi);
+        aqiEl.className = `aqi-${getAqiLabel(current.aqi).toLowerCase().replace(' ','')}`;
+    }
+
+    function renderDetailedWeatherModal() {
+        if (!state.weatherData) return;
+        const { current, day, morning, afternoon } = state.weatherData;
+        const view = state.detailedWeatherView;
+
+        // Update active tab
+        document.querySelectorAll('.weather-tabs .tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.view === view);
+        });
+
+        // Populate top section (Detailed Current)
+        document.getElementById('dw-uv').textContent = `${current.uv} (Low)`;
+        document.getElementById('dw-dewpoint').textContent = `${current.dewPoint}°`;
+        document.getElementById('dw-humidity').textContent = `${current.humidity}%`;
+        document.getElementById('dw-pressure').textContent = `↑ ${current.pressure} mb`;
+        document.getElementById('dw-cloud-cover').textContent = `${current.cloudCover}%`;
+        document.getElementById('dw-visibility').textContent = `${current.visibility} km`;
+
+        // Populate bottom section (Forecast) based on view
+        let forecastData;
+        let gridHtml = '';
+        switch (view) {
+            case 'morning':
+                forecastData = morning;
+                gridHtml = `
+                    <div class="weather-item"><span>Wind</span><strong>${forecastData.windDir} ${forecastData.windSpeed} km/h</strong></div>
+                    <div class="weather-item"><span>Precipitation</span><strong>${forecastData.precipitation} mm</strong></div>
+                    <div class="weather-item"><span>Wind Gusts</span><strong>${forecastData.windGusts} km/h</strong></div>
+                    <div class="weather-item"><span>Prob. of Precip.</span><strong>${forecastData.precipProb}%</strong></div>
+                    <div class="weather-item"><span>Humidity</span><strong>${forecastData.humidity}%</strong></div>
+                    <div class="weather-item"><span>Cloud Cover</span><strong>${forecastData.cloudCover}%</strong></div>`;
+                break;
+            case 'afternoon':
+                forecastData = afternoon;
+                gridHtml = `
+                    <div class="weather-item"><span>Wind</span><strong>${forecastData.windDir} ${forecastData.windSpeed} km/h</strong></div>
+                    <div class="weather-item"><span>Precipitation</span><strong>${forecastData.precipitation} mm</strong></div>
+                    <div class="weather-item"><span>Wind Gusts</span><strong>${forecastData.windGusts} km/h</strong></div>
+                    <div class="weather-item"><span>Prob. of Precip.</span><strong>${forecastData.precipProb}%</strong></div>
+                    <div class="weather-item"><span>Humidity</span><strong>${forecastData.humidity}%</strong></div>
+                    <div class="weather-item"><span>Cloud Cover</span><strong>${forecastData.cloudCover}%</strong></div>`;
+                break;
+            case 'day':
+            default:
+                forecastData = day;
+                gridHtml = `
+                    <div class="weather-item"><span>Max UV Index</span><strong>${forecastData.uv} (Very High)</strong></div>
+                    <div class="weather-item"><span>Precipitation</span><strong>${forecastData.precipitation} mm</strong></div>
+                    <div class="weather-item"><span>Max Wind</span><strong>${forecastData.windSpeed} km/h</strong></div>
+                    <div class="weather-item"><span>Max Wind Gusts</span><strong>${forecastData.windGusts} km/h</strong></div>
+                    <div class="weather-item"><span>Prob. of Precip.</span><strong>${forecastData.precipProb}%</strong></div>
+                    <div class="weather-item"><span>Cloud Cover</span><strong>${forecastData.cloudCover}%</strong></div>`;
+                break;
+        }
+
+        document.getElementById('forecast-icon').textContent = getWeatherIcon(forecastData.weatherCode);
+        document.getElementById('forecast-temp').textContent = `${forecastData.temp}°`;
+        document.getElementById('forecast-realfeel').textContent = `${forecastData.realFeel}°`;
+        document.getElementById('forecast-realfeel-shade').textContent = `${forecastData.realFeelShade}°`;
+        document.getElementById('forecast-description').textContent = wmoCodeToText(forecastData.weatherCode, view !== 'day');
+        document.getElementById('forecast-grid').innerHTML = gridHtml;
+    }
+
+
+    function populateAbcIndex(playerList, listElement, indexElement) {
+        const firstLetters = [...new Set(playerList.map(player => player.name[0].toUpperCase()))].sort();
+        indexElement.innerHTML = '';
+
+        // Define the scroll handler function once
+        const scrollHandler = () => {
+            updateActiveIndexLetter(listElement, indexElement);
+        };
+
+        // Clean up any previous listener before attaching a new one
+        if (listElement._scrollHandler) {
+            listElement.removeEventListener('scroll', listElement._scrollHandler);
+        }
+
+        // Attach the listener and store a reference to it
+        listElement.addEventListener('scroll', scrollHandler);
+        listElement._scrollHandler = scrollHandler;
+
+        firstLetters.forEach(letter => {
+            const letterDiv = document.createElement('div');
+            letterDiv.textContent = letter;
+            letterDiv.addEventListener('click', () => {
+                // 1. Immediately remove the scroll listener to prevent it from firing
+                listElement.removeEventListener('scroll', listElement._scrollHandler);
+
+                // 2. Manually set the active class on the clicked letter
+                const allLetters = indexElement.querySelectorAll('div');
+                allLetters.forEach(el => el.classList.remove('active'));
+                letterDiv.classList.add('active');
+
+                // 3. Find the corresponding player and scroll to them
+                const playerToShow = listElement.querySelector(`[data-player-name^="${letter}"], [data-player-name^="${letter.toLowerCase()}"]`);
+                if (playerToShow) {
+                    playerToShow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+
+                // 4. After a delay (allowing the scroll to finish), re-attach the listener
+                setTimeout(() => {
+                    listElement.addEventListener('scroll', listElement._scrollHandler);
+                }, 500); // 500ms is a safe delay for the smooth scroll to complete
+            });
+            indexElement.appendChild(letterDiv);
+        });
+    }
+
+    function updateActiveIndexLetter(listElement, indexElement) {
+        if (!listElement || !indexElement) return;
+
+        const listTop = listElement.getBoundingClientRect().top;
+        const listItems = Array.from(listElement.querySelectorAll('li[data-player-name]'));
+        let activeLetter = '';
+
+        // Find the first item that is at or below the top of the viewport of the list
+        const topItem = listItems.find(item => item.getBoundingClientRect().top >= listTop);
+
+        if (topItem) {
+            activeLetter = topItem.dataset.playerName[0].toUpperCase();
+        } else if (listItems.length > 0) {
+            // If no item is found (scrolled to the bottom past all items), use the last one
+            activeLetter = listItems[listItems.length - 1].dataset.playerName[0].toUpperCase();
+        }
+
+        // Update the highlight class on the index letters
+        const indexLetters = indexElement.querySelectorAll('div');
+        indexLetters.forEach(letterDiv => {
+            letterDiv.classList.toggle('active', letterDiv.textContent === activeLetter);
+        });
+    }
+
+    function setupListWithIndex(playerList, listElement, indexElement) {
+        // 1. Populate the ABC index
+        populateAbcIndex(playerList, listElement, indexElement);
+
+        // 2. Clear any previous listeners to avoid memory leaks
+        if (listElement._scrollHandler) {
+            listElement.removeEventListener('scroll', listElement._scrollHandler);
+        }
+
+        // 3. Define the handler for this specific list
+        listElement._scrollHandler = () => updateActiveIndexLetter(listElement, indexElement);
+
+        // 4. Attach the new listener
+        listElement.addEventListener('scroll', listElement._scrollHandler);
+
+        // 5. Set the initial active letter
+        setTimeout(() => updateActiveIndexLetter(listElement, indexElement), 50);
+
+        // 6. NEW: Align the heights of the index and the list
+        alignIndexHeight(listElement, indexElement);
+    }
+    
+    function alignIndexHeight(listElement, indexElement) {
+        // Use a timeout to ensure the browser has finished rendering before we measure.
+        setTimeout(() => {
+            if (listElement && indexElement) {
+                const listHeight = listElement.offsetHeight;
+                indexElement.style.height = `${listHeight}px`;
+            }
+        }, 0);
+    }
+
     
     function updateAlertStatusTimer() {
         if (!alertStatusDisplay) return;
@@ -630,13 +931,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
                 <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
             `;
-        } else {
-            playerSpotsHTML = `
-                <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
-                <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
-                <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
-                <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
-            `;
+        } else { // Doubles
+            if (court.teamsSet === false) {
+                 playerSpotsHTML = `
+                    <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
+                    <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
+                    <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
+                    <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
+                    <div class="teams-not-set" data-action="choose-teams">Teams not set</div>
+                `;
+            } else {
+                 playerSpotsHTML = `
+                    <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
+                    <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
+                    <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
+                    <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
+                `;
+            }
         }
 
         let overlayHTML = '';
@@ -661,6 +972,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="team-selection-overlay">
                     <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
                     <button class="court-confirm-btn choose" data-action="choose-teams">Choose Teams</button>
+                    <button class="court-confirm-btn choose-later" data-action="choose-later">Choose Later</button>
                 </div>
             `;
         } else if (court.status === 'game_pending') {
@@ -1217,11 +1529,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const action = e.target.dataset.action;
     const courtId = courtCard.dataset.courtId;
 
+    const teamsNotSet = e.target.closest(".teams-not-set");
+    if (teamsNotSet) {
+        handleChooseTeams(courtId);
+        return;
+    }
+
     // --- Explicit Action Handlers ---
 
     // These actions are on the team selection overlay
     if (action === 'randomize-teams') {
         handleRandomizeTeams(courtId);
+        return;
+    }
+    if (action === 'choose-later') {
+        handleChooseLater(courtId);
         return;
     }
     if (action === 'choose-teams') {
@@ -1692,39 +2014,73 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
         saveState();
     }
-    function handleRandomizeTeams(courtId){ const court = state.courts.find(c => c.id === courtId); let players = [...court.players].sort(() => 0.5 - Math.random()); court.teams.team1 = [players[0], players[1]]; court.teams.team2 = [players[2], players[3]]; court.status = "game_pending"; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
-    //function handleChooseTeams(courtId){ chooseTeamsModal.classList.remove("hidden"); modalPlayerList.innerHTML = ""; const court = state.courts.find(c => c.id === courtId); court.players.forEach(player => { const div = document.createElement("div"); div.className = "modal-player"; div.textContent = player.name; div.dataset.player = player.name; modalPlayerList.appendChild(div); }); chooseTeamsModal.dataset.courtId = courtId; }
-    function handleChooseTeams(courtId){ 
-        chooseTeamsModal.classList.remove("hidden"); 
+    function handleChooseLater(courtId){ const court = state.courts.find(c => c.id === courtId); court.status = "game_pending"; court.teamsSet = false; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
+    function handleRandomizeTeams(courtId){ const court = state.courts.find(c => c.id === courtId); let players = [...court.players].sort(() => 0.5 - Math.random()); court.teams.team1 = [players[0], players[1]]; court.teams.team2 = [players[2], players[3]]; court.status = "game_pending"; court.teamsSet = true; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
+    function handleModalConfirm(){ 
+        const courtId = chooseTeamsModal.dataset.courtId; 
+        const court = state.courts.find(c => c.id === courtId); 
+        const openedFrom = chooseTeamsModal.dataset.openedFrom; // Get context
         
-        // Clear and reset the modal list
-        modalPlayerList.innerHTML = ""; 
+        const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player); 
+        if (team1Names.length === 2) { 
+            const team1Players = team1Names.map(name => getPlayerByName(name)); 
+            const team2Players = court.players.filter(player => !team1Names.includes(player.name)); 
+            court.teams.team1 = team1Players; 
+            court.teams.team2 = team2Players; 
+            court.teamsSet = true; // Mark teams as set
+            chooseTeamsModal.classList.add("hidden"); 
+            delete chooseTeamsModal.dataset.openedFrom; // Clean up context
+
+            if (openedFrom === 'endgame') {
+                // If opened from end game flow, re-call handleEndGame to show results modal
+                handleEndGame(courtId);
+            } else {
+                // Otherwise, proceed with normal game setup
+                court.status = "game_pending"; 
+                court.autoStartTimeTarget = Date.now() + 60000; 
+                court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); 
+            }
+            render(); 
+            saveState(); 
+        } else { 
+            alert("Please select exactly 2 players for Team 1."); 
+        } 
+    }
+    function handleChooseTeams(courtId, openedFrom = 'setup'){
+        chooseTeamsModal.classList.remove("hidden");
+        chooseTeamsModal.dataset.openedFrom = openedFrom; // Set context for cancel/confirm logic
+
+        // Clear and reset the modal list for a fresh population
+        modalPlayerList.innerHTML = "";
         modalPlayerList.classList.remove('two-row-grid');
-        
-        // FIX: Update button text immediately upon showing modal
+
         document.getElementById('modal-confirm-teams-btn').textContent = "Confirm";
         document.getElementById('modal-cancel-btn').textContent = "Close";
-        
+
         const court = state.courts.find(c => c.id === courtId);
-        
-        // Set up the player list in a two-row grid style
-        if (court && court.players.length === 4) {
-            modalPlayerList.classList.add('two-row-grid'); // Add new class for layout
-            
-            court.players.forEach(player => { 
-                const div = document.createElement("div"); 
-                div.className = "modal-player"; 
-                div.textContent = player.name; 
-                div.dataset.player = player.name; 
-                modalPlayerList.appendChild(div); 
-            }); 
-            chooseTeamsModal.dataset.courtId = courtId; 
+
+        // This is the corrected logic block
+        if (court && court.players && court.players.length > 0) {
+            // Conditionally apply the special grid style only for 4 players
+            if (court.players.length === 4) {
+                modalPlayerList.classList.add('two-row-grid');
+            }
+
+            // This loop now runs for any number of players
+            court.players.forEach(player => {
+                const div = document.createElement("div");
+                div.className = "modal-player";
+                div.textContent = player.name;
+                div.dataset.player = player.name;
+                modalPlayerList.appendChild(div);
+            });
+            chooseTeamsModal.dataset.courtId = courtId;
         }
-        
+
         // Reset confirmation button state
-        modalConfirmBtn.disabled = true; 
+        modalConfirmBtn.disabled = true;
         modalConfirmBtn.classList.remove('modal-confirm-ready');
-        
+
         // Add event listener to handle visual readiness
         modalPlayerList.addEventListener('click', () => {
             const selectedCount = modalPlayerList.querySelectorAll(".selected").length;
@@ -1738,7 +2094,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
-    function handleModalConfirm(){ const courtId = chooseTeamsModal.dataset.courtId; const court = state.courts.find(c => c.id === courtId); const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player); if (team1Names.length === 2) { const team1Players = team1Names.map(name => getPlayerByName(name)); const team2Players = court.players.filter(player => !team1Names.includes(player.name)); court.teams.team1 = team1Players; court.teams.team2 = team2Players; court.status = "game_pending"; chooseTeamsModal.classList.add("hidden"); court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); } else { alert("Please select exactly 2 players for Team 1."); } }
     function handleStartGame(courtId){
         const court = state.courts.find(c => c.id === courtId);
         if (!court) return;
@@ -1805,17 +2160,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (court.gameMode === 'singles') {
                 // Singles format: Player A and Player B are on Court X.
-                announcementMessage = `${team1Names[0]} and ${team2Names[0]} ....are on Court ${court.id}.... Lekker Speel!`;
+                announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ....are on Court ${court.id}.... Lekker Speel!`;
             } else if (court.gameMode === 'doubles') {
-                // Doubles format: its player w & playerx vs player y & player z on Court X... Lekker Speel!
-                const team1String = formatTeamNames(team1Names);
-                const team2String = formatTeamNames(team2Names);
-                
-                announcementMessage = `It's team ${team1String} versus team ${team2String} ....on Court ${court.id}.... Lekker Speel!`;
+                if (court.teamsSet === false) {
+                    const playerNames = getPlayerNames(court.players);
+                    const namesList = formatTeamNames(playerNames);
+                    announcementMessage = `It's ${namesList}, on Court ${court.id}.... Lekker Speel!`;
+                } else {
+                    // Doubles format: its player w & playerx vs player y & player z on Court X... Lekker Speel!
+                    const team1String = formatTeamNames(team1Names);
+                    const team2String = formatTeamNames(team2Names);
+                    
+                    announcementMessage = `It's team ${team1String}, versus team ${team2String} ....on Court ${court.id}.... Lekker Speel!`;
+                }
             } else {
                 // Fallback for other player counts/modes
                 const playerNames = getPlayerNames(court.players);
-                const namesList = playerNames.join(' and ');
+                const namesList = formatTeamNames(playerNames);
                 announcementMessage = `${namesList} are on Court ${court.id}. Game in progress!`;
             }
             
@@ -1838,7 +2199,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleEndGame(courtId){
         const court = state.courts.find(c => c.id === courtId);
         if(!court) return;
-        
+
+        if (court.teamsSet === false) {
+            handleChooseTeams(courtId, 'endgame'); // Pass 'endgame' context
+            return;
+        }
+
         endGameModal.dataset.courtId = courtId;
         const now = new Date();
         const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1930,6 +2296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             court.autoStartTimer = null;
             court.gameStartTime = null;
             court.queueSnapshot = null; // Clear the snapshot after use
+            court.teamsSet = null;      // Add this line right after
             cancelConfirmModal.classList.add("hidden");
             updateGameModeBasedOnPlayerCount();
             enforceDutyPosition(); // Re-check fairness rule on the restored list
@@ -3257,7 +3624,10 @@ function playCustomTTS(message) {
             } else {
                 keypadDisplay.removeAttribute('data-placeholder');
             }
-            keypadDisplay.textContent = activeInput ? activeInput.value : '';
+            
+            // This is the fix: Always clear the display and input value
+            // instead of carrying over the old score.
+            keypadDisplay.textContent = '';
             if (activeInput) activeInput.value = '';
             
             keypadCancelBtn.classList.add('hidden');
@@ -3271,7 +3641,13 @@ function playCustomTTS(message) {
     }
 
     function hideKeypad() { customKeypadModal.classList.add('hidden'); keypadConfig = {}; activeInput = null; }
-    function wireScoreInputToKeypad(input) { input.readOnly = true; input.addEventListener('focus', (e) => { e.preventDefault(); if (activeInput !== e.target) { e.target.select(); } }); input.addEventListener('click', (e) => { showKeypad(e.target); e.target.select(); }); }
+    function wireScoreInputToKeypad(input) { 
+        input.readOnly = true; 
+        input.addEventListener('click', (e) => { 
+            e.preventDefault(); // Prevents double-opening or native keyboards
+            showKeypad(e.target); 
+        }); 
+    }
     const QWERTY_LAYOUT = [ ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], ['Z', 'X', 'C', 'V', 'B', 'N', 'M'] ];
     function generateAlphaKeypad() { alphaKeypadGrid.innerHTML = ''; const displayValue = alphaKeypadDisplay.textContent; const lastChar = displayValue.slice(-1); QWERTY_LAYOUT.forEach((row, index) => { const rowDiv = document.createElement('div'); rowDiv.className = `key-row-${index + 1}`; row.forEach(key => { const button = document.createElement('button'); button.className = 'keypad-btn'; button.dataset.key = key; let char = key; if (displayValue.length === 0 || displayValue.slice(-1) === ' ') { char = key.toUpperCase(); } else { char = key.toLowerCase(); } button.textContent = char; rowDiv.appendChild(button); }); alphaKeypadGrid.appendChild(rowDiv); }); const lastRowDiv = document.createElement('div'); lastRowDiv.className = `key-row-4`; const spaceBtn = document.createElement('button'); spaceBtn.className = 'keypad-btn wide-control control'; spaceBtn.dataset.key = 'space'; spaceBtn.textContent = 'Space'; lastRowDiv.appendChild(spaceBtn); const backspace = document.createElement('button'); backspace.className = 'keypad-btn control'; backspace.dataset.key = 'backspace'; backspace.textContent = '⌫'; lastRowDiv.appendChild(backspace); const done = document.createElement('button'); done.className = 'keypad-btn wide-control confirm'; done.id = 'alpha-keypad-confirm-btn'; done.textContent = 'Done'; lastRowDiv.appendChild(done); alphaKeypadGrid.appendChild(lastRowDiv); document.querySelectorAll('#custom-alpha-keypad-modal .keypad-btn').forEach(button => { button.removeEventListener('click', handleAlphaKeypadClick); button.addEventListener('click', handleAlphaKeypadClick); }); }
     function handleAlphaKeypadClick(e) { const key = e.target.dataset.key; let displayValue = alphaKeypadDisplay.textContent; if (!activeAlphaInput) return; if (key === 'backspace') { displayValue = displayValue.slice(0, -1); } else if (key === 'space') { if (displayValue.length > 0 && displayValue.slice(-1) !== ' ') { displayValue += ' '; } } else if (e.target.id === 'alpha-keypad-confirm-btn') { hideAlphaKeypad(); return; } else { let char = key; if (displayValue.length === 0 || displayValue.slice(-1) === ' ') { char = key.toUpperCase(); } else { char = key.toLowerCase(); } displayValue += char; } alphaKeypadDisplay.textContent = displayValue; activeAlphaInput.value = displayValue; generateAlphaKeypad(); validateGuestForm(); }
@@ -3282,37 +3658,47 @@ function playCustomTTS(message) {
         const firstName = guestNameInput.value.trim();
         const lastName = guestSurnameInput.value.trim();
         const gender = document.querySelector('input[name="guest-gender"]:checked').value;
-        
-        // --- MODIFIED: Read the player type from the new radio buttons ---
         const playerType = document.querySelector('input[name="player-type"]:checked').value;
         const isGuest = playerType === 'guest';
-        // --- END MODIFICATION ---
 
         if (!firstName || !lastName) return;
         
         const formatCase = (str) => str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
         const formattedPlayerName = `${formatCase(firstName)} ${formatCase(lastName)}`;
         
-        // --- MODIFIED: Use the isGuest variable to set the player's status ---
-        const newPlayer = { name: formattedPlayerName, gender: gender, guest: isGuest };
+        const newPlayer = { name: formattedPlayerName, gender: gender, guest: isGuest, isPaused: false };
         
+        if (isGuest) {
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const existingGuest = state.guestHistory.find(g => g.name === formattedPlayerName);
+            if (!existingGuest) {
+                 // This is a brand new guest. Add them to our history.
+                 state.guestHistory.push({
+                    name: formattedPlayerName,
+                    gender: gender,
+                    lastCheckIn: today,
+                    daysVisited: 1,
+                    guest: true
+                });
+            }
+        }
+
         if (!state.availablePlayers.some(p => p.name === newPlayer.name)) {
             state.availablePlayers.push(newPlayer);
         }
         
         guestNameModal.classList.add('hidden');
-        checkInModal.classList.remove('hidden'); // Return to the check-in list
-        populateCheckInModal(); // Refresh the member list in the background
+        checkInModal.classList.remove('hidden'); 
+        populateCheckInModal(); 
         
-        // Reset the form for the next use
         guestNameInput.value = '';
         guestSurnameInput.value = '';
         guestConfirmBtn.disabled = true;
-        document.querySelector('input[name="player-type"][value="guest"]').checked = true; // Default back to Guest
+        document.querySelector('input[name="player-type"][value="guest"]').checked = true;
 
         updateGameModeBasedOnPlayerCount();
         render();
-        saveState();
+        saveState(); // This now saves the updated guestHistory
     }
     function resetConfirmModal(){ 
         setTimeout(() => { 
@@ -3322,9 +3708,44 @@ function playCustomTTS(message) {
             modalBtnNo.textContent = "Close";         // Standardized Text
         }, 300); 
     }
-    function populateCheckInModal(){ checkInList.innerHTML = ""; if (state.clubMembers.length === 0){ const li = document.createElement("li"); li.textContent = "All club members are currently checked in."; li.style.justifyContent = "center"; checkInList.appendChild(li); } else { state.clubMembers.forEach(player => { const li = document.createElement("li"); const displayName = player.guest ? `${player.name} (Guest)` : player.name; li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon add" data-player="${player.name}">+</span> `; checkInList.appendChild(li); }); } }
-    function populateCheckOutModal(){ checkOutList.innerHTML = ""; if (state.availablePlayers.length === 0){ const li = document.createElement("li"); li.textContent = "There are no players currently checked in."; li.style.justifyContent = "center"; checkOutList.appendChild(li); } else { state.availablePlayers.forEach(player => { const li = document.createElement("li"); const displayName = player.guest ? `${player.name} (Guest)` : player.name; li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon remove" data-player="${player.name}">&times;</span> `; checkOutList.appendChild(li); }); } }
 
+    function populateCheckInModal() {
+        checkInList.innerHTML = "";
+        if (state.clubMembers.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "All club members are currently checked in.";
+            li.style.justifyContent = "center";
+            checkInList.appendChild(li);
+        } else {
+            state.clubMembers.forEach(player => {
+                const li = document.createElement("li");
+                const displayName = player.guest ? `${player.name} (Guest)` : player.name;
+                li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon add" data-player="${player.name}">+</span> `;
+                li.dataset.playerName = player.name;
+                checkInList.appendChild(li);
+            });
+        }
+        setupListWithIndex(state.clubMembers, checkInList, document.getElementById('check-in-abc-index'));
+    }
+
+    function populateCheckOutModal() {
+        checkOutList.innerHTML = "";
+        if (state.availablePlayers.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "There are no players currently checked in.";
+            li.style.justifyContent = "center";
+            checkOutList.appendChild(li);
+        } else {
+            state.availablePlayers.forEach(player => {
+                const li = document.createElement("li");
+                const displayName = player.guest ? `${player.name} (Guest)` : player.name;
+                li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon remove" data-player="${player.name}">&times;</span> `;
+                li.dataset.playerName = player.name;
+                checkOutList.appendChild(li);
+            });
+        }
+        setupListWithIndex(state.availablePlayers, checkOutList, document.getElementById('check-out-abc-index'));
+    }
 
 // NEW, DECOUPLED FUNCTION: Handles only the Committee Call announcement sequence
     function playUntimedCall(ttsMessage) {
@@ -3783,28 +4204,98 @@ function playCustomTTS(message) {
         alert("Application has been reset.");
     }
 
-    // --- INITIALIZATION ---
-    loadState();
-    updateGameModeBasedOnPlayerCount();
-    render();
-    updateNotificationIcons(); // NEW: Initial icon update
-    fetchWeather();
+     // --- INITIALIZATION ---
+    async function initializeApp() {
+        try {
+            const response = await fetch('source/members.csv');
+            if (!response.ok) {
+                throw new Error('Could not load member list from members.csv.');
+            }
+            const csvText = await response.text();
+            MASTER_MEMBER_LIST = parseCSV(csvText);
 
-    
-    // START 1-second timers for display updates
-    setInterval(() => {
-        updateTimers();
-        updateAlertStatusTimer();
-    }, 1000);
-    
-    // Start repeating check for alert condition every 10 seconds to ensure alert logic is executed on time
-    const LOGIC_CHECK_INTERVAL_MS = 10 * 1000; // 10 seconds
-    
-    // Run initial check immediately (to kick off the scheduling if conditions are met)
-    checkAndPlayAlert(false);
-    
-    // Start repeating check
-    setInterval(checkAndPlayAlert, LOGIC_CHECK_INTERVAL_MS);
+            // Now that we have the member list, we can proceed
+            loadState(MASTER_MEMBER_LIST);
+            updateGameModeBasedOnPlayerCount();
+            render();
+            updateNotificationIcons();
+            fetchWeather();
+
+            // START 1-second timers for display updates
+            setInterval(() => {
+                updateTimers();
+                updateAlertStatusTimer();
+            }, 1000);
+
+            // Start repeating check for alert condition
+            const LOGIC_CHECK_INTERVAL_MS = 10 * 1000;
+            checkAndPlayAlert(false);
+            setInterval(checkAndPlayAlert, LOGIC_CHECK_INTERVAL_MS);
+
+        } catch (error) {
+            console.error('Failed to initialize application:', error);
+            alert('Error: Could not load master member list. Please ensure "public/source/members.csv" exists and is formatted correctly. The application cannot start.');
+        }
+    }
+
+    initializeApp();
+
+
+    function populateReturningGuestModal() {
+        const returningGuestList = document.getElementById('returning-guest-list');
+        returningGuestList.innerHTML = "";
+
+        const checkedInPlayerNames = new Set([...state.availablePlayers, ...state.courts.flatMap(c => c.players)].map(p => p.name));
+        const availableGuests = state.guestHistory.filter(g => !checkedInPlayerNames.has(g.name));
+
+        if (availableGuests.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "All previous guests are checked in or there is no guest history.";
+            li.style.justifyContent = "center";
+            returningGuestList.appendChild(li);
+        } else {
+            availableGuests.sort((a, b) => a.name.localeCompare(b.name));
+            availableGuests.forEach(guest => {
+                const li = document.createElement("li");
+                const visits = guest.daysVisited || 1;
+                const plural = visits === 1 ? '' : 's';
+                li.innerHTML = `
+                    <div style="display: flex; flex-direction: column; flex-grow: 1;">
+                        <span>${guest.name}</span>
+                        <span style="font-size: 0.8em; color: #6c757d;">${visits} visit${plural}</span>
+                    </div>
+                    <span style="margin-right: 1rem; color: #6c757d;">${guest.gender}</span>
+                    <span class="action-icon add" data-player="${guest.name}">+</span>
+                `;
+                li.dataset.playerName = guest.name;
+                returningGuestList.appendChild(li);
+            });
+        }
+        setupListWithIndex(availableGuests, returningGuestList, document.getElementById('returning-guest-abc-index'));
+    }
+
+    function handleReturningGuestCheckIn(playerName) {
+        const guestData = state.guestHistory.find(g => g.name === playerName);
+        if (!guestData) return;
+
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Only increment daysVisited if it's their first check-in of the day
+        if (guestData.lastCheckIn !== today) {
+            guestData.daysVisited = (guestData.daysVisited || 0) + 1;
+            guestData.lastCheckIn = today;
+        }
+
+        const playerObject = { ...guestData, isPaused: false };
+        state.availablePlayers.push(playerObject);
+
+        document.getElementById('returning-guest-modal').classList.add('hidden');
+        checkInModal.classList.add('hidden');
+        updateGameModeBasedOnPlayerCount();
+        render();
+        saveState();
+        checkAndPlayAlert(false);
+    }   
 
 
 // BIND ALL INITIAL DOM LISTENERS
@@ -3816,7 +4307,25 @@ function playCustomTTS(message) {
     availablePlayersList.addEventListener("click",handlePlayerClick);
     courtGrid.addEventListener("click",handleCourtGridClick);
     modalConfirmBtn.addEventListener("click",handleModalConfirm);
-    modalCancelBtn.addEventListener("click",()=>chooseTeamsModal.classList.add("hidden"));
+    modalCancelBtn.addEventListener("click",()=>{
+        const openedFrom = chooseTeamsModal.dataset.openedFrom;
+        const courtId = chooseTeamsModal.dataset.courtId;
+        chooseTeamsModal.classList.add("hidden");
+        delete chooseTeamsModal.dataset.openedFrom; // Clean up context
+
+        if (openedFrom === 'endgame' && courtId) {
+            // If cancelling from the end game flow, restore the end game button animation
+            const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+            const button = courtCardEl ? courtCardEl.querySelector('.end-game-ball') : null;
+            if (button) {
+                // Reset the button's state and re-apply the appear animation
+                button.classList.remove('hide-anim', 'animate-in');
+                setTimeout(() => {
+                    button.classList.add('animate-in');
+                }, 50);
+            }
+        }
+    });
     modalPlayerList.addEventListener("click",handleModalPlayerClick);
     historyBtn.addEventListener("click",()=>{state.historyViewMode='games'; renderHistory(); historyPage.classList.remove("hidden")});
     historyCloseBtn.addEventListener("click",()=>historyPage.classList.add("hidden"));
@@ -3827,27 +4336,48 @@ function playCustomTTS(message) {
     document.getElementById('end-game-skip-btn').addEventListener('click', handleSkipButtonClick);
     document.getElementById('reset-app-btn').addEventListener('click', handleResetAppClick);
 
-    // ADDED GLOBAL CLICK LISTENER FOR ALL CARD TOGGLES
+    // --- REVISED GLOBAL CLICK LISTENER FOR ALL CARD TOGGLES ---
     document.addEventListener('click', (e) => {
         const toggleButton = e.target.closest('.summary-toggle-btn');
         if (!toggleButton) return;
 
         const cardType = toggleButton.dataset.cardType;
         const courtId = toggleButton.dataset.courtId;
+        let stateChanged = false;
 
+        // Find the parent card element
+        const cardElement = toggleButton.closest('.court-card, .summary-card, #availablePlayersSection');
+        if (!cardElement) return;
+
+        // Find the icon to toggle
+        const icon = toggleButton.querySelector('i');
+
+        // Toggle the visual state directly in the DOM
+        cardElement.classList.toggle('is-collapsed');
+        if (icon) {
+            icon.classList.toggle('mdi-chevron-up');
+            icon.classList.toggle('mdi-chevron-down');
+        }
+
+        // Update the application's internal state so it's remembered
         if (cardType === 'summary') {
             state.mobileControls.isSummaryExpanded = !state.mobileControls.isSummaryExpanded;
+            stateChanged = true;
         } else if (cardType === 'players') {
             state.mobileControls.isPlayersExpanded = !state.mobileControls.isPlayersExpanded;
+            stateChanged = true;
         } else if (cardType === 'court' && courtId) {
             const court = state.courts.find(c => c.id === courtId);
             if (court) {
                 court.isCollapsed = !court.isCollapsed;
+                stateChanged = true;
             }
         }
         
-        saveState();
-        render();
+        // Save the new state, but DO NOT call render()
+        if (stateChanged) {
+            saveState();
+        }
     });
 
     // ADDED WINDOW RESIZE LISTENER FOR AUTOMATIC EXPANSION
@@ -3980,7 +4510,32 @@ function playCustomTTS(message) {
 
     keypadButtons.forEach(button => { button.addEventListener('click', handleKeypadClick); });
     keypadCancelBtn.addEventListener('click', hideKeypad);
-    addGuestBtn.addEventListener("click",()=>{ checkInModal.classList.add('hidden'); guestNameModal.classList.remove('hidden'); guestNameInput.value = ''; guestSurnameInput.value = ''; document.querySelector('input[name="guest-gender"][value="M"]').checked = true; validateGuestForm(); });
+    document.getElementById('add-new-player-btn').addEventListener("click",()=>{ 
+        checkInModal.classList.add('hidden'); 
+        guestNameModal.classList.remove('hidden'); 
+        guestNameInput.value = ''; 
+        guestSurnameInput.value = ''; 
+        document.querySelector('input[name="guest-gender"][value="M"]').checked = true;
+        validateGuestForm(); 
+    });
+
+    document.getElementById('returning-guest-btn').addEventListener("click", () => {
+        checkInModal.classList.add('hidden');
+        populateReturningGuestModal();
+        document.getElementById('returning-guest-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('returning-guest-cancel-btn').addEventListener("click", () => {
+        document.getElementById('returning-guest-modal').classList.add('hidden');
+        checkInModal.classList.remove('hidden');
+    });
+
+    document.getElementById('returning-guest-list').addEventListener("click", e => {
+        if (e.target.classList.contains("add")) {
+            const playerName = e.target.dataset.player;
+            handleReturningGuestCheckIn(playerName);
+        }
+    });
     guestCancelBtn.addEventListener("click",()=>{ guestNameModal.classList.add('hidden'); checkInModal.classList.remove('hidden'); });
     guestConfirmBtn.addEventListener("click", handleGuestCheckIn);
     guestGenderRadios.forEach(radio => radio.addEventListener('change', validateGuestForm));
@@ -4039,6 +4594,37 @@ function playCustomTTS(message) {
         reorderLogModal.classList.add('hidden');
         adminSettingsModal.classList.remove('hidden');
     });
+
+
+    // --- WEATHER MODAL LISTENERS ---
+    const weatherDisplay = document.getElementById('weather-display');
+    const currentWeatherModal = document.getElementById('current-weather-modal');
+    const detailedWeatherModal = document.getElementById('detailed-weather-modal');
+
+    weatherDisplay.addEventListener('click', () => {
+        currentWeatherModal.classList.remove('hidden');
+    });
+
+    document.getElementById('cw-close-btn').addEventListener('click', () => {
+        currentWeatherModal.classList.add('hidden');
+    });
+
+    document.getElementById('cw-more-details-btn').addEventListener('click', () => {
+        currentWeatherModal.classList.add('hidden');
+        detailedWeatherModal.classList.remove('hidden');
+    });
+
+    document.getElementById('dw-close-btn').addEventListener('click', () => {
+        detailedWeatherModal.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.weather-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            state.detailedWeatherView = e.target.dataset.view;
+            renderDetailedWeatherModal();
+        });
+    });
+
 
     // EVENT LISTENERS FOR SOUND SELECTION
     selectSoundBtn.addEventListener('click', handleSoundSelectionModal);
@@ -4132,3 +4718,4 @@ function playCustomTTS(message) {
         saveState();
     });
 });
+
