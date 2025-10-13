@@ -75,6 +75,12 @@
             <div class="modal-header-with-actions">
                 <h3>Admin Settings</h3>
                 <div class="modal-header-icons">
+                    <button id="ball-management-btn" class="admin-icon-btn" title="Ball Management">
+                        🎾
+                    </button>
+                    <button id="light-management-btn" class="admin-icon-btn" title="Light Management">
+                        <i class="mdi mdi-lightbulb-outline"></i>
+                    </button>
                     <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
                     <button id="reset-app-btn" class="admin-icon-btn" title="Reset Application Data">
                         <i class="mdi mdi-refresh"></i>
@@ -348,7 +354,7 @@
                 <button class="keypad-btn" data-key="0">0</button>
 
                 <button class="keypad-btn wide-half cancel hidden" id="keypad-cancel-btn">Cancel</button>
-                <button class="keypad-btn wide-full confirm" id="keypad-confirm-btn">Done</button>
+                <button id="keypad-confirm-btn" class="keypad-btn wide-full confirm">Done</button>
             </div>
         </div>
     </div>
@@ -459,6 +465,90 @@
             </div>
             <div class="modal-actions">
                 <button id="dw-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sign-out-member-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="sign-out-member-title">Select Member Signing Out</h3>
+            <p id="sign-out-member-prompt" style="color: var(--neutral-color);">Please select the member responsible for this ball sign-out.</p>
+            <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
+                <ul id="sign-out-member-list" class="modal-action-list scrollable">
+                    </ul>
+            </div>
+            <div class="modal-actions">
+                <button id="sign-out-member-cancel-btn" class="action-btn" style="background-color: var(--cancel-color);">Cancel</button>
+                <button id="sign-out-member-confirm-btn" class="action-btn" disabled>Confirm Member</button>
+            </div>
+        </div>
+    </div>
+    <div id="ball-management-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Ball Management</h3>
+                <div class="modal-header-icons">
+                    <button id="ball-history-btn" class="admin-icon-btn" title="Ball Transaction History">
+                        <i class="mdi mdi-history"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="ball-management-grid">
+                
+                <div class="admin-settings-panel">
+                    <h4>Stock (Cans)</h4> 
+                    <div class="stock-display-area">
+                        <span id="ball-stock-count" class="stock-number">0</span>
+                        <span class="stock-label">Cans in Stock</span>
+                    </div>
+                    <div class="stock-update-area">
+                        <button id="add-stock-btn" class="action-btn" data-action="open-stock-keypad" style="background-color: var(--primary-blue);">Add Stock</button>
+                        <button id="return-stock-btn" class="action-btn" data-action="open-return-keypad" style="background-color: var(--neutral-color);">Return Cans</button>
+                    </div>
+                </div>
+
+                <div class="admin-settings-panel">
+                    <h4>Sign Out (1 Can)</h4> 
+                    <p style="font-size: 0.9em; color: var(--neutral-color); margin-top: 0.5rem; margin-bottom: 1rem;">
+                        Category for ball usage. 
+                    </p>
+                    <div id="sign-out-options" class="sign-out-options scrollable">
+                        <button class="action-btn sign-out-btn" data-category="ClubChamps">Club Champs</button>
+                        <button class="action-btn sign-out-btn" data-category="League">League</button>
+                        <button class="action-btn sign-out-btn" data-category="Social">Social</button>
+                        <button class="action-btn sign-out-btn" data-category="Sale" style="background-color: var(--cancel-color);">Sale (R50)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="ball-management-close-btn" class="action-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ball-history-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <h3>Ball Transaction History</h3>
+            <p>A log of all ball stock additions, returns, and sign-outs.</p>
+            <div id="ball-history-list" class="history-list scrollable">
+                </div>
+            <div class="modal-actions">
+                <button id="ball-history-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="light-management-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Light Management</h3>
+            <p>Control the court lights.</p>
+            <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
+                <ul id="light-availability-list" class="court-availability-list scrollable">
+                    </ul>
+            </div>
+            <div class="modal-actions">
+                <button id="light-management-close-btn" class="action-btn">Done</button>
             </div>
         </div>
     </div>

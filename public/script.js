@@ -29,8 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     
-
-    
     // Define the preferred court hierarchy
     const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E'];
 
@@ -118,9 +116,33 @@ document.addEventListener('DOMContentLoaded', () => {
             removedPlayers: [], 
             // Players selected to be added to the court on Card 3 (consumed from available queue on confirm)
             addedPlayers: [] 
+        },
+        // NEW LIGHT MANAGEMENT STATE (Local RPC Method)
+        lightSettings: {
+            // Base URL structure for local RPC. The IP will be inserted in sendLightCommand.
+            shellyBaseUrl: 'http://<SHELLY_IP>/rpc', 
+            // shellyAuthKey is not needed for local RPC and is cleared
+            shellyAuthKey: '', 
+            courts: { 
+                // Each shellyDeviceId is the specific IP of that light controller.
+                'A': { id: 'A', label: 'Court A Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.15' },
+                'B': { id: 'B', label: 'Court B Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.147' },
+                'C': { id: 'C', label: 'Court C Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.130' },
+                'D': { id: 'D', label: 'Court D Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.179' },
+                // Court E has no light. Set isManaged to false and remove device ID.
+                'E': { id: 'E', label: 'Court E Lights', isManaged: false, isActive: false, shellyDeviceId: '' }
+            },
+            general: {
+                // Test Light = Clubhouse
+                'clubhouse': { id: 'clubhouse', label: 'Clubhouse Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.100' }
+            }
+        },
+        // NEW BALL MANAGEMENT STATE (ADD THIS BLOCK - Updated to CANS)
+        ballManagement: {
+            stock: 0, // Total number of CANS
+            // History logs the member, category, and number of CANS.
+            history: [] // { timestamp, action: 'in' | 'out', category: 'purchase' | 'league' | 'sale', count: CANS, member: name }
         }
-        
-
     };
 
     // NEW/ADJUSTED STATE VARIABLES FOR ALERT SCHEDULING
@@ -131,6 +153,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // NEW: Announcement Queue System
     let announcementQueue = [];
     let isAnnouncementPlaying = false;
+    // NEW: Admin timer
+    let adminSessionActive = false; // NEW: Track admin login state
+    let adminSessionTimer = null;   // NEW: Timer for admin session timeout
+
+    // NEW ELEMENTS: Weather Modals
+    const currentWeatherModal = document.getElementById('current-weather-modal');
+    const detailedWeatherModal = document.getElementById('detailed-weather-modal');
 
 
     // --- DOM ELEMENTS ---
@@ -173,6 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const winnerTiebreakInput = document.getElementById('winner-tiebreak');
     const loserTiebreakInput = document.getElementById('loser-tiebreak');
     const endGameTimestamp = document.getElementById('end-game-timestamp');
+
+
     
     // KEYPAD ELEMENTS AND STATE
     const customKeypadModal = document.getElementById('custom-keypad-modal');
@@ -229,6 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const noSpeechBtn = document.getElementById('no-speech-btn');
     let alertStatusDisplay; 
 
+
+
     // NEW ELEMENTS: Admin Court Player Management (REFACTORED)
     const manageCourtPlayersBtn = document.getElementById('manage-court-players-btn');
     const manageCourtPlayersModal = document.getElementById('manage-court-players-modal');
@@ -241,6 +274,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const managePlayersConfirmBtn = document.getElementById('manage-players-confirm-btn'); // Card 3 Confirm
     // NEW: Reference to the modal-actions div for setting the data-card-mode
     const manageModalActions = manageCourtPlayersModal.querySelector('.modal-actions'); 
+    // NEW ELEMENTS: Light Management
+    const lightManagementBtn = document.getElementById('light-management-btn');
+    const lightManagementModal = document.getElementById('light-management-modal');
+    const lightManagementCloseBtn = document.getElementById('light-management-close-btn');
+    const lightAvailabilityList = document.getElementById('light-availability-list');
+
+    // NEW ELEMENTS: Ball Management (ADD THIS BLOCK)
+    const ballManagementBtn = document.getElementById('ball-management-btn');
+    const ballManagementModal = document.getElementById('ball-management-modal');
+    const ballManagementCloseBtn = document.getElementById('ball-management-close-btn');
+    const ballStockCount = document.getElementById('ball-stock-count');
+    const addStockBtn = document.getElementById('add-stock-btn');
+    const signOutOptions = document.getElementById('sign-out-options');
+    const signOutMemberModal = document.getElementById('sign-out-member-modal');
+    const signOutMemberList = document.getElementById('sign-out-member-list');
+    const signOutMemberConfirmBtn = document.getElementById('sign-out-member-confirm-btn');
+    const signOutMemberCancelBtn = document.getElementById('sign-out-member-cancel-btn');
+    const returnStockBtn = document.getElementById('return-stock-btn');
+    const ballHistoryBtn = document.getElementById('ball-history-btn');
+    const ballHistoryModal = document.getElementById('ball-history-modal');
+    const ballHistoryList = document.getElementById('ball-history-list');
+    const ballHistoryCloseBtn = document.getElementById('ball-history-close-btn'); 
+    const signOutMemberTitle = document.getElementById('sign-out-member-title');
+    const signOutMemberPrompt = document.getElementById('sign-out-member-prompt');
     
     // --- DYNAMIC HEIGHT FUNCTION ---
     function setPlayerListHeight() {
@@ -493,48 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // A new, dedicated function to set up weather modal listeners
-    function initWeatherListeners() {
-        // Check if listeners are already attached to prevent duplicates
-        if (document.body.dataset.weatherListenersAttached === 'true') {
-            return;
-        }
-
-        const currentWeatherModal = document.getElementById('current-weather-modal');
-        const detailedWeatherModal = document.getElementById('detailed-weather-modal');
-
-        // Main weather display click
-        document.getElementById('weather-display').addEventListener('click', () => {
-            if (state.weatherData) { // Only open if data is loaded
-                currentWeatherModal.classList.remove('hidden');
-            }
-        });
-
-        // Close buttons
-        document.getElementById('cw-close-btn').addEventListener('click', () => {
-            currentWeatherModal.classList.add('hidden');
-        });
-        document.getElementById('dw-close-btn').addEventListener('click', () => {
-            detailedWeatherModal.classList.add('hidden');
-        });
-
-        // "More Details" button
-        document.getElementById('cw-more-details-btn').addEventListener('click', () => {
-            currentWeatherModal.classList.add('hidden');
-            detailedWeatherModal.classList.remove('hidden');
-        });
-
-        // Morning/Afternoon/Day tabs
-        document.querySelectorAll('.weather-tabs .tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                state.detailedWeatherView = e.target.dataset.view;
-                renderDetailedWeatherModal(); // This re-renders the content, updating the view
-            });
-        });
-
-        // Mark listeners as attached to avoid re-adding them
-        document.body.dataset.weatherListenersAttached = 'true';
-    }
+ 
 
 
     async function fetchWeather() {
@@ -728,6 +744,573 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('forecast-realfeel-shade').textContent = `${forecastData.realFeelShade}°`;
         document.getElementById('forecast-description').textContent = wmoCodeToText(forecastData.weatherCode, view !== 'day');
         document.getElementById('forecast-grid').innerHTML = gridHtml;
+    }
+
+    // ADDED FUNCTION: Determines if any court light is on
+    function getLightStatusIcon() {
+        const courtLights = state.lightSettings.courts;
+        for (const courtId in courtLights) {
+            // Only check court lights, not general ones
+            if (courtLights[courtId].isActive) {
+                return { class: 'mdi-lightbulb-on', icon: 'mdi mdi-lightbulb-on' };
+            }
+        }
+        return { class: 'mdi-lightbulb-outline', icon: 'mdi mdi-lightbulb-outline' };
+    }
+
+    // ADDED FUNCTION: Updates the icon in the Admin Settings button
+    function updateLightIcon() {
+        const lightButton = document.getElementById('light-management-btn');
+        if (lightButton) {
+            const iconData = getLightStatusIcon();
+            let iconElement = lightButton.querySelector('i');
+            
+            // Ensure the <i> element exists and is the target for class updates
+            if (!iconElement) {
+                // Re-create the <i> tag if it was accidentally removed (e.g., by emoji changes)
+                lightButton.innerHTML = `<i class="${iconData.icon}"></i>`;
+                iconElement = lightButton.querySelector('i');
+            }
+            
+            // This is the core update logic: remove old, add new
+            if (iconElement) {
+                iconElement.classList.remove('mdi-lightbulb-on', 'mdi-lightbulb-outline');
+                iconElement.classList.add(iconData.class);
+            }
+        }
+    }
+
+    async function sendLightCommand(light, isActive) {
+        if (!light.shellyDeviceId) {
+            // If the light has no device ID (like Court E), skip the network call.
+            console.warn(`Light ${light.label} has no configured IP address. Skipping command.`);
+            return { success: true, message: 'Simulated OK: No IP configured.' };
+        }
+        
+        // Construct the specific URL using the light's IP address
+        const url = `http://${light.shellyDeviceId}/rpc`;
+
+        // Construct the JSON RPC body
+        const jsonBody = {
+            id: 1, // Unique ID for the RPC call
+            method: "Switch.Set",
+            params: {
+                id: 0, // Channel ID (assuming 0 for all lights/relays)
+                on: isActive, // true or false
+            }
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                // Set a timeout for local network calls (optional, but good practice)
+                signal: AbortSignal.timeout(5000), 
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(jsonBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Shelly RPC returned status ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Success check: Shelly RPC returns a result object on success.
+            if (data.result && data.result.id === 0) {
+                return { success: true, data };
+            } else if (data.error) {
+                return { success: false, message: `RPC Error: ${data.error.message}` };
+            }
+            
+            return { success: false, message: 'Shelly RPC response format unknown.' };
+            
+        } catch (error) {
+            console.error(`Error sending light command to ${light.shellyDeviceId}:`, error);
+            
+            // Provide clear feedback for network issues typical of local IP access from a browser
+            if (error.name === 'AbortError') {
+                return { success: false, message: 'Request timed out. Device may be off or IP is incorrect.' };
+            }
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.name === 'TypeError') {
+                return { success: false, message: 'Network error. Check IP address or browser security settings (e.g., mixed content).' };
+            }
+            return { success: false, message: error.message };
+        }
+    }
+
+
+
+    // ADDED FUNCTION
+    function showLightManagementModal() {
+        lightAvailabilityList.innerHTML = '';
+        
+        // FIX: Iterate directly over the state object structure for robust state checking
+        const lightCategories = ['courts', 'general'];
+
+        lightCategories.forEach(category => {
+            const categoryLights = state.lightSettings[category];
+            
+            Object.keys(categoryLights).forEach(itemId => {
+                // Access the live, definitive object from memory
+                const light = categoryLights[itemId]; 
+                
+                const li = document.createElement('li');
+                li.className = 'court-availability-item'; 
+
+                // Read the live isActive status
+                const isActive = light.isActive; 
+                const isManaged = light.isManaged;
+                const labelText = light.label;
+
+                const disabledAttr = isManaged ? '' : 'disabled';
+                const disabledClass = isManaged ? '' : 'disabled-item';
+
+                li.innerHTML = `
+                    <label for="light-toggle-${itemId}" class="${disabledClass}">${labelText}</label>
+                    <label class="switch">
+                        <input type="checkbox" id="light-toggle-${itemId}" data-item-id="${itemId}" data-item-type="${category}" ${isActive ? 'checked' : ''} ${disabledAttr}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+                lightAvailabilityList.appendChild(li);
+            });
+        });
+        
+        // Re-attach event listeners to the newly created elements
+        lightAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+            toggle.removeEventListener('change', handleLightToggleChange);
+            toggle.addEventListener('change', handleLightToggleChange);
+        });
+
+        adminSettingsModal.classList.add('hidden');
+        lightManagementModal.classList.remove('hidden');
+    }
+
+    // ADDED FUNCTION - This is the core logic for the light feature.
+    async function handleLightToggleChange(e) {
+        const itemId = e.target.dataset.itemId;
+        const itemType = e.target.dataset.itemType; // 'courts' or 'general'
+        const isActive = e.target.checked;
+        
+        const light = state.lightSettings[itemType] && state.lightSettings[itemType][itemId];
+
+        if (light) {
+            // 1. Temporarily update local state (Optimistic UI)
+            light.isActive = isActive;
+            saveState();
+            
+            // 2. Send command to Shelly API
+            const turn = isActive ? 'on' : 'off';
+            const apiResult = await sendLightCommand(light, turn);
+
+            if (!apiResult.success) {
+                // 3. Revert local state if the API call failed
+                light.isActive = !isActive;
+                saveState();
+                
+                // Re-render to update the toggle switch visually (and the main light icon)
+                updateLightIcon();
+                
+                // Announce error
+                playCustomTTS(`Error: Failed to turn light ${turn}. ${light.label}. ${apiResult.message}`);
+            } else {
+                // 4. Announce success and update icon
+                const status = isActive ? 'on' : 'off';
+                const message = `${light.label} turned ${status} by Admin.`;
+                playAlertSound(message, null);
+                updateLightIcon();
+            }
+            
+            // You may need to call render() if this toggle change impacts other UI elements.
+            // For light management, updateLightIcon() and local state handling should suffice.
+        }
+    } 
+
+
+    // Now checks if stock is < 1 can to disable sign out buttons.
+    function updateBallStockDisplay() {
+        if (ballStockCount) {
+            ballStockCount.textContent = state.ballManagement.stock;
+
+            const isStockLow = state.ballManagement.stock < 1;
+            signOutOptions.querySelectorAll('.sign-out-btn').forEach(btn => {
+                btn.disabled = isStockLow;
+                btn.style.opacity = isStockLow ? 0.5 : 1;
+            });
+        }
+    }
+
+    function showBallManagementModal() {
+        updateBallStockDisplay();
+        adminSettingsModal.classList.add('hidden');
+        ballManagementModal.classList.remove('hidden');
+    }
+
+    // --- REFACTORED WORKFLOW ---
+
+    // 1. Initial Entry Point for Add/Return
+    function handleAddStock() {
+        showMemberSelectionModal('add');
+    }
+
+    function handleReturnStock() {
+        showMemberSelectionModal('return');
+    }
+
+    // 2. Initial Entry Point for Sign Out
+    function handleSignOut(e) {
+        const button = e.target.closest('.sign-out-btn');
+        if (!button) return;
+
+        if (button.disabled) {
+            playCustomTTS("Sign out requires balls. Please add stock first.");
+            return;
+        }
+
+        const category = button.dataset.category;
+        showMemberSelectionModal('signout', category);
+    }
+
+    // 3. Generalized Member Selection Modal
+    function showMemberSelectionModal(action, category = null) {
+        signOutMemberList.innerHTML = '';
+
+        // Set modal title and prompt based on the action
+        if (action === 'add') {
+            signOutMemberTitle.textContent = 'Select Member Adding Stock';
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock addition.';
+        } else if (action === 'return') {
+            signOutMemberTitle.textContent = 'Select Member Returning Stock';
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
+        } else { // signout
+            signOutMemberTitle.textContent = 'Select Member Signing Out';
+            signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
+        }
+
+        // Store action context in the modal
+        signOutMemberModal.dataset.action = action;
+        if (category) {
+            signOutMemberModal.dataset.category = category;
+        } else {
+            delete signOutMemberModal.dataset.category;
+        }
+
+        const members = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
+
+        if (members.length === 0) {
+            signOutMemberList.innerHTML = '<li style="justify-content: center; color: var(--cancel-color);">No committee members found.</li>';
+            return;
+        }
+
+        signOutMemberConfirmBtn.disabled = true;
+
+        members.forEach(member => {
+            const li = document.createElement('li');
+            li.className = 'committee-member';
+            li.dataset.player = member.name;
+            li.innerHTML = `<label><input type="radio" name="signoutMember" value="${member.name}"><div class="member-details"><span class="member-name">${member.name}</span><span class="member-designation">${member.committee || 'Member'}</span></div></label>`;
+            signOutMemberList.appendChild(li);
+        });
+
+        signOutMemberList.querySelectorAll('input[name="signoutMember"]').forEach(radio => {
+            radio.removeEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+            radio.addEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+        });
+
+        adminSettingsModal.classList.add('hidden');
+        ballManagementModal.classList.add('hidden');
+        signOutMemberModal.classList.remove('hidden');
+    }
+
+    // 4. Generalized Member Confirmation and Keypad Trigger
+    function handleMemberSelectionConfirm() {
+        const action = signOutMemberModal.dataset.action;
+        const member = signOutMemberList.querySelector('input[name="signoutMember"]:checked').value;
+
+        customKeypadModal.dataset.member = member;
+        customKeypadModal.dataset.action = action;
+
+        signOutMemberModal.classList.add('hidden');
+
+        if (action === 'add') {
+            showKeypad(null, { maxLength: 3, title: `Cans to add for ${member}` });
+            keypadConfirmBtn.removeEventListener('click', confirmBallStockUpdate);
+            keypadConfirmBtn.addEventListener('click', confirmBallStockUpdate);
+        } else if (action === 'return') {
+            showKeypad(null, { maxLength: 3, title: `Cans to return for ${member}` });
+            keypadConfirmBtn.removeEventListener('click', confirmBallStockReturn);
+            keypadConfirmBtn.addEventListener('click', confirmBallStockReturn);
+        } else if (action === 'signout') {
+            const category = signOutMemberModal.dataset.category;
+            customKeypadModal.dataset.category = category;
+            showKeypad(null, { maxLength: 2, title: `Cans for ${member} (${category})` });
+            keypadConfirmBtn.removeEventListener('click', confirmSignOutQuantity);
+            keypadConfirmBtn.addEventListener('click', confirmSignOutQuantity);
+        }
+    }
+
+    // 5a. Final Confirmation for ADD
+    function confirmBallStockUpdate() {
+        const value = parseInt(keypadDisplay.textContent, 10);
+        const member = customKeypadModal.dataset.member;
+        hideKeypad();
+
+        if (isNaN(value) || value <= 0) return;
+
+        cancelConfirmModal.querySelector("h3").textContent = "Confirm Purchase";
+        cancelConfirmModal.querySelector("p").textContent = `Confirm adding ${value} new cans, signed in by ${member}?`;
+        modalBtnYesConfirm.textContent = "Confirm Add";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "addBallStock";
+        cancelConfirmModal.dataset.count = value;
+        cancelConfirmModal.dataset.member = member;
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+    // 5b. Final Confirmation for RETURN
+    function confirmBallStockReturn() {
+        const value = parseInt(keypadDisplay.textContent, 10);
+        const member = customKeypadModal.dataset.member;
+        hideKeypad();
+
+        if (isNaN(value) || value <= 0) return;
+
+        cancelConfirmModal.querySelector("h3").textContent = "Confirm Return";
+        cancelConfirmModal.querySelector("p").textContent = `Confirm returning ${value} can(s), signed in by ${member}?`;
+        modalBtnYesConfirm.textContent = "Confirm Return";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "returnBallStock";
+        cancelConfirmModal.dataset.count = value;
+        cancelConfirmModal.dataset.member = member;
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+    // 5c. Final Confirmation for SIGN OUT
+    function confirmSignOutQuantity() {
+        const cansToSignOut = parseInt(keypadDisplay.textContent, 10);
+        const category = customKeypadModal.dataset.category;
+        const member = customKeypadModal.dataset.member;
+        hideKeypad();
+
+        if (isNaN(cansToSignOut) || cansToSignOut <= 0 || cansToSignOut > state.ballManagement.stock) {
+            playCustomTTS("Sign out failed. Invalid quantity or insufficient stock.");
+            return;
+        }
+
+        cancelConfirmModal.querySelector("h3").textContent = `Confirm Sign Out: ${category}`;
+        cancelConfirmModal.querySelector("p").textContent = `Confirm signing out ${cansToSignOut} can(s) for ${category}, by ${member}?`;
+        modalBtnYesConfirm.textContent = "Confirm Sign Out";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "signOutBalls";
+        cancelConfirmModal.dataset.category = category;
+        cancelConfirmModal.dataset.count = cansToSignOut;
+        cancelConfirmModal.dataset.member = member;
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+    // 6a. Execute ADD
+    function executeAddBallStock() {
+        const count = parseInt(cancelConfirmModal.dataset.count, 10);
+        const member = cancelConfirmModal.dataset.member;
+        if (isNaN(count) || count <= 0) return;
+
+        const stockBefore = state.ballManagement.stock;
+        state.ballManagement.stock += count;
+        const stockAfter = state.ballManagement.stock;
+
+        state.ballManagement.history.push({
+            timestamp: Date.now(), action: 'in', category: 'purchase',
+            count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
+        });
+
+        playCustomTTS(`Stock updated. Added ${count} cans.`);
+        updateBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden");
+        resetConfirmModal(); // ADD THIS LINE
+    }
+
+    // 6b. Execute RETURN
+    function executeReturnBallStock() {
+        const count = parseInt(cancelConfirmModal.dataset.count, 10);
+        const member = cancelConfirmModal.dataset.member;
+        if (isNaN(count) || count <= 0) return;
+
+        const stockBefore = state.ballManagement.stock;
+        state.ballManagement.stock += count;
+        const stockAfter = state.ballManagement.stock;
+
+        state.ballManagement.history.push({
+            timestamp: Date.now(), action: 'in', category: 'return',
+            count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
+        });
+
+        playCustomTTS(`Stock updated. Returned ${count} cans.`);
+        updateBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden");
+        resetConfirmModal(); // ADD THIS LINE
+    }
+
+    // 6c. Execute SIGN OUT
+    function executeSignOutBalls() {
+        const cansCount = parseInt(cancelConfirmModal.dataset.count, 10);
+        const category = cancelConfirmModal.dataset.category;
+        const member = cancelConfirmModal.dataset.member;
+
+        if (isNaN(cansCount) || state.ballManagement.stock < cansCount) {
+            playCustomTTS("Sign out failed. Insufficient stock.");
+            return;
+        }
+
+        const stockBefore = state.ballManagement.stock;
+        state.ballManagement.stock -= cansCount;
+        const stockAfter = state.ballManagement.stock;
+
+        state.ballManagement.history.push({
+            timestamp: Date.now(), action: 'out', category: category,
+            count: cansCount, member: member, stockBefore: stockBefore, stockAfter: stockAfter
+        });
+
+        playCustomTTS(`Signed out ${cansCount} cans for ${category}, by ${member}.`);
+        updateBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden");
+        resetConfirmModal(); // ADD THIS LINE
+    }
+
+    function executeSignOutBalls() {
+        const cansCount = parseInt(cancelConfirmModal.dataset.count, 10);
+        const category = cancelConfirmModal.dataset.category;
+        const member = cancelConfirmModal.dataset.member;
+
+        if (isNaN(cansCount) || state.ballManagement.stock < cansCount) {
+            playCustomTTS("Sign out failed. Insufficient stock.");
+            return;
+        }
+
+        const stockBefore = state.ballManagement.stock;
+        state.ballManagement.stock -= cansCount; // Deduct CANS
+        const stockAfter = state.ballManagement.stock;
+        state.ballManagement.history.push({
+            timestamp: Date.now(),
+            action: 'out',
+            category: category,
+            count: cansCount,
+            member: member, // Log the signing member
+            stockBefore: stockBefore,
+            stockAfter: stockAfter
+        });
+        
+        playCustomTTS(`Signed out ${cansCount} cans for ${category}, signed out by ${member}.`);
+        updateBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden"); // Return to ball modal
+    }
+    
+    function handleReturnStock() {
+        showKeypad(null, { 
+            mode: 'return', 
+            maxLength: 3, 
+            title: 'Enter cans to return' 
+        });
+        keypadConfirmBtn.removeEventListener('click', confirmBallStockReturn);
+        keypadConfirmBtn.addEventListener('click', confirmBallStockReturn);
+    }
+
+
+    function confirmBallStockReturn() {
+        const value = parseInt(keypadDisplay.textContent, 10);
+        hideKeypad();
+
+        if (isNaN(value) || value <= 0) return;
+
+        cancelConfirmModal.querySelector("h3").textContent = "Confirm Return";
+        cancelConfirmModal.querySelector("p").textContent = 
+            `Confirm returning ${value} can(s) of balls to stock?`;
+        modalBtnYesConfirm.textContent = "Confirm Return";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "returnBallStock";
+        cancelConfirmModal.dataset.count = value;
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+    function executeReturnBallStock() {
+        const count = parseInt(cancelConfirmModal.dataset.count, 10);
+        if (isNaN(count) || count <= 0) return;
+
+        const stockBefore = state.ballManagement.stock;
+        state.ballManagement.stock += count; // Add CANS back to stock
+        const stockAfter = state.ballManagement.stock;
+        state.ballManagement.history.push({
+            timestamp: Date.now(),
+            action: 'in',
+            category: 'return',
+            count: count,
+            stockBefore: stockBefore,
+            stockAfter: stockAfter
+        });
+
+        playCustomTTS(`Stock updated. Returned ${count} cans.`);
+        updateBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden"); // Return to ball modal
+    }
+
+    function renderBallHistoryModal() {
+        ballHistoryList.innerHTML = ''; // Clear previous content
+
+        if (state.ballManagement.history.length === 0) {
+            ballHistoryList.innerHTML = '<p style="text-align: center; color: #6c757d;">No ball transactions have been logged yet.</p>';
+            return;
+        }
+
+        // Header Row
+        const headerHTML = `
+            <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
+                <div class="ball-history-details">
+                    <span>Date & Time</span>
+                    <span>Committee Member</span>
+                    <span class="numeric">Before</span>
+                    <span class="numeric">Change</span>
+                    <span class="numeric">After</span>
+                </div>
+            </div>
+        `;
+
+        const historyItemsHTML = [...state.ballManagement.history].reverse().map(entry => {
+            const dateTime = new Date(entry.timestamp).toLocaleString('en-ZA');
+            const memberName = entry.member || 'N/A';
+            const change = entry.action === 'in' ? `+${entry.count}` : `-${entry.count}`;
+            const changeClass = entry.action === 'in' ? 'stock-in' : 'stock-out';
+
+            return `
+                <div class="history-item">
+                    <div class="ball-history-details">
+                        <span class="timestamp">${dateTime}</span>
+                        <span>${memberName}</span>
+                        <span class="numeric">${entry.stockBefore}</span>
+                        <span class="numeric ${changeClass}">${change}</span>
+                        <span class="numeric">${entry.stockAfter}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        ballHistoryList.innerHTML = headerHTML + historyItemsHTML;
+    }
+
+    function showBallHistoryModal() {
+        renderBallHistoryModal();
+        ballManagementModal.classList.add('hidden');
+        ballHistoryModal.classList.remove('hidden');
     }
 
 
@@ -2820,7 +3403,24 @@ function playCustomTTS(message) {
         return `0308${dayOfMonth}`;
     }
 
-    function handleAdminLogin() { showKeypad(null, { mode: 'admin', maxLength: 6, title: 'Enter Admin Passcode (0308DD)' }); }
+    function handleAdminLogin() {
+        // --- NEW: Check for active session ---
+        if (adminSessionActive) {
+            showAdminModal();
+            // Reset the timer for another 2 minutes
+            if (adminSessionTimer) clearTimeout(adminSessionTimer);
+            adminSessionTimer = setTimeout(() => {
+                adminSessionActive = false;
+                adminSessionTimer = null;
+            }, 120000); // 120000ms = 2 minutes
+            return; // Skip showing the keypad
+        }
+        // --- END NEW ---
+
+        // If no active session, show the keypad as normal
+        showKeypad(null, { mode: 'admin', maxLength: 6, title: 'Enter Admin Passcode (0308DD)' });
+    }
+
     function checkAdminPasscode() {
         // --- MODIFIED LINE: Read from the hidden dataset value, not the display text ---
         const enteredCode = keypadDisplay.dataset.hiddenValue;
@@ -2829,6 +3429,17 @@ function playCustomTTS(message) {
         if (enteredCode === expectedCode) {
             hideKeypad();
             showAdminModal();
+
+            // --- NEW: Start the admin session ---
+            adminSessionActive = true;
+            if (adminSessionTimer) clearTimeout(adminSessionTimer); // Clear any old timer just in case
+            adminSessionTimer = setTimeout(() => {
+                adminSessionActive = false;
+                adminSessionTimer = null;
+                playAlertSound(null, null, 'Alert7.mp3'); // Play a subtle sound
+            }, 120000); // 120000ms = 2 minutes
+            // --- END NEW ---
+
         } else {
             const keypadContent = customKeypadModal.querySelector('.keypad-content');
             keypadContent.classList.add('shake');
@@ -2945,6 +3556,10 @@ function playCustomTTS(message) {
         courtAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
             toggle.addEventListener('change', handleCourtVisibilityChange);
         });
+
+        // NEW: Update icon status when opening modal - important call
+        updateLightIcon();
+
         adminSettingsModal.classList.remove('hidden');
     }
 
@@ -3558,6 +4173,12 @@ function playCustomTTS(message) {
                 return;
             } else if (mode === 'reset') {
                 checkResetPasscode();
+                return;
+            } else if (mode === 'stock') { // New: Confirm Stock Update
+                confirmBallStockUpdate();
+                return;
+            } else if (mode === 'signout') { // New: Confirm Signout Quantity
+                confirmSignOutQuantity();
                 return;
             } else if (activeInput && activeInput.classList.contains('reorder-position')) {
                 handleReorderPositionChange(keypadDisplay.textContent);
@@ -4221,6 +4842,9 @@ function playCustomTTS(message) {
             updateNotificationIcons();
             fetchWeather();
 
+            // Set initial light icon state
+            updateLightIcon(); // <--- ADD THIS LINE
+
             // START 1-second timers for display updates
             setInterval(() => {
                 updateTimers();
@@ -4438,66 +5062,77 @@ function playCustomTTS(message) {
     endGameConfirmBtn.addEventListener("click",confirmEndGame);
     
     // MODIFIED: No button now handles closing and restoring the correct modal
-    modalBtnNo.addEventListener("click",()=>{ 
-        cancelConfirmModal.classList.add("hidden"); 
-        
-        // Re-open check-in/out modals if that was the action that triggered the confirmation
-        if (cancelConfirmModal.dataset.mode === "checkInPlayer") checkInModal.classList.remove("hidden"); 
-        if (cancelConfirmModal.dataset.mode === "checkOutPlayer") checkOutModal.classList.remove("hidden"); 
-        
-        resetConfirmModal(); 
+    modalBtnNo.addEventListener("click", () => {
+        const mode = cancelConfirmModal.dataset.mode;
+        cancelConfirmModal.classList.add("hidden");
+
+        // Logic to return to the correct modal after cancellation
+        if (mode === "checkInPlayer") {
+            checkInModal.classList.remove("hidden");
+        } else if (mode === "checkOutPlayer") {
+            checkOutModal.classList.remove("hidden");
+        } else if (mode === "addBallStock" || mode === "returnBallStock" || mode === "signOutBalls") {
+            ballManagementModal.classList.remove("hidden"); // Return to ball management
+        }
+
+        resetConfirmModal();
     });
     
     // MODIFIED: Yes button now handles check-in/out and the force announcement
     // MODIFIED: Yes button now handles check-in/out and the force announcement
-    modalBtnYesConfirm.addEventListener("click",()=>{
-    const mode = cancelConfirmModal.dataset.mode;
+    modalBtnYesConfirm.addEventListener("click", () => {
+        const mode = cancelConfirmModal.dataset.mode;
 
-    if (mode === "checkOutPlayer") {
-        executePlayerCheckOut();
-    } else if (mode === "checkInPlayer") {
-        executePlayerCheckIn();
-    } else if (mode === "cancelGame") {
-        executeGameCancellation();
-    } else if (mode === "callDuty") {
-        executeCallDuty();
-    } else if (mode === "executeReset") {
-        executeAppReset();
-    } else if (mode === "pauseToggle") {
-        executePauseToggle();
-    } 
-    
-    else if (mode === "forceAnnouncement") {
-        cancelConfirmModal.classList.add("hidden"); 
-        checkAndPlayAlert(true);
-    } else if (mode === "forceAnnouncementNotEnoughPlayers") {
-        
-        const now = Date.now();
-        const FIVE_MINUTES_MS = 5 * 60 * 1000;
-        
-        if (state.notificationControls.isMinimized) {
-            alertScheduleTime = 0; 
-            alertState = 'initial_check'; 
-        } else {
-            alertScheduleTime = now + FIVE_MINUTES_MS;
-            alertState = '5_min_repeat';
+        if (mode === "checkOutPlayer") {
+            executePlayerCheckOut();
+        } else if (mode === "checkInPlayer") {
+            executePlayerCheckIn();
+        } else if (mode === "cancelGame") {
+            executeGameCancellation();
+        } else if (mode === "callDuty") {
+            executeCallDuty();
+        } else if (mode === "executeReset") {
+            executeAppReset();
+        } else if (mode === "pauseToggle") {
+            executePauseToggle();
+        } else if (mode === "addBallStock") {
+            executeAddBallStock();
+        } else if (mode === "returnBallStock") { // FIX: Added missing handler
+            executeReturnBallStock();
+        } else if (mode === "signOutBalls") {
+            executeSignOutBalls();
+        } else if (mode === "forceAnnouncement") {
+            cancelConfirmModal.classList.add("hidden");
+            checkAndPlayAlert(true);
+            resetConfirmModal(); // Reset here for actions without their own execute function
+        } else if (mode === "forceAnnouncementNotEnoughPlayers") {
+            const now = Date.now();
+            const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+            if (state.notificationControls.isMinimized) {
+                alertScheduleTime = 0;
+                alertState = 'initial_check';
+            } else {
+                alertScheduleTime = now + FIVE_MINUTES_MS;
+                alertState = '5_min_repeat';
+            }
+
+            const availablePlayerCount = state.availablePlayers.length;
+            const playerNames = state.availablePlayers.map(p => p.name).join(' and ');
+            const playersNeeded = 4 - availablePlayerCount;
+            const pluralS = playersNeeded > 1 ? 's' : '';
+            let message = `Attention ${playerNames}, we are waiting for ${playersNeeded} more player${pluralS} before we can start a match.`;
+            if (availablePlayerCount >= 2) {
+                message += " or start a singles game in the meantime.";
+            }
+            playAlertSound(message);
+
+            cancelConfirmModal.classList.add("hidden");
+            resetConfirmModal(); // Reset here for actions without their own execute function
         }
-        
-        const availablePlayerCount = state.availablePlayers.length;
-        const playerNames = state.availablePlayers.map(p => p.name).join(' and ');
-        const playersNeeded = 4 - availablePlayerCount;
-        const pluralS = playersNeeded > 1 ? 's' : '';
-        let message = `Attention ${playerNames}, we are waiting for ${playersNeeded} more player${pluralS} before we can start a match.`;
-        if (availablePlayerCount >= 2) {
-            message += " or start a singles game in the meantime.";
-        }
-        playAlertSound(message); 
-
-        cancelConfirmModal.classList.add("hidden"); 
-    }
-
-    resetConfirmModal();
-});
+        // FIX: The global resetConfirmModal() call was removed from here. 
+        // It is now correctly called inside each individual execute... function.
+    });
     
     const scoreInputs = [winningScoreInput, losingScoreInput, winnerTiebreakInput, loserTiebreakInput];
     scoreInputs.forEach(input => {
@@ -4597,33 +5232,33 @@ function playCustomTTS(message) {
 
 
     // --- WEATHER MODAL LISTENERS ---
-    const weatherDisplay = document.getElementById('weather-display');
-    const currentWeatherModal = document.getElementById('current-weather-modal');
-    const detailedWeatherModal = document.getElementById('detailed-weather-modal');
-
-    weatherDisplay.addEventListener('click', () => {
-        currentWeatherModal.classList.remove('hidden');
+    document.getElementById('weather-display').addEventListener('click', () => {
+        if (currentWeatherModal) currentWeatherModal.classList.remove('hidden');
     });
 
     document.getElementById('cw-close-btn').addEventListener('click', () => {
-        currentWeatherModal.classList.add('hidden');
+        if (currentWeatherModal) currentWeatherModal.classList.add('hidden');
     });
 
     document.getElementById('cw-more-details-btn').addEventListener('click', () => {
-        currentWeatherModal.classList.add('hidden');
-        detailedWeatherModal.classList.remove('hidden');
+        if (currentWeatherModal) currentWeatherModal.classList.add('hidden');
+        if (detailedWeatherModal) detailedWeatherModal.classList.remove('hidden');
     });
 
     document.getElementById('dw-close-btn').addEventListener('click', () => {
-        detailedWeatherModal.classList.add('hidden');
+        if (detailedWeatherModal) detailedWeatherModal.classList.add('hidden');
     });
 
-    document.querySelectorAll('.weather-tabs .tab').forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            state.detailedWeatherView = e.target.dataset.view;
-            renderDetailedWeatherModal();
+    // Event Delegation for the Day/Morning/Afternoon tabs
+    if (detailedWeatherModal) {
+        detailedWeatherModal.addEventListener('click', (e) => {
+            const tab = e.target.closest('.tab');
+            if (tab) {
+                state.detailedWeatherView = tab.dataset.view;
+                renderDetailedWeatherModal();
+            }
         });
-    });
+    }
 
 
     // EVENT LISTENERS FOR SOUND SELECTION
@@ -4632,6 +5267,8 @@ function playCustomTTS(message) {
     soundSelectionList.addEventListener('click', handleSoundPreview);
     soundConfirmBtn.addEventListener('click', confirmSoundSelection);
     soundCancelBtn.addEventListener('click', cancelSoundSelection);
+
+
     
     // EVENT LISTENERS FOR NOTIFICATION CONTROLS
     muteBtn.addEventListener('click', () => {
@@ -4663,6 +5300,44 @@ function playCustomTTS(message) {
         }
         saveState();
         updateNotificationIcons();
+    });
+
+    // EVENT LISTENERS FOR LIGHT MANAGEMENT (ADD THIS BLOCK)
+    lightManagementBtn.addEventListener('click', showLightManagementModal);
+    lightManagementCloseBtn.addEventListener('click', () => {
+        lightManagementModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');
+    });
+
+    // EVENT LISTENERS FOR BALL MANAGEMENT (FIXED: Event Delegation)
+    ballManagementBtn.addEventListener('click', showBallManagementModal);
+    ballManagementCloseBtn.addEventListener('click', () => {
+        ballManagementModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');   
+    });
+    addStockBtn.addEventListener('click', handleAddStock);
+    returnStockBtn.addEventListener('click', handleReturnStock);
+    ballHistoryBtn.addEventListener('click', showBallHistoryModal);
+    ballHistoryCloseBtn.addEventListener('click', () => {
+        ballHistoryModal.classList.add('hidden');
+        ballManagementModal.classList.remove('hidden');
+    });
+
+    // Use event delegation for the sign out buttons
+    signOutOptions.addEventListener('click', handleSignOut);
+    
+    // FIX: Individual listener binding to guarantee button functionality
+    document.querySelectorAll('.sign-out-btn').forEach(button => {
+        // Ensure we don't double-bind if the script is reloaded
+        button.removeEventListener('click', handleSignOut);
+        button.addEventListener('click', handleSignOut);
+    });
+
+    // NEW EVENT LISTENERS FOR SIGN-OUT MEMBER MODAL
+    signOutMemberConfirmBtn.addEventListener('click', handleMemberSelectionConfirm);
+    signOutMemberCancelBtn.addEventListener('click', () => {
+        signOutMemberModal.classList.add('hidden');
+        ballManagementModal.classList.remove('hidden');
     });
 
     // EVENT LISTENERS FOR ADMIN COURT MANAGEMENT

@@ -1896,6 +1896,7 @@ header h1 { margin: 0; }
 
 #custom-keypad-modal {
     align-items: center;
+    z-index: 1002;
 }
 
 .keypad-content {
@@ -2314,6 +2315,16 @@ input:checked + .slider:before {
     z-index: 100;
 }
 
+/* NEW: Style the lightbulb ON icon to be orange/yellow */
+#admin-settings-modal #light-management-btn .mdi-lightbulb-on {
+    color: var(--inactive-color); /* Orange/Yellow */
+}
+
+/* Ensure the off icon is visible (default is neutral color) */
+#admin-settings-modal #light-management-btn .mdi-lightbulb-outline {
+    color: var(--neutral-color); 
+}
+
 #admin-settings-modal .admin-icon-btn:hover,
 #sound-selection-modal .admin-icon-btn:hover {
     color: var(--primary-blue);
@@ -2467,12 +2478,6 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
         gap: 1rem;
         grid-template-rows: auto; 
-    }
-    
-    .summary-card,
-    .court-card {
-        width: 100%;
-        box-sizing: border-box;
     }
     
     .card-header > h3 {
@@ -2800,5 +2805,134 @@ input:checked + .slider:before {
     align-items: center;
     gap: 1.5rem;
     margin: 1rem 0 0.5rem 0;
+}
+
+
+/* --- Ball Management Grid --- */
+#ball-management-modal .modal-content {
+    max-width: 600px; /* Wider modal for two columns */
+}
+
+.ball-management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.ball-management-grid .admin-settings-panel {
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.ball-management-grid h4 {
+    margin-top: 0;
+    color: var(--primary-blue);
+}
+
+.stock-display-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+}
+
+.stock-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--confirm-color);
+    line-height: 1;
+}
+
+.stock-label {
+    font-size: 0.9em;
+    color: var(--neutral-color);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.stock-update-area {
+    display: flex;
+    justify-content: center;
+}
+
+.stock-update-area {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem; /* ADD THIS LINE */
+}
+
+.sign-out-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.sign-out-btn {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    text-align: left;
+    background-color: var(--primary-blue);
+    border: none;
+    font-weight: 600;
+}
+
+.sign-out-btn:hover {
+    opacity: 0.8;
+}
+
+/* Ensure the Sales button is distinct */
+.sign-out-btn[data-category="Sale"] {
+    background-color: var(--cancel-color) !important;
+}
+
+@media (max-width: 500px) {
+    .ball-management-grid {
+        grid-template-columns: 1fr; /* Stack columns on small screens */
+    }
+}
+
+/* Ball History Modal Styles */
+.ball-history-details {
+    display: grid;
+    grid-template-columns: 1.5fr 1.5fr 0.5fr 0.5fr 0.5fr;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+}
+
+.ball-history-details .numeric {
+    text-align: right;
+    font-weight: 500;
+}
+
+.ball-history-details .timestamp {
+    font-size: 0.9em;
+    color: var(--neutral-color);
+}
+
+.ball-history-details .stock-in {
+    color: var(--confirm-color);
+}
+
+.ball-history-details .stock-out {
+    color: var(--cancel-color);
+}
+
+@media (max-width: 600px) {
+    .ball-history-details {
+        grid-template-columns: 1fr 1fr; /* Stack into 2 columns on mobile */
+        gap: 0.5rem 1rem;
+    }
+    .ball-history-details .timestamp {
+        grid-column: 1 / 3; /* Timestamp spans both columns */
+        margin-bottom: 0.5rem;
+    }
 }
 
