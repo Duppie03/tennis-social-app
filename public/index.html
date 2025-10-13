@@ -75,11 +75,11 @@
             <div class="modal-header-with-actions">
                 <h3>Admin Settings</h3>
                 <div class="modal-header-icons">
-                    <button id="ball-management-btn" class="admin-icon-btn" title="Ball Management">
-                        🎾
+                    <button id="edit-styles-btn" class="admin-icon-btn" title="Edit Styles">
+                        <i class="mdi mdi-format-font"></i>
                     </button>
-                    <button id="light-management-btn" class="admin-icon-btn" title="Light Management">
-                        <i class="mdi mdi-lightbulb-outline"></i>
+                    <button id="ball-management-btn" class="admin-icon-btn" title="Ball Management">
+                        🥎
                     </button>
                     <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
                     <button id="reset-app-btn" class="admin-icon-btn" title="Reset Application Data">
@@ -95,15 +95,14 @@
                     </ul>
                 </div>
                 <div class="admin-settings-panel">
-                    <h4>Court Availability</h4>
+                    <h4>Court Settings</h4>
                     <ul id="court-availability-list" class="court-availability-list">
                     </ul>
                 </div>
             </div>
-            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1.5rem; padding-top: 0.5rem;">
+            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; padding-top: 0.5rem;">
                 <button id="view-reorder-log-btn" class="action-btn" style="background-color: #6c757d;">View Reorder Log</button>
                 <button id="reorder-players-btn" class="action-btn" style="background-color: var(--primary-blue);">Reorder Players</button>
-                <button id="manage-court-players-btn" class="action-btn" style="background-color: #007bff; border-color: #007bff;">Manage On-Court Players</button>
             </div>
             <div class="modal-actions" style="display: flex; justify-content: center; margin-top: 1rem; padding-top: 0;">
                 <button id="admin-close-btn" style="flex-grow: 0; min-width: 150px;">Close</button>
@@ -237,11 +236,9 @@
                 <div id="check-in-abc-index" class="abc-index"></div>
                 <ul id="check-in-list" class="modal-action-list scrollable"></ul>
             </div>
-            <div class="modal-actions" style="grid-template-columns: 1fr 1fr; display: grid;">
+            <div id="check-in-actions" class="modal-actions">
                 <button id="returning-guest-btn" class="action-btn neutral">Returning Guest</button>
-                <button id="add-new-player-btn" class="action-btn">Add New Player</button>
-            </div>
-            <div class="modal-actions">
+                <button id="add-new-player-btn" class="action-btn">New<br>Guest</button>
                 <button id="check-in-cancel-btn">Close</button>
             </div>
         </div>
@@ -508,7 +505,7 @@
                 </div>
 
                 <div class="admin-settings-panel">
-                    <h4>Sign Out (1 Can)</h4> 
+                    <h4>Sign Out (Cans)</h4> 
                     <p style="font-size: 0.9em; color: var(--neutral-color); margin-top: 0.5rem; margin-bottom: 1rem;">
                         Category for ball usage. 
                     </p>
@@ -516,7 +513,18 @@
                         <button class="action-btn sign-out-btn" data-category="ClubChamps">Club Champs</button>
                         <button class="action-btn sign-out-btn" data-category="League">League</button>
                         <button class="action-btn sign-out-btn" data-category="Social">Social</button>
-                        <button class="action-btn sign-out-btn" data-category="Sale" style="background-color: var(--cancel-color);">Sale (R50)</button>
+                        <button class="action-btn sign-out-btn" data-category="Sale" style="background-color: var(--cancel-color);">Sales</button>
+                    </div>
+                </div>
+
+                <div class="admin-settings-panel">
+                    <h4>Used Balls (Singles)</h4> 
+                    <div class="stock-display-area">
+                        <span id="used-ball-stock-count" class="stock-number used">0</span>
+                        <span class="stock-label">Used Balls in Stock</span>
+                    </div>
+                    <div class="stock-update-area">
+                        <button id="return-used-balls-btn" class="action-btn" style="background-color: var(--inactive-color); border-color: var(--inactive-color);">Return Used Balls</button>
                     </div>
                 </div>
             </div>
@@ -539,19 +547,33 @@
         </div>
     </div>
 
-    <div id="light-management-modal" class="modal-overlay hidden">
+    <div id="edit-styles-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Light Management</h3>
-            <p>Control the court lights.</p>
-            <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
-                <ul id="light-availability-list" class="court-availability-list scrollable">
-                    </ul>
+            <h3>Edit Display Styles</h3>
+            <div class="style-settings-panel">
+                <h4>Font Size</h4>
+                <div class="font-size-selector" id="font-size-selector">
+                    <button data-size="0.8">-20%</button>
+                    <button data-size="0.9">-10%</button>
+                    <button data-size="1.0" class="active">Default</button>
+                    <button data-size="1.1">+10%</button>
+                    <button data-size="1.2">+20%</button>
+                </div>
+            </div>
+            <div class="style-settings-panel">
+                <h4>Display Size</h4>
+                <div class="display-size-selector" id="display-size-selector">
+                    <button data-size="0.9">Small</button>
+                    <button data-size="1.0" class="active">Default</button>
+                    <button data-size="1.1">Large</button>
+                </div>
             </div>
             <div class="modal-actions">
-                <button id="light-management-close-btn" class="action-btn">Done</button>
+                <button id="edit-styles-close-btn" class="action-btn">Done</button>
             </div>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

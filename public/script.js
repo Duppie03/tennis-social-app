@@ -5,21 +5,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NEW HELPER FUNCTION TO PARSE CSV DATA ---
     function parseCSV(csvText) {
-        const lines = csvText.trim().split('\n'); // FIX: Changed '\\n' to '\n'
-        const headers = lines[0].split(',').map(h => h.trim());
+        const lines = csvText.trim().split('\n');
+        if (!lines[0]) return []; // Handle empty file
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const result = [];
         for (let i = 1; i < lines.length; i++) {
+            if (!lines[i]) continue; // Skip blank lines
+            
             const values = lines[i].split(',').map(v => v.trim());
+            if (values.length !== headers.length) continue; // Skip malformed lines
+            
             const entry = {};
+
+            // --- REPLACE THIS ENTIRE BLOCK ---
             headers.forEach((header, index) => {
                 const value = values[index];
-                // Convert to appropriate types based on your original data structure
-                if (header === 'guest' || header === 'isPaused') {
+                if (!value) return; // Skip if the value is empty
+
+                if (header === 'gender') {
+                    // This is the fix: Convert "Male" to "M" and "Female" to "F"
+                    entry[header] = value.charAt(0).toUpperCase();
+                } else if (header === 'guest' || header === 'isPaused') {
                     entry[header] = (value.toLowerCase() === 'true');
-                } else if (value) { // Only add if there is a value
+                } else {
                     entry[header] = value;
                 }
             });
+            // --- END OF REPLACEMENT ---
+
+            if (!entry.name) continue; // Skip entries without a name
+
             // Add the default values that are not in the CSV
             entry.guest = false;
             entry.isPaused = false;
@@ -33,7 +48,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E'];
 
     // --- STATE MANAGEMENT ---
+
+
     let state = {
+
+        uiSettings: {
+            fontSizeMultiplier: 1.0, // 1.0 is the default (100%)
+            displaySizeMultiplier: 1.0 // Add this line
+        },
+
         detailedWeatherView: 'day', // 'day', 'morning', 'afternoon'
         weatherData: null,
 
@@ -140,8 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // NEW BALL MANAGEMENT STATE (ADD THIS BLOCK - Updated to CANS)
         ballManagement: {
             stock: 0, // Total number of CANS
+            usedStock: 0, // Total number of USED individual balls
             // History logs the member, category, and number of CANS.
-            history: [] // { timestamp, action: 'in' | 'out', category: 'purchase' | 'league' | 'sale', count: CANS, member: name }
+            history: [], // { timestamp, action: 'in' | 'out', category: 'purchase' | 'league' | 'sale', count: CANS, member: name }
+            historyFilter: 'all'
         }
     };
 
@@ -203,7 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const loserTiebreakInput = document.getElementById('loser-tiebreak');
     const endGameTimestamp = document.getElementById('end-game-timestamp');
 
-
+    // NEW ELEMENTS: Style Editor
+    const editStylesBtn = document.getElementById('edit-styles-btn');
+    const editStylesModal = document.getElementById('edit-styles-modal');
+    const editStylesCloseBtn = document.getElementById('edit-styles-close-btn');
+    const fontSizeSlider = document.getElementById('font-size-slider');
     
     // KEYPAD ELEMENTS AND STATE
     const customKeypadModal = document.getElementById('custom-keypad-modal');
@@ -274,17 +303,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const managePlayersConfirmBtn = document.getElementById('manage-players-confirm-btn'); // Card 3 Confirm
     // NEW: Reference to the modal-actions div for setting the data-card-mode
     const manageModalActions = manageCourtPlayersModal.querySelector('.modal-actions'); 
-    // NEW ELEMENTS: Light Management
-    const lightManagementBtn = document.getElementById('light-management-btn');
-    const lightManagementModal = document.getElementById('light-management-modal');
-    const lightManagementCloseBtn = document.getElementById('light-management-close-btn');
-    const lightAvailabilityList = document.getElementById('light-availability-list');
+
 
     // NEW ELEMENTS: Ball Management (ADD THIS BLOCK)
     const ballManagementBtn = document.getElementById('ball-management-btn');
     const ballManagementModal = document.getElementById('ball-management-modal');
     const ballManagementCloseBtn = document.getElementById('ball-management-close-btn');
     const ballStockCount = document.getElementById('ball-stock-count');
+    const usedBallStockCount = document.getElementById('used-ball-stock-count'); // <-- ADD THIS
     const addStockBtn = document.getElementById('add-stock-btn');
     const signOutOptions = document.getElementById('sign-out-options');
     const signOutMemberModal = document.getElementById('sign-out-member-modal');
@@ -292,12 +318,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const signOutMemberConfirmBtn = document.getElementById('sign-out-member-confirm-btn');
     const signOutMemberCancelBtn = document.getElementById('sign-out-member-cancel-btn');
     const returnStockBtn = document.getElementById('return-stock-btn');
+    const returnUsedBallsBtn = document.getElementById('return-used-balls-btn'); // <-- ADD THIS
     const ballHistoryBtn = document.getElementById('ball-history-btn');
     const ballHistoryModal = document.getElementById('ball-history-modal');
     const ballHistoryList = document.getElementById('ball-history-list');
     const ballHistoryCloseBtn = document.getElementById('ball-history-close-btn'); 
     const signOutMemberTitle = document.getElementById('sign-out-member-title');
     const signOutMemberPrompt = document.getElementById('sign-out-member-prompt');
+
+
+
     
     // --- DYNAMIC HEIGHT FUNCTION ---
     function setPlayerListHeight() {
@@ -344,6 +374,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const loaded = JSON.parse(savedState);
             state = { ...state, ...loaded };
 
+            if (!state.uiSettings) {
+                state.uiSettings = { fontSizeMultiplier: 1.0 };
+            }
+
             if (!state.courtSettings) {
                 state.courtSettings = {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
@@ -384,6 +418,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.guestHistory = [];
             }
             
+            // --- THIS IS THE CORRECTED BLOCK ---
+            // Safely initialize the entire ball management state if it's missing or incomplete
+            if (!state.ballManagement) {
+                state.ballManagement = {
+                    stock: 0,
+                    usedStock: 0,
+                    history: [],
+                    historyFilter: 'all'
+                };
+            } else {
+                // Handle older states that have ballManagement but might be missing new properties
+                if (state.ballManagement.usedStock === undefined) {
+                    state.ballManagement.usedStock = 0;
+                }
+                if (!state.ballManagement.historyFilter) {
+                    state.ballManagement.historyFilter = 'all';
+                }
+            }
+            // --- END OF CORRECTION ---
+
             const ensurePlayerObjects = (playerList, defaultList) => { return playerList.map(player => { if (typeof player === 'string') { const defaultPlayer = defaultList.find(p => p.name === player); return defaultPlayer || { name: player, gender: '?', guest: true }; } return player; }); };
             const checkedInNames = new Set(getPlayerNames(state.availablePlayers));
             state.courts.forEach(court => court.players.forEach(p => checkedInNames.add(p.name)));
@@ -466,6 +520,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+
+
+    function applyFontSize() {
+        document.body.style.setProperty('--font-size-multiplier', state.uiSettings.fontSizeMultiplier);
+    }
+
+    function applyDisplaySize() {
+        document.body.style.setProperty('--display-size-multiplier', state.uiSettings.displaySizeMultiplier);
+    }
+
+    function showEditStylesModal() {
+        // Logic to update the Font Size buttons
+        const currentFontMultiplier = state.uiSettings.fontSizeMultiplier;
+        const fontSelector = document.getElementById('font-size-selector');
+        if (fontSelector) {
+            fontSelector.querySelectorAll('button').forEach(btn => {
+                // Use parseFloat to ensure a proper number comparison
+                const btnSize = parseFloat(btn.dataset.size);
+                btn.classList.toggle('active', btnSize === currentFontMultiplier);
+            });
+        }
+
+        // Logic to update the Display Size buttons
+        const currentDisplayMultiplier = state.uiSettings.displaySizeMultiplier;
+        const displaySelector = document.getElementById('display-size-selector');
+        if (displaySelector) {
+            displaySelector.querySelectorAll('button').forEach(btn => {
+                btn.classList.toggle('active', parseFloat(btn.dataset.size) === currentDisplayMultiplier);
+            });
+        }
+
+        // Hide the admin modal and show the styles modal
+        adminSettingsModal.classList.add('hidden');
+        editStylesModal.classList.remove('hidden');
+    }
+
+    function handleFontSizeChange(newMultiplier) {
+        state.uiSettings.fontSizeMultiplier = newMultiplier;
+        applyFontSize();
+        saveState();
+
+        // Update active button in the UI
+        const selector = document.getElementById('font-size-selector');
+        if (selector) {
+            selector.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseFloat(btn.dataset.size) === newMultiplier) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    } 
+
+    function handleDisplaySizeChange(newMultiplier) {
+        state.uiSettings.displaySizeMultiplier = newMultiplier;
+        applyDisplaySize();
+        saveState();
+
+        const selector = document.getElementById('display-size-selector');
+        if (selector) {
+            selector.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseFloat(btn.dataset.size) === newMultiplier) {
+                    btn.classList.add('active');
+                }
+            });
+        }
     }
 
     function getWindDirection(degrees) {
@@ -842,91 +964,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // ADDED FUNCTION
-    function showLightManagementModal() {
-        lightAvailabilityList.innerHTML = '';
-        
-        // FIX: Iterate directly over the state object structure for robust state checking
-        const lightCategories = ['courts', 'general'];
-
-        lightCategories.forEach(category => {
-            const categoryLights = state.lightSettings[category];
-            
-            Object.keys(categoryLights).forEach(itemId => {
-                // Access the live, definitive object from memory
-                const light = categoryLights[itemId]; 
-                
-                const li = document.createElement('li');
-                li.className = 'court-availability-item'; 
-
-                // Read the live isActive status
-                const isActive = light.isActive; 
-                const isManaged = light.isManaged;
-                const labelText = light.label;
-
-                const disabledAttr = isManaged ? '' : 'disabled';
-                const disabledClass = isManaged ? '' : 'disabled-item';
-
-                li.innerHTML = `
-                    <label for="light-toggle-${itemId}" class="${disabledClass}">${labelText}</label>
-                    <label class="switch">
-                        <input type="checkbox" id="light-toggle-${itemId}" data-item-id="${itemId}" data-item-type="${category}" ${isActive ? 'checked' : ''} ${disabledAttr}>
-                        <span class="slider"></span>
-                    </label>
-                `;
-                lightAvailabilityList.appendChild(li);
-            });
-        });
-        
-        // Re-attach event listeners to the newly created elements
-        lightAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
-            toggle.removeEventListener('change', handleLightToggleChange);
-            toggle.addEventListener('change', handleLightToggleChange);
-        });
-
-        adminSettingsModal.classList.add('hidden');
-        lightManagementModal.classList.remove('hidden');
-    }
-
     // ADDED FUNCTION - This is the core logic for the light feature.
     async function handleLightToggleChange(e) {
-        const itemId = e.target.dataset.itemId;
-        const itemType = e.target.dataset.itemType; // 'courts' or 'general'
-        const isActive = e.target.checked;
-        
-        const light = state.lightSettings[itemType] && state.lightSettings[itemType][itemId];
+        const button = e.target.closest('.light-toggle-btn');
+        if (!button) return;
 
+        const courtId = button.dataset.courtId;
+        const light = state.lightSettings.courts[courtId];
+        
         if (light) {
-            // 1. Temporarily update local state (Optimistic UI)
-            light.isActive = isActive;
-            saveState();
+            // Toggle the state
+            const isActive = !light.isActive;
             
-            // 2. Send command to Shelly API
-            const turn = isActive ? 'on' : 'off';
-            const apiResult = await sendLightCommand(light, turn);
+            // Optimistically update UI
+            light.isActive = isActive;
+            const icon = button.querySelector('i');
+            icon.className = `mdi ${isActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline'}`;
+            
+            // Send command
+            const apiResult = await sendLightCommand(light, isActive);
 
             if (!apiResult.success) {
-                // 3. Revert local state if the API call failed
+                // Revert state and UI if API call fails
                 light.isActive = !isActive;
-                saveState();
-                
-                // Re-render to update the toggle switch visually (and the main light icon)
-                updateLightIcon();
-                
-                // Announce error
-                playCustomTTS(`Error: Failed to turn light ${turn}. ${light.label}. ${apiResult.message}`);
+                icon.className = `mdi ${!isActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline'}`;
+                playCustomTTS(`Error: Failed to turn light ${isActive ? 'on' : 'off'}. ${apiResult.message}`);
             } else {
-                // 4. Announce success and update icon
-                const status = isActive ? 'on' : 'off';
-                const message = `${light.label} turned ${status} by Admin.`;
-                playAlertSound(message, null);
-                updateLightIcon();
+                playCustomTTS(`${light.label} turned ${isActive ? 'on' : 'off'}.`);
             }
-            
-            // You may need to call render() if this toggle change impacts other UI elements.
-            // For light management, updateLightIcon() and local state handling should suffice.
+            saveState();
         }
-    } 
+    }
 
 
     // Now checks if stock is < 1 can to disable sign out buttons.
@@ -942,8 +1010,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // NEW FUNCTION: Updates the display for single used balls
+    function updateUsedBallStockDisplay() {
+        if (usedBallStockCount) {
+            usedBallStockCount.textContent = state.ballManagement.usedStock;
+        }
+    }
+
+    // NEW FUNCTION: Initial Entry Point for Returning Used Balls
+    function handleReturnUsedBalls() {
+        showMemberSelectionModal('return_used');
+    }
+
+    // NEW FUNCTION: Final Confirmation for USED BALL RETURN
+    function confirmUsedBallReturn() {
+        const value = parseInt(keypadDisplay.textContent, 10);
+        const member = customKeypadModal.dataset.member;
+        hideKeypad();
+
+        if (isNaN(value) || value <= 0) return;
+
+        cancelConfirmModal.querySelector("h3").textContent = "Confirm Used Ball Return";
+        cancelConfirmModal.querySelector("p").textContent = `Confirm returning ${value} used ball(s), signed in by ${member}?`;
+        modalBtnYesConfirm.textContent = "Confirm Return";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "returnUsedBalls";
+        cancelConfirmModal.dataset.count = value;
+        cancelConfirmModal.dataset.member = member;
+        cancelConfirmModal.classList.remove("hidden");
+    }
+
+    // NEW FUNCTION: Execute USED BALL RETURN
+    function executeUsedBallReturn() {
+        const count = parseInt(cancelConfirmModal.dataset.count, 10);
+        const member = cancelConfirmModal.dataset.member;
+        if (isNaN(count) || count <= 0) return;
+
+        const stockBefore = state.ballManagement.usedStock;
+        state.ballManagement.usedStock += count;
+        const stockAfter = state.ballManagement.usedStock;
+
+        state.ballManagement.history.push({
+            timestamp: Date.now(), action: 'in', category: 'return_used',
+            count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
+        });
+
+        playCustomTTS(`Stock updated. Returned ${count} used balls.`);
+        updateUsedBallStockDisplay();
+        saveState();
+        cancelConfirmModal.classList.add("hidden");
+        ballManagementModal.classList.remove("hidden");
+        resetConfirmModal();
+    }  
+
+    // NEW FUNCTION: Handles ball history filter changes
+    function handleBallHistoryFilterChange(e) {
+        state.ballManagement.historyFilter = e.target.value;
+        saveState();
+        renderBallHistoryModal();
+    }
+
     function showBallManagementModal() {
         updateBallStockDisplay();
+        updateUsedBallStockDisplay(); // <-- ADD THIS LINE
         adminSettingsModal.classList.add('hidden');
         ballManagementModal.classList.remove('hidden');
     }
@@ -984,6 +1113,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (action === 'return') {
             signOutMemberTitle.textContent = 'Select Member Returning Stock';
             signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
+        } else if (action === 'return_used') { // <-- ADD THIS ENTIRE ELSE IF BLOCK
+            signOutMemberTitle.textContent = 'Select Member Returning Used Balls';
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this used ball return.';
         } else { // signout
             signOutMemberTitle.textContent = 'Select Member Signing Out';
             signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
@@ -1035,19 +1167,15 @@ document.addEventListener('DOMContentLoaded', () => {
         signOutMemberModal.classList.add('hidden');
 
         if (action === 'add') {
-            showKeypad(null, { maxLength: 3, title: `Cans to add for ${member}` });
-            keypadConfirmBtn.removeEventListener('click', confirmBallStockUpdate);
-            keypadConfirmBtn.addEventListener('click', confirmBallStockUpdate);
+            showKeypad(null, { mode: 'addStock', maxLength: 3, title: `Cans to add for ${member}` });
         } else if (action === 'return') {
-            showKeypad(null, { maxLength: 3, title: `Cans to return for ${member}` });
-            keypadConfirmBtn.removeEventListener('click', confirmBallStockReturn);
-            keypadConfirmBtn.addEventListener('click', confirmBallStockReturn);
+            showKeypad(null, { mode: 'returnStock', maxLength: 3, title: `Cans to return for ${member}` });
+        } else if (action === 'return_used') {
+            showKeypad(null, { mode: 'returnUsed', maxLength: 3, title: `Used balls to return for ${member}` });
         } else if (action === 'signout') {
             const category = signOutMemberModal.dataset.category;
             customKeypadModal.dataset.category = category;
-            showKeypad(null, { maxLength: 2, title: `Cans for ${member} (${category})` });
-            keypadConfirmBtn.removeEventListener('click', confirmSignOutQuantity);
-            keypadConfirmBtn.addEventListener('click', confirmSignOutQuantity);
+            showKeypad(null, { mode: 'signOut', maxLength: 2, title: `Cans for ${member} (${category})` });
         }
     }
 
@@ -1267,44 +1395,72 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderBallHistoryModal() {
         ballHistoryList.innerHTML = ''; // Clear previous content
 
-        if (state.ballManagement.history.length === 0) {
-            ballHistoryList.innerHTML = '<p style="text-align: center; color: #6c757d;">No ball transactions have been logged yet.</p>';
-            return;
-        }
+        const filter = state.ballManagement.historyFilter;
 
-        // Header Row
-        const headerHTML = `
-            <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
-                <div class="ball-history-details">
-                    <span>Date & Time</span>
-                    <span>Committee Member</span>
-                    <span class="numeric">Before</span>
-                    <span class="numeric">Change</span>
-                    <span class="numeric">After</span>
+        // 1. Create the HTML for the filter radio buttons
+        const filterHTML = `
+            <div class="gender-selector" style="justify-content: center; margin-bottom: 1rem;">
+                <div class="radio-group">
+                    <label> <input type="radio" name="ball-history-filter" value="all" ${filter === 'all' ? 'checked' : ''}> All </label>
+                    <label> <input type="radio" name="ball-history-filter" value="new" ${filter === 'new' ? 'checked' : ''}> New </label>
+                    <label> <input type="radio" name="ball-history-filter" value="used" ${filter === 'used' ? 'checked' : ''}> Used </label>
                 </div>
             </div>
         `;
 
-        const historyItemsHTML = [...state.ballManagement.history].reverse().map(entry => {
-            const dateTime = new Date(entry.timestamp).toLocaleString('en-ZA');
-            const memberName = entry.member || 'N/A';
-            const change = entry.action === 'in' ? `+${entry.count}` : `-${entry.count}`;
-            const changeClass = entry.action === 'in' ? 'stock-in' : 'stock-out';
+        // 2. Filter the history based on the current state
+        const filteredHistory = state.ballManagement.history.filter(entry => {
+            if (filter === 'all') return true;
+            const isUsed = entry.category === 'return_used';
+            if (filter === 'used') return isUsed;
+            if (filter === 'new') return !isUsed;
+            return true;
+        });
 
-            return `
-                <div class="history-item">
+        if (filteredHistory.length === 0) {
+            ballHistoryList.innerHTML = filterHTML + '<p style="text-align: center; color: #6c757d;">No transactions match the selected filter.</p>';
+        } else {
+            // 3. Build the rest of the list using the filtered data
+            const headerHTML = `
+                <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
                     <div class="ball-history-details">
-                        <span class="timestamp">${dateTime}</span>
-                        <span>${memberName}</span>
-                        <span class="numeric">${entry.stockBefore}</span>
-                        <span class="numeric ${changeClass}">${change}</span>
-                        <span class="numeric">${entry.stockAfter}</span>
+                        <span>Date & Time</span>
+                        <span>Committee Member</span>
+                        <span class="numeric">Before</span>
+                        <span class="numeric">Change</span>
+                        <span class="numeric">After</span>
                     </div>
                 </div>
             `;
-        }).join('');
 
-        ballHistoryList.innerHTML = headerHTML + historyItemsHTML;
+            const historyItemsHTML = [...filteredHistory].reverse().map(entry => {
+                const dateTime = new Date(entry.timestamp).toLocaleString('en-ZA');
+                const memberName = entry.member || 'N/A';
+                const change = entry.action === 'in' ? `+${entry.count}` : `-${entry.count}`;
+                const changeClass = entry.action === 'in' ? 'stock-in' : 'stock-out';
+                const isUsedBalls = entry.category === 'return_used';
+                const stockClass = isUsedBalls ? 'stock-used' : 'stock-new';
+
+                return `
+                    <div class="history-item">
+                        <div class="ball-history-details">
+                            <span class="timestamp">${dateTime}</span>
+                            <span>${memberName}</span>
+                            <span class="numeric ${stockClass}" data-label="Before">${entry.stockBefore}</span>
+                            <span class="numeric ${changeClass}" data-label="Change">${change}</span>
+                            <span class="numeric ${stockClass}" data-label="After">${entry.stockAfter}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            ballHistoryList.innerHTML = filterHTML + headerHTML + historyItemsHTML;
+        }
+
+        // 4. Attach event listeners to the new radio buttons
+        ballHistoryList.querySelectorAll('input[name="ball-history-filter"]').forEach(radio => {
+            radio.addEventListener('change', handleBallHistoryFilterChange);
+        });
     }
 
     function showBallHistoryModal() {
@@ -1406,11 +1562,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function alignIndexHeight(listElement, indexElement) {
-        // Use a timeout to ensure the browser has finished rendering before we measure.
+        // Use a timeout to ensure the browser has rendered the index
+        // before we try to measure its height.
         setTimeout(() => {
             if (listElement && indexElement) {
-                const listHeight = listElement.offsetHeight;
-                indexElement.style.height = `${listHeight}px`;
+                // Get the actual, rendered height of the index.
+                const indexHeight = indexElement.offsetHeight;
+                
+                // Apply that exact height to the list element.
+                listElement.style.height = `${indexHeight}px`;
             }
         }, 0);
     }
@@ -1481,32 +1641,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function createCourtCard(court) {
         const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
         const playersSelected = state.selection.players.length;
-        const selectionComplete = playersSelected === requiredPlayers; // This line determines readiness
+        const selectionComplete = playersSelected === requiredPlayers;
         const isSelectableForOverlay = selectionComplete && court.status === 'available'; 
         const isSelected = court.id === state.selection.courtId;
         
-        // Determine initial icon and class based on court state
         const isCollapsed = court.isCollapsed;
         const bodyClass = isCollapsed ? 'is-collapsed' : '';
         const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
         
         const courtCard = document.createElement('div');
-        // APPLY isCollapsed CLASS TO THE MAIN CARD
         courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectableForOverlay ? 'selectable' : ''} ${bodyClass}`;
         courtCard.dataset.courtId = court.id;
         
         let cancelBtnHTML = '';
+        let editBtnHTML = ''; // --- ADD THIS LINE ---
+
+        // Show cancel button for any game not 'available' or 'selected'
         if (court.status !== 'available' && !isSelected) {
             cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
         }
 
-        let timerHTML = '';
+        // --- ADD THIS ENTIRE IF BLOCK for the new edit button ---
+        // Only show the edit button for games currently in progress
+        if (court.status === 'in_progress') {
+            editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+        }
+        // --- END OF NEW BLOCK ---
+
+        let bodyTimerHTML = '';
         if (court.status === 'in_progress' || court.status === 'game_pending') {
-            timerHTML = `<span class="game-timer" id="timer-${court.id}">00:00</span>`;
+            bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
         }
         
         const statusText = isSelected ? 'SELECTED' : court.status.replace(/_/g, ' ');
-
         const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
         let playerSpotsHTML = '';
         if (court.gameMode === 'singles') {
@@ -1514,9 +1681,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
                 <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
             `;
-        } else { // Doubles
+        } else {
             if (court.teamsSet === false) {
-                 playerSpotsHTML = `
+                playerSpotsHTML = `
                     <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
                     <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
                     <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
@@ -1524,7 +1691,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="teams-not-set" data-action="choose-teams">Teams not set</div>
                 `;
             } else {
-                 playerSpotsHTML = `
+                playerSpotsHTML = `
                     <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
                     <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
                     <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
@@ -1534,50 +1701,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let overlayHTML = '';
-        if (isSelected) {
-            // ADDED is-ready CLASS
-            const readyClass = selectionComplete ? 'is-ready' : ''; 
-            overlayHTML = `
-                <div class="confirmation-overlay">
-                    <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
-                    <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
-                </div>
-            `;
-        } else if (isSelectableForOverlay) { 
-            overlayHTML = `
-                <div class="court-selection-overlay">
-                    <button class="court-confirm-btn select-court" data-action="select-court-action">SELECT<br>COURT ${court.id}</button>
-                </div>
-            `;
-        }
-        else if (court.status === 'selecting_teams') {
-            overlayHTML = `
-                <div class="team-selection-overlay">
-                    <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
-                    <button class="court-confirm-btn choose" data-action="choose-teams">Choose Teams</button>
-                    <button class="court-confirm-btn choose-later" data-action="choose-later">Choose Later</button>
-                </div>
-            `;
-        } else if (court.status === 'game_pending') {
-            overlayHTML = `
-                <div class="game-action-overlay">
-                    <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
-                </div>
-            `;
-        } else if (court.status === 'in_progress') {
-            const ballClass = court.isNewGame ? 'animate-in' : 'visible';
-
-            overlayHTML = `
-                <div class="game-action-overlay">
-                    <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
-                </div>
-            `;
-        }
+        // ... (rest of the overlayHTML logic remains unchanged) ...
+            if (isSelected) {
+                const readyClass = selectionComplete ? 'is-ready' : ''; 
+                overlayHTML = `
+                    <div class="confirmation-overlay">
+                        <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
+                        <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
+                    </div>
+                `;
+            } else if (isSelectableForOverlay) { 
+                overlayHTML = `
+                    <div class="court-selection-overlay">
+                        <button class="court-confirm-btn select-court" data-action="select-court-action">SELECT<br>COURT ${court.id}</button>
+                    </div>
+                `;
+            }
+            else if (court.status === 'selecting_teams') {
+                overlayHTML = `
+                    <div class="team-selection-overlay">
+                        <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
+                        <button class="court-confirm-btn choose" data-action="choose-teams">Choose Teams</button>
+                        <button class="court-confirm-btn choose-later" data-action="choose-later">Choose Later</button>
+                    </div>
+                `;
+            } else if (court.status === 'game_pending') {
+                overlayHTML = `
+                    <div class="game-action-overlay">
+                        <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
+                    </div>
+                `;
+            } else if (court.status === 'in_progress') {
+                const ballClass = court.isNewGame ? 'animate-in' : 'visible';
+                overlayHTML = `
+                    <div class="game-action-overlay">
+                        <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
+                    </div>
+                `;
+            }
+        // ... (end of overlayHTML logic) ...
 
         courtCard.innerHTML = `
             <div class="card-header header-status-${court.status}">
                 <h3>Court ${court.id}</h3>
-                ${timerHTML}
                 <div class="header-controls">
                     <span class="status-tag">${statusText}</span>
                     <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
@@ -1587,11 +1753,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="card-body">
                 <div class="court-inner">
+                    ${bodyTimerHTML}
                     <div class="center-service-line"></div>
                     ${playerSpotsHTML}
                     ${overlayHTML} 
                 </div>
                 ${cancelBtnHTML}
+                ${editBtnHTML}  
             </div>`;
         
         return courtCard;
@@ -1723,7 +1891,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const li = document.createElement("li");
         const playerName = player.name;
         
-        let statusText = player.guest ? 'Guest' : 'Member';
+        // --- THIS IS THE UPDATED LOGIC BLOCK ---
+        let statusText;
+        if (player.guest) {
+            statusText = 'Guest';
+        } else if (player.committee) {
+            // This is the new line for committee members
+            statusText = `Committee ${player.committee}`;
+        } else {
+            // This is the change for regular members
+            statusText = player.type ? `${player.type} Member` : 'Member';
+        }
+        // --- END OF UPDATED LOGIC ---
+
         let priorityText = '';
         let priorityClass = '';
 
@@ -1740,7 +1920,6 @@ document.addEventListener('DOMContentLoaded', () => {
             iconHtml += '<span style="color: #007bff; margin-left: 5px;">⏱️</span>';
         }
         
-        // NEW: Pause/Play icon logic
         const isPaused = player.isPaused;
         const pauseIcon = isPaused ? 'mdi-play' : 'mdi-pause';
         const pauseAction = isPaused ? 'resume' : 'pause';
@@ -1767,13 +1946,10 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         li.dataset.playerName = playerName;
 
-        // NEW: Add paused class
         if (player.isPaused) {
             li.classList.add("paused-player");
         }
         
-        // --- REMOVED: Redundant lone-gender-highlight class check (now handled by structure) ---
-
         const isSelected = selectedPlayerNames.includes(playerName);
         if (isSelected) {
             li.classList.add("selected");
@@ -1781,25 +1957,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const isSelectionFull = selectedPlayerNames.length === requiredPlayers;
             let isDisabled = false;
 
-            // This is the key logic that determines who is selectable
             if (isSpecialCase) {
-                // In special case, only players outside the shortened slice end are disabled
                 if (index >= sliceEnd) {
                     isDisabled = true;
                 }
             } else {
-                // In the normal case, a player is disabled if their index is outside the top 8.
                 if (index >= sliceEnd) { 
                     isDisabled = true;
                 }
             }
 
-            // ADDED: Pause state overrides all other selection status, making it disabled for selection
             if (player.isPaused) {
                 isDisabled = true;
             }
             
-            // --- CRITICAL FIX: Explicitly re-enable the special highlighted player ---
             if (index === specialHighlightIndex) {
                 isDisabled = false; 
             }
@@ -1809,17 +1980,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // RENDER FIX: Add first-player class only to the item that should have the green box style (the actual selector)
         if (isSelector) {
             li.classList.add("first-player");
         } 
         
-        // The player at index 0 must have the class for CSS to target it structurally, then remove it if not the selector.
         if (index === 0) { 
             li.classList.add("first-player");
         }
         
-        if (!isSelector) { // Functional removal of green border/animation if not the selector
+        if (!isSelector) {
             li.classList.remove("first-player");
         }
         
@@ -1833,116 +2002,104 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
     }
 
-    function render(){
-        const {gameMode, players: selectedPlayerNames, courtId: selectedCourtId} = state.selection;
+    function render() {
+        const {
+            gameMode,
+            players: selectedPlayerNames,
+            courtId: selectedCourtId
+        } = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
         const playerStats = calculatePlayerPlaytime();
-        const onDutyPlayer = state.onDuty; 
-        
-        const starPlayers = calculateStarPlayers(); 
-        
+        const starPlayers = calculateStarPlayers();
+
         availablePlayersList.innerHTML = "";
-        
-        // --- LOGIC TO DETERMINE SELECTOR (GREEN BOX) START INDEX ---
+
         let sliceStart = 0;
         let selectorPlayer = state.availablePlayers[0];
-        
+
         if (selectorPlayer && selectorPlayer.isPaused) {
             const firstUnpausedIndex = state.availablePlayers.findIndex(p => !p.isPaused);
-            if (firstUnpausedIndex > 0) {
+            if (firstUnpausedIndex !== -1) {
                 sliceStart = firstUnpausedIndex;
-                selectorPlayer = state.availablePlayers[sliceStart];
+                selectorPlayer = state.availablePlayers[firstUnpausedIndex];
             } else {
                 selectorPlayer = null;
             }
         }
-        
+
         const renderQueue = state.availablePlayers;
-        
-        if (renderQueue.length === 0 && selectedPlayerNames.length === 0){
+
+        if (renderQueue.length === 0 && selectedPlayerNames.length === 0) {
             const li = document.createElement("li");
             li.className = "waiting-message";
             li.textContent = totalPlayersAtClub() > 0 ? "All players are on court." : "Waiting For Players To Check In...";
             availablePlayersList.appendChild(li);
         } else {
-            // --- CORE LOGIC: EXPANSION, IMBALANCE, and SLICE END (FIXED) ---
+            // --- CORE LOGIC: REWRITTEN FOR CORRECT GENDER BALANCING ---
             let isSpecialCase = false;
-            let selectableGroupBaseSize = 7; 
             let specialHighlightIndex = -1;
-            let nextPlayerSliceEnd = renderQueue.length; 
+            let nextPlayerSliceEnd = renderQueue.length;
+            const selectableGroupBaseSize = 7;
 
-            const playersAfterSelector = renderQueue.slice(sliceStart + 1);
-            
-            // Collect the first 8 available (unpaused) players after the selector
-            const firstEightUnpaused = [];
-            for (const player of playersAfterSelector) {
-                if (!player.isPaused) {
-                    firstEightUnpaused.push(player);
-                }
-                if (firstEightUnpaused.length === 8) break; 
-            }
-
-            // Check the first 7 available slots for imbalance
-            const availableInSelectableRange = firstEightUnpaused.slice(0, selectableGroupBaseSize); 
-
-            if (availableInSelectableRange.length === selectableGroupBaseSize) {
-                const selectorGender = selectorPlayer ? selectorPlayer.gender : null;
+            if (selectorPlayer && (renderQueue.length - sliceStart - 1) >= selectableGroupBaseSize) {
+                const selectorGender = selectorPlayer.gender;
                 
-                const isImbalanced = availableInSelectableRange.every(p => p.gender !== selectorGender);
+                const playersAfterSelector = renderQueue.slice(sliceStart + 1);
+                const availableInSelectableRange = playersAfterSelector.filter(p => !p.isPaused).slice(0, selectableGroupBaseSize);
+                
+                // This is the fix: Check for players of the SAME gender as the selector.
+                const sameGenderCountInRange = availableInSelectableRange.filter(p => p.gender === selectorGender).length;
 
-                if (isImbalanced) {
-                    // Imbalance detected. The orange box must be shortened to exclude the 7th available player initially.
-                    
-                    // 1. Find the 7th available player (e.g., David Wright). This is the player to be excluded.
-                    const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
-                    
-                    // 2. Find the absolute index of the 7th available player in the full queue.
-                    let searchStartIndex = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name);
-                    
-                    // Initial assumption: shorten the orange group to the player BEFORE the 7th.
-                    nextPlayerSliceEnd = searchStartIndex; 
+                const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
+                const endOfRangeIndex = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name);
+
+                // Case 1: TOTAL imbalance (0 players of selector's gender in the next 7)
+                if (sameGenderCountInRange === 0) {
+                    nextPlayerSliceEnd = endOfRangeIndex; // Shorten the orange box
                     isSpecialCase = true;
-                    
-                    // 3. Find the first available player of the selector's gender to highlight.
-                    const searchPool = renderQueue.slice(searchStartIndex); 
-                    const foundPlayerIndexInSearchPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
 
-                    if (foundPlayerIndexInSearchPool !== -1) {
-                        specialHighlightIndex = searchStartIndex + foundPlayerIndexInSearchPool;
-                    } else {
-                        // CRITICAL FIX: No suitable player found after the initial 7. 
-                        // Revert the orange group to include the full 7 players (index after the 7th player).
-                        nextPlayerSliceEnd = searchStartIndex + 1; // Index of the player AFTER the 7th
+                    const searchPool = renderQueue.slice(endOfRangeIndex);
+                    const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
+                    if (foundPlayerIndexInPool !== -1) {
+                        specialHighlightIndex = endOfRangeIndex + foundPlayerIndexInPool;
+                    } else { // No one found, revert to normal
+                        nextPlayerSliceEnd = endOfRangeIndex + 1;
                         isSpecialCase = false;
-                        specialHighlightIndex = -1; // Ensure no player is highlighted
                     }
-                } else {
-                    // Normal case: No imbalance. The orange box ends after the 7th available player.
-                    const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
-                    nextPlayerSliceEnd = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name) + 1;
                 }
-            } else {
-                nextPlayerSliceEnd = renderQueue.length;
+                // Case 2: SCARCE imbalance (exactly 1 player of selector's gender in the next 7)
+                else if (sameGenderCountInRange === 1) {
+                    nextPlayerSliceEnd = endOfRangeIndex + 1; // Do NOT shorten the orange box
+                    isSpecialCase = true;
+
+                    const searchPool = renderQueue.slice(nextPlayerSliceEnd);
+                    const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
+                    if (foundPlayerIndexInPool !== -1) {
+                        specialHighlightIndex = nextPlayerSliceEnd + foundPlayerIndexInPool;
+                    } else { // No one else found, revert to normal
+                        isSpecialCase = false;
+                    }
+                }
+                // Default Case: Balanced (2 or more players of selector's gender)
+                else {
+                    nextPlayerSliceEnd = endOfRangeIndex + 1;
+                }
             }
-            // --- END CORE LOGIC ---
+            // --- END OF REWRITTEN LOGIC ---
 
             if (renderQueue.length > 0) {
-                
-                // 1. Render all players BEFORE the selector (paused players at the front).
                 const playersBeforeSelector = renderQueue.slice(0, sliceStart);
                 playersBeforeSelector.forEach((player, index) => {
                     const li = createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
                     availablePlayersList.appendChild(li);
                 });
 
-                // 2. Render the actual SELECTOR player (the green box).
                 if (selectorPlayer) {
                     const selectorIndex = sliceStart;
-                    const liSelector = createPlayerListItem(selectorPlayer, selectorIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, true, false); 
+                    const liSelector = createPlayerListItem(selectorPlayer, selectorIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, true, false);
                     availablePlayersList.appendChild(liSelector);
                 }
 
-                // 3. Render the main orange group (starts immediately AFTER the selector).
                 const orangeGroupPlayers = renderQueue.slice(sliceStart + 1, nextPlayerSliceEnd);
                 if (orangeGroupPlayers.length > 0) {
                     const groupDiv = document.createElement('div');
@@ -1954,73 +2111,62 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     availablePlayersList.appendChild(groupDiv);
                 }
-                
-                // 4. Render ALL remaining players sequentially (FIXED ORDER).
-                const playersAfterOrangeGroup = renderQueue.slice(nextPlayerSliceEnd);
 
+                const playersAfterOrangeGroup = renderQueue.slice(nextPlayerSliceEnd);
                 playersAfterOrangeGroup.forEach((player, index) => {
-                    const playerIndex = nextPlayerSliceEnd + index; // Absolute index in renderQueue
+                    const playerIndex = nextPlayerSliceEnd + index;
                     const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
-                    
-                    // If this player is the specially highlighted player, wrap them.
+
                     if (playerIndex === specialHighlightIndex) {
                         const groupDiv = document.createElement('div');
                         groupDiv.className = 'next-players-group';
                         groupDiv.appendChild(playerLi);
                         availablePlayersList.appendChild(groupDiv);
                     } else {
-                        // Otherwise, append the player item as normal.
                         availablePlayersList.appendChild(playerLi);
                     }
                 });
-                
             }
         }
-        
+
         if (renderQueue.length > 0 && renderQueue.length < 4) {
             const li = document.createElement("li");
             li.textContent = "Waiting For More Players...";
             li.className = "waiting-message";
             availablePlayersList.appendChild(li);
         }
-        
-        // --- UPDATE AVAILABLE PLAYERS COLLAPSE STATE ---
+
         const playersToggleIcon = document.querySelector('#players-toggle-btn i');
         if (playersToggleIcon) {
             const isExpanded = state.mobileControls.isPlayersExpanded;
             playersToggleIcon.className = `mdi ${isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'}`;
         }
         availablePlayersSection.classList.toggle('is-collapsed', !state.mobileControls.isPlayersExpanded);
-        
-        
-        courtGrid.innerHTML = "";
-        
-        courtGrid.insertAdjacentHTML('afterbegin', createSummaryCard());
 
+        courtGrid.innerHTML = "";
+        courtGrid.insertAdjacentHTML('afterbegin', createSummaryCard());
         alertStatusDisplay = document.getElementById('alert-status-display');
-        
+
         state.courts.filter(court => state.courtSettings.visibleCourts.includes(court.id)).forEach(court => {
             const card = createCourtCard(court);
             courtGrid.appendChild(card);
         });
-        
+
         const courtInSetup = state.courts.find(c => c.status === "selecting_teams" || c.status === "game_pending");
-        const courtSelectingTeams = state.courts.find(c => c.status === "selecting_teams");
-        const courtGamePending = state.courts.find(c => c.status === "game_pending");
-        const firstAvailablePlayer = selectorPlayer ? selectorPlayer.name : null; 
+        const firstAvailablePlayer = selectorPlayer ? selectorPlayer.name : null;
         const remainingToSelect = requiredPlayers - selectedPlayerNames.length;
         const allCourtsBusy = state.courts.filter(c => state.courtSettings.visibleCourts.includes(c.id)).every(c => c.status !== "available");
 
         infoBar.classList.remove("blue-theme", "green-theme", "yellow-theme", "red-theme", "hidden");
-        
-        if (courtSelectingTeams) {
+
+        if (courtInSetup) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("yellow-theme");
-            infoBarText.textContent = `Court ${courtSelectingTeams.id}: Choose how to form teams on the court card.`;
-        } else if (courtGamePending) {
+            infoBarText.textContent = `Court ${courtInSetup.id}: Choose how to form teams on the court card.`;
+        } else if (renderQueue.length === 0 && totalPlayersAtClub() > 0) {
             infoBar.classList.remove("hidden");
-            infoBar.classList.add("yellow-theme");
-            infoBarText.textContent = `Court ${courtGamePending.id}: Teams are set! Press 'Start Game' on the court card.`;
+            infoBar.classList.add("blue-theme");
+            infoBarText.textContent = "All Players are on Court...";
         } else if (selectedPlayerNames.length === 0 && totalPlayersAtClub() < 2) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("red-theme");
@@ -2028,7 +2174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (selectedPlayerNames.length === 0 && allCourtsBusy) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("red-theme");
-            infoBarText.textContent = "All courts are in use. Please wait for a court to become available.";
+            infoBarText.textContent = "Please wait for a court to become available.";
         } else if (selectedPlayerNames.length === 0 && firstAvailablePlayer) {
             infoBar.classList.remove("hidden");
             infoBar.classList.add("green-theme");
@@ -2048,7 +2194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             infoBar.classList.add("hidden");
         }
-        
+
         modeDoublesBtn.classList.toggle("active", gameMode === "doubles");
         modeSinglesBtn.classList.toggle("active", gameMode === "singles");
         modeDoublesBtn.disabled = renderQueue.length < 4;
@@ -2106,126 +2252,119 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleCourtGridClick(e){
-    const courtCard = e.target.closest(".court-card");
-    if (!courtCard) return;
+        const courtCard = e.target.closest(".court-card");
+        if (!courtCard) return;
 
-    const action = e.target.dataset.action;
-    const courtId = courtCard.dataset.courtId;
-
-    const teamsNotSet = e.target.closest(".teams-not-set");
-    if (teamsNotSet) {
-        handleChooseTeams(courtId);
-        return;
-    }
-
-    // --- Explicit Action Handlers ---
-
-    // These actions are on the team selection overlay
-    if (action === 'randomize-teams') {
-        handleRandomizeTeams(courtId);
-        return;
-    }
-    if (action === 'choose-later') {
-        handleChooseLater(courtId);
-        return;
-    }
-    if (action === 'choose-teams') {
-        handleChooseTeams(courtId);
-        return;
-    }
-
-    // These actions handle other game states
-    if (action === 'cancel-game-setup') {
-        handleCancelGame(courtId);
-        return;
-    }
-    if (action === 'start-game') {
-        handleStartGame(courtId);
-        return;
-    }
-    if (action === 'end-game') {
-    const button = e.target.closest('.end-game-ball');
-    if (button) {
-        // This is the fix: Remove the class that made it appear
-        button.classList.remove('animate-in');
+        // --- THIS IS THE CORRECTED LOGIC ---
+        // Find the closest element with a data-action, not just the direct click target.
+        const actionTarget = e.target.closest('[data-action]');
+        const action = actionTarget ? actionTarget.dataset.action : null;
+        // --- END OF CORRECTION ---
         
-        // Now, add the class that makes it disappear
-        button.classList.add('hide-anim');
+        const courtId = courtCard.dataset.courtId;
 
-        setTimeout(() => {
-            // After the animation, call the original function to open the modal
-            handleEndGame(courtId);
-        }, 1500); // 1.5-second delay for the hitWinner animation
-    } else {
-        // Fallback if the button can't be found
-        handleEndGame(courtId);
-    }
-    return;
-}
-    
-    // This is the main action to select a court and immediately set it up
-    if (action === 'select-court-action') {
-    const clickedButton = e.target.closest('.court-confirm-btn');
-    if (!clickedButton) return;
+        const teamsNotSet = e.target.closest(".teams-not-set");
+        if (teamsNotSet) {
+            handleChooseTeams(courtId);
+            return;
+        }
 
-    // Get all the selectable tennis ball buttons currently on screen
-    const allSelectableButtons = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+        if (action === 'edit-game') {
+            showManageCourtPlayersModal(courtId);
+            return;
+        }
+        
+        if (action === 'randomize-teams') {
+            handleRandomizeTeams(courtId);
+            return;
+        }
+        if (action === 'choose-later') {
+            handleChooseLater(courtId);
+            return;
+        }
+        if (action === 'choose-teams') {
+            handleChooseTeams(courtId);
+            return;
+        }
+        if (action === 'cancel-game-setup') {
+            handleCancelGame(courtId);
+            return;
+        }
+        if (action === 'start-game') {
+            handleStartGame(courtId);
+            return;
+        }
+        if (action === 'end-game') {
+            const button = e.target.closest('.end-game-ball');
+            if (button) {
+                button.classList.remove('animate-in');
+                button.classList.add('hide-anim');
+                setTimeout(() => {
+                    handleEndGame(courtId);
+                }, 1500);
+            } else {
+                handleEndGame(courtId);
+            }
+            return;
+        }
+        
+        if (action === 'select-court-action') {
+            const clickedButton = e.target.closest('.court-confirm-btn');
+            if (!clickedButton) return;
 
-    // 1. Animate the SELECTED ball using the spin animation
-    clickedButton.classList.remove('serve-in'); // Remove the serve-in class to avoid conflicts
-    clickedButton.classList.add('hide-anim'); // This triggers bounceSelect
+            const allSelectableButtons = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+            clickedButton.classList.remove('serve-in');
+            clickedButton.classList.add('hide-anim');
 
-    // 2. Animate the OTHER balls sequentially using the hitWinner animation
-    let delay = 0;
-    allSelectableButtons.forEach(button => {
-        if (button !== clickedButton) {
+            let delay = 0;
+            allSelectableButtons.forEach(button => {
+                if (button !== clickedButton) {
+                    setTimeout(() => {
+                        button.classList.remove('serve-in');
+                        button.classList.add('serve-out');
+                    }, delay);
+                    delay += 200;
+                }
+            });
+
             setTimeout(() => {
-                button.classList.remove('serve-in');
-                button.classList.add('serve-out');
-            }, delay);
-            delay += 200; // Stagger the fly-off animation
+                const { players: selectedPlayerNames, gameMode } = state.selection;
+                const requiredPlayers = gameMode === "doubles" ? 4 : 2;
+
+                if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
+
+                const court = state.courts.find(c => c.id === courtId);
+                const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+
+                court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
+                court.players = [...selectedPlayerObjects];
+                court.gameMode = gameMode;
+
+                if (gameMode === 'doubles') {
+                    court.status = "selecting_teams";
+                    court.teams.team1 = [];
+                    court.teams.team2 = [];
+                } else {
+                    court.teams.team1 = [selectedPlayerObjects[0]];
+                    court.teams.team2 = [selectedPlayerObjects[1]];
+                    court.status = "game_pending";
+                    court.autoStartTimeTarget = Date.now() + 60000;
+                    court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+                }
+
+                state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+                state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
+
+                updateGameModeBasedOnPlayerCount();
+                enforceDutyPosition();
+                render();
+                saveState();
+
+            }, 2000);
+            
+            return;
         }
-    });
-
-    // 3. After the main animation is done, proceed with the game logic
-    setTimeout(() => {
-        const { players: selectedPlayerNames, gameMode } = state.selection;
-        const requiredPlayers = gameMode === "doubles" ? 4 : 2;
-
-        if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
-
-        const court = state.courts.find(c => c.id === courtId);
-        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
-
-        court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
-        court.players = [...selectedPlayerObjects];
-        court.gameMode = gameMode;
-
-        if (gameMode === 'doubles') {
-            court.status = "selecting_teams";
-            court.teams.team1 = [];
-            court.teams.team2 = [];
-        } else {
-            court.teams.team1 = [selectedPlayerObjects[0]];
-            court.teams.team2 = [selectedPlayerObjects[1]];
-            court.status = "game_pending";
-            court.autoStartTimeTarget = Date.now() + 60000;
-            court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
-        }
-
-        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
-        state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
-
-        updateGameModeBasedOnPlayerCount();
-        enforceDutyPosition();
-        render();
-        saveState();
-
-    }, 2000); // Wait 2 seconds for the bounceSelect animation to finish
-    
-    return;
-}
-}
+    }
     
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
     function calculatePlayerStats(){
@@ -2677,36 +2816,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
-    function handleStartGame(courtId){
-        const court = state.courts.find(c => c.id === courtId);
-        if (!court) return;
+function handleStartGame(courtId){
+    const court = state.courts.find(c => c.id === courtId);
+    if (!court) return;
 
-        const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
-        const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
+    const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+    const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
 
-        if (startButton) {
-            startButton.classList.add('start-game-hop');
-        }
-
-        setTimeout(() => {
-            if(court.autoStartTimer) {
-                clearTimeout(court.autoStartTimer);
-                court.autoStartTimer = null;
-            }
-            court.status = "in_progress";
-            court.gameStartTime = Date.now();
-            court.autoStartTimeTarget = null;
-            court.isNewGame = true; // Flag that this is the first render for this game
-
-            render(); // This will render the card with the animation class
-
-            court.isNewGame = false; // Immediately remove the flag for all future renders
-            saveState(); // Save the final state
-
-            resetAlertSchedule();
-            checkAndPlayAlert(false);
-        }, 2000); // Wait for the "start-game-hop" animation to finish
+    if (startButton) {
+        startButton.classList.add('start-game-hop');
     }
+
+    setTimeout(() => {
+        if(court.autoStartTimer) {
+            clearTimeout(court.autoStartTimer);
+            court.autoStartTimer = null;
+        }
+        court.status = "in_progress";
+        court.gameStartTime = Date.now();
+        court.autoStartTimeTarget = null;
+        court.isNewGame = true; 
+
+        // --- UPDATED ANNOUNCEMENT LOGIC ---
+        const team1Names = getPlayerNames(court.teams.team1);
+        const team2Names = getPlayerNames(court.teams.team2);
+        let announcementMessage;
+        
+        const formatTeamNames = (names) => {
+            if (names.length === 1) return names[0];
+            if (names.length === 2) return `${names[0]} and ${names[1]}`;
+            return names.slice(0, -1).join(', ') + ` and ${names.slice(-1)[0]}`;
+        };
+        
+        // Use the new helper function here
+        const formattedCourtId = formatCourtIdForTTS(court.id);
+
+        if (court.gameMode === 'singles') {
+            announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ...are on Court ${formattedCourtId}... Lekker Speel!`;
+        } else if (court.gameMode === 'doubles') {
+            if (court.teamsSet === false) {
+                const playerNames = getPlayerNames(court.players);
+                const namesList = formatTeamNames(playerNames);
+                announcementMessage = `It's ${namesList}, on Court ${formattedCourtId}... Lekker Speel!`;
+            } else {
+                const team1String = formatTeamNames(team1Names);
+                const team2String = formatTeamNames(team2Names);
+                announcementMessage = `It's team ${team1String}, versus team ${team2String} ...on Court ${formattedCourtId}... Lekker Speel!`;
+            }
+        }
+        
+        playAlertSound(announcementMessage, null);
+        // --- END UPDATED LOGIC ---
+
+        render(); 
+        court.isNewGame = false;
+        saveState();
+        resetAlertSchedule();
+        checkAndPlayAlert(false);
+    }, 2000);
+}
 
     function handleStartGame(courtId){
         const court = state.courts.find(c => c.id === courtId);
@@ -2743,18 +2911,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (court.gameMode === 'singles') {
                 // Singles format: Player A and Player B are on Court X.
-                announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ....are on Court ${court.id}.... Lekker Speel!`;
+                announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ...are on Court ${court.id}... Lekker Speel!`;
             } else if (court.gameMode === 'doubles') {
                 if (court.teamsSet === false) {
                     const playerNames = getPlayerNames(court.players);
                     const namesList = formatTeamNames(playerNames);
-                    announcementMessage = `It's ${namesList}, on Court ${court.id}.... Lekker Speel!`;
+                    announcementMessage = `It's ${namesList}, on Court ${court.id}... Lekker Speel!`;
                 } else {
                     // Doubles format: its player w & playerx vs player y & player z on Court X... Lekker Speel!
                     const team1String = formatTeamNames(team1Names);
                     const team2String = formatTeamNames(team2Names);
                     
-                    announcementMessage = `It's team ${team1String}, versus team ${team2String} ....on Court ${court.id}.... Lekker Speel!`;
+                    announcementMessage = `It's team ${team1String}, versus team ${team2String} ...on Court ${court.id}... Lekker Speel!`;
                 }
             } else {
                 // Fallback for other player counts/modes
@@ -3117,7 +3285,22 @@ document.addEventListener('DOMContentLoaded', () => {
         endGameConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
     }
 
- 
+    /**
+     * Converts a single-letter court ID to a phonetic spelling for clearer TTS.
+     * @param {string} courtId The court ID (e.g., 'A', 'B').
+     * @returns {string} The phonetic spelling (e.g., 'AYY', 'Bee').
+     */
+    function formatCourtIdForTTS(courtId) {
+        if (!courtId) return '';
+        switch (courtId.toUpperCase()) {
+            case 'A': return 'AYY';
+            case 'B': return 'Bee';
+            case 'C': return 'See';
+            case 'D': return 'Dee';
+            case 'E': return 'EE';
+            default: return courtId; // Fallback for any other court names
+        }
+    }
     
     /**
      * Helper to configure a SpeechSynthesisUtterance object with voice settings.
@@ -3142,8 +3325,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (preferredVoice) {
             utterance.voice = preferredVoice;
         }
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
+        utterance.rate = 0.85;
+        utterance.pitch = 1.15;
         
         return utterance;
     }
@@ -3330,15 +3513,17 @@ function playCustomTTS(message) {
         const availableCourtId = findNextAvailableCourtId();
         const conditionMet = hasEnoughPlayers && availableCourtId;
         
-        // Use the new helper function to get the correct selector's name
         const firstPlayerName = getFirstAvailablePlayerName(); 
 
-        if (!conditionMet || !firstPlayerName) { // Ensure there is a player to announce
+        if (!conditionMet || !firstPlayerName) {
             return;
         }
 
-        // The announcement is now correctly constructed using the first non-paused player's name
-        const courtMessage = `Attention, ${firstPlayerName.split(' ')[0]}. Please come and select your match. Court ${availableCourtId} is available.`;
+        // --- UPDATED ANNOUNCEMENT LOGIC ---
+        // Use the new helper function here
+        const formattedCourtId = formatCourtIdForTTS(availableCourtId);
+        const courtMessage = `Attention, ${firstPlayerName.split(' ')[0]}. Please come and select your match. Court ${formattedCourtId} is available.`;
+        // --- END UPDATED LOGIC ---
 
         if (alertState === 'initial_check' || forceCheck) {
             if (forceCheck) {
@@ -3404,20 +3589,17 @@ function playCustomTTS(message) {
     }
 
     function handleAdminLogin() {
-        // --- NEW: Check for active session ---
         if (adminSessionActive) {
-            showAdminModal();
-            // Reset the timer for another 2 minutes
-            if (adminSessionTimer) clearTimeout(adminSessionTimer);
-            adminSessionTimer = setTimeout(() => {
-                adminSessionActive = false;
+            // If session is active, PAUSE the timer by clearing it.
+            if (adminSessionTimer) {
+                clearTimeout(adminSessionTimer);
                 adminSessionTimer = null;
-            }, 120000); // 120000ms = 2 minutes
-            return; // Skip showing the keypad
+            }
+            showAdminModal(); // And go directly to the modal
+            return;
         }
-        // --- END NEW ---
 
-        // If no active session, show the keypad as normal
+        // If no session is active, prompt for the PIN
         showKeypad(null, { mode: 'admin', maxLength: 6, title: 'Enter Admin Passcode (0308DD)' });
     }
 
@@ -3425,20 +3607,12 @@ function playCustomTTS(message) {
         // --- MODIFIED LINE: Read from the hidden dataset value, not the display text ---
         const enteredCode = keypadDisplay.dataset.hiddenValue;
         const expectedCode = getAdminPasscode();
-        
+                
         if (enteredCode === expectedCode) {
             hideKeypad();
-            showAdminModal();
-
-            // --- NEW: Start the admin session ---
-            adminSessionActive = true;
-            if (adminSessionTimer) clearTimeout(adminSessionTimer); // Clear any old timer just in case
-            adminSessionTimer = setTimeout(() => {
-                adminSessionActive = false;
-                adminSessionTimer = null;
-                playAlertSound(null, null, 'Alert7.mp3'); // Play a subtle sound
-            }, 120000); // 120000ms = 2 minutes
-            // --- END NEW ---
+            adminSessionActive = true; // Set the session as active
+            showAdminModal();          // Then show the modal
+            // The timer is NOT started here anymore.
 
         } else {
             const keypadContent = customKeypadModal.querySelector('.keypad-content');
@@ -3525,43 +3699,62 @@ function playCustomTTS(message) {
         if (noSpeechIcon) noSpeechIcon.className = state.notificationControls.isTTSDisabled ? 'mdi mdi-microphone-off' : 'mdi mdi-microphone-message';
     }
 
-    function showAdminModal() {
-        const committeeMembers = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a,b) => a.name.localeCompare(b.name));
-        const isNoneChecked = state.onDuty === 'None' ? 'checked' : '';
-        committeeMemberList.innerHTML = ` <li class="committee-member"> <label> <input type="radio" name="onDutyMember" value="None" ${isNoneChecked}> <div class="member-details"> <span class="member-name">None</span> </div> </label> </li> `;
-        committeeMembers.forEach(member => {
-            const li = document.createElement('li');
-            li.className = 'committee-member';
-            const isChecked = member.name === state.onDuty ? 'checked' : '';
-            li.innerHTML = ` <label> <input type="radio" name="onDutyMember" value="${member.name}" ${isChecked}> <div class="member-details"> <span class="member-name">${member.name}</span> <span class="member-designation">${member.committee}</span> </div> </label> `;
-            committeeMemberList.appendChild(li);
-        });
-        committeeMemberList.querySelectorAll('input[name="onDutyMember"]').forEach(radio => {
-            radio.addEventListener('change', handleOnDutyChange);
-        });
-        courtAvailabilityList.innerHTML = '';
-        state.courts.forEach(court => {
-            const li = document.createElement('li');
-            li.className = 'court-availability-item';
-            const isVisible = state.courtSettings.visibleCourts.includes(court.id);
-            li.innerHTML = `
-                <label for="court-toggle-${court.id}">Court ${court.id}</label>
-                <label class="switch">
-                    <input type="checkbox" id="court-toggle-${court.id}" data-court-id="${court.id}" ${isVisible ? 'checked' : ''}>
-                    <span class="slider"></span>
-                </label>
-            `;
-            courtAvailabilityList.appendChild(li);
-        });
-        courtAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
-            toggle.addEventListener('change', handleCourtVisibilityChange);
-        });
+        function showAdminModal() {
+            const committeeMembers = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a,b) => a.name.localeCompare(b.name));
+            const isNoneChecked = state.onDuty === 'None' ? 'checked' : '';
+            committeeMemberList.innerHTML = ` <li class="committee-member"> <label> <input type="radio" name="onDutyMember" value="None" ${isNoneChecked}> <div class="member-details"> <span class="member-name">None</span> </div> </label> </li> `;
+            committeeMembers.forEach(member => {
+                const li = document.createElement('li');
+                li.className = 'committee-member';
+                const isChecked = member.name === state.onDuty ? 'checked' : '';
+                li.innerHTML = ` <label> <input type="radio" name="onDutyMember" value="${member.name}" ${isChecked}> <div class="member-details"> <span class="member-name">${member.name}</span> <span class="member-designation">${member.committee}</span> </div> </label> `;
+                committeeMemberList.appendChild(li);
+            });
+            committeeMemberList.querySelectorAll('input[name="onDutyMember"]').forEach(radio => {
+                radio.addEventListener('change', handleOnDutyChange);
+            });
 
-        // NEW: Update icon status when opening modal - important call
-        updateLightIcon();
+            // --- THIS IS THE UPDATED BLOCK ---
+            courtAvailabilityList.innerHTML = '';
+            state.courts.forEach(court => {
+                const li = document.createElement('li');
+                li.className = 'court-availability-item';
+                const isVisible = state.courtSettings.visibleCourts.includes(court.id);
+                
+                // Get light status for this court
+                const light = state.lightSettings.courts[court.id];
+                const isLightManaged = light && light.isManaged;
+                const isLightActive = isLightManaged && light.isActive;
+                const lightIconClass = isLightActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline';
+                const lightDisabledAttr = isLightManaged ? '' : 'disabled';
 
-        adminSettingsModal.classList.remove('hidden');
-    }
+                // Modified innerHTML to include the lightbulb button
+                li.innerHTML = `
+                    <label for="court-toggle-${court.id}">${court.id}</label>
+                    <button class="light-toggle-btn" data-court-id="${court.id}" title="Toggle Court ${court.id} Lights" ${lightDisabledAttr}>
+                        <i class="mdi ${lightIconClass}"></i>
+                    </button>
+                    <label class="switch">
+                        <input type="checkbox" id="court-toggle-${court.id}" data-court-id="${court.id}" ${isVisible ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+                courtAvailabilityList.appendChild(li);
+            });
+
+            courtAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+                toggle.addEventListener('change', handleCourtVisibilityChange);
+            });
+            
+            // Add new event listener for the light buttons
+            courtAvailabilityList.querySelectorAll('.light-toggle-btn').forEach(button => {
+                button.addEventListener('click', handleLightToggleChange);
+            });
+            // --- END OF UPDATED BLOCK ---
+
+            updateLightIcon();
+            adminSettingsModal.classList.remove('hidden');
+        }
 
     // FIX 5: Add checkAndPlayAlert(false) to trigger re-evaluation after court visibility change
     function handleCourtVisibilityChange(e) {
@@ -3847,14 +4040,28 @@ function playCustomTTS(message) {
     }
 
     // Original entry point, now just calls Card 1 function
-    function showManageCourtPlayersModal() {
-        // First, check if there are any pending additions from a previous unfinished session (shouldn't happen with handleManageClose but good safeguard)
+    function showManageCourtPlayersModal(courtId) { // --- Now accepts courtId ---
+        // 1. Safety check for any pending additions from a previous unfinished session
         const { addedPlayers } = state.adminCourtManagement;
         if (addedPlayers.length > 0) {
             state.availablePlayers = [...addedPlayers, ...state.availablePlayers];
             state.adminCourtManagement.addedPlayers = [];
         }
-        showCourtSelectionCard();
+        
+        // 2. Clear any old state before starting
+        state.adminCourtManagement = {
+            mode: 'card1_select_court', // Keep this for reset purposes
+            courtId: null,
+            currentCourtPlayers: [], 
+            removedPlayers: [], 
+            addedPlayers: [] 
+        };
+
+        // 3. Directly call the function to show the "Remove Players" card
+        showRemovePlayerCard(courtId);
+        
+        // 4. Show the main modal container
+        manageCourtPlayersModal.classList.remove('hidden');
     }
 
     // Card 2: Remove Player View
@@ -3969,43 +4176,38 @@ function playCustomTTS(message) {
     function renderAddPlayersList(courtId) {
         const { addedPlayers, removedPlayers } = state.adminCourtManagement;
         addPlayersList.innerHTML = '';
-        
-        // Get available players, excluding those already marked to be added (addedPlayers)
-        const availableForAdding = state.availablePlayers
-            .filter(p => !addedPlayers.some(ap => ap.name === p.name))
-            .slice(0, 7); // First 7 or less
+
+        // We'll show the top 7 available players as potential additions.
+        const availableForAdding = state.availablePlayers.slice(0, 7);
             
-        if (availableForAdding.length === 0 && addedPlayers.length === 0) {
+        if (availableForAdding.length === 0) {
             addPlayersList.innerHTML = '<li style="justify-content: center; color: #6c757d;">No players are currently available to add.</li>';
         } else {
             availableForAdding.forEach(player => {
+                const isAlreadyAdded = addedPlayers.some(ap => ap.name === player.name);
                 const li = document.createElement('li');
                 const displayName = player.guest ? `${player.name} (Guest)` : player.name;
-                li.innerHTML = `
-                    <span style="flex-grow: 1;">${displayName}</span>
-                    <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span>
-                    <span class="action-icon add" data-player="${player.name}" data-court-id="${courtId}" data-action="add-player-temp" title="Add Player">+</span>
-                `;
-                addPlayersList.appendChild(li);
-            });
-            
-            // Show already added players at the bottom of the list for visual confirmation
-            if (addedPlayers.length > 0) {
-                addPlayersList.innerHTML += '<li style="justify-content: center; background-color: #f0f0f0; margin-top: 1rem; color: var(--dark-text); font-weight: 500;">Players to be Added: Click ' + '&#215;' + ' to undo.</li>';
-                addedPlayers.forEach(player => {
-                    const li = document.createElement('li');
+
+                if (isAlreadyAdded) {
+                    // Style for players who are marked to be added
                     li.style.backgroundColor = 'var(--light-blue)';
-                    const displayName = player.guest ? `${player.name} (Guest)` : player.name;
                     li.innerHTML = `
                         <span style="flex-grow: 1; color: var(--primary-blue); font-weight: 500;">${displayName}</span>
-                        <span class="action-icon remove" data-player="${player.name}" data-court-id="${courtId}" data-action="undo-add-player-temp" title="Remove from Add List">&times;</span>
+                        <span class="action-icon remove" data-player="${player.name}" data-court-id="${courtId}" data-action="undo-add-player-temp" title="Undo Add">&times;</span>
                     `;
-                    addPlayersList.appendChild(li);
-                });
-            }
+                } else {
+                    // Style for players who are available to be added
+                    li.innerHTML = `
+                        <span style="flex-grow: 1;">${displayName}</span>
+                        <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span>
+                        <span class="action-icon add" data-player="${player.name}" data-court-id="${courtId}" data-action="add-player-temp" title="Add Player">+</span>
+                    `;
+                }
+                addPlayersList.appendChild(li);
+            });
         }
         
-        // Confirm button is only enabled if there's at least one added player OR one removed player
+        // Enable the confirm button only if there are changes to be made
         const hasChanges = addedPlayers.length > 0 || removedPlayers.length > 0;
         managePlayersConfirmBtn.disabled = !hasChanges;
         managePlayersConfirmBtn.style.backgroundColor = hasChanges ? 'var(--confirm-color)' : 'var(--inactive-color)';
@@ -4016,13 +4218,8 @@ function playCustomTTS(message) {
 
     // Handles Close button on Card 1, 2, or 3
     function handleManageClose() {
-        // 1. Return any temporarily added players to the front of the queue
-        const { addedPlayers } = state.adminCourtManagement;
-        if (addedPlayers.length > 0) {
-            state.availablePlayers = [...addedPlayers, ...state.availablePlayers];
-        }
-        
-        // 2. Clear temp state and close modal
+        // Simply reset the temporary state and close the modal.
+        // No players need to be returned to the queue as they were never removed.
         state.adminCourtManagement = {
             mode: 'card1_select_court',
             courtId: null,
@@ -4032,7 +4229,6 @@ function playCustomTTS(message) {
         };
         
         manageCourtPlayersModal.classList.add('hidden');
-        adminSettingsModal.classList.remove('hidden');
         updateGameModeBasedOnPlayerCount();
         render();
         saveState();
@@ -4041,24 +4237,17 @@ function playCustomTTS(message) {
 
     // Handles Back button on Card 2 (to Card 1) or Card 3 (to Card 2)
     function handleManageBack() {
-        const { mode, courtId, addedPlayers } = state.adminCourtManagement;
+        const { mode, courtId } = state.adminCourtManagement;
         
         if (mode === 'card2_remove_players') {
-            // Back from Card 2 to Card 1 (Discard removals, return additions)
-            // Additions are returned to the front of the queue on close/back, then state is reset.
-            if (addedPlayers.length > 0) {
-                state.availablePlayers = [...addedPlayers, ...state.availablePlayers];
-            }
+            // Back from "Remove" to "Select Court". All temporary changes are discarded.
             showCourtSelectionCard();
-            
         } else if (mode === 'card3_add_players') {
-            // Back from Card 3 to Card 2 (Discard additions)
-            if (addedPlayers.length > 0) {
-                state.availablePlayers = [...addedPlayers, ...state.availablePlayers];
-            }
-            state.adminCourtManagement.addedPlayers = []; // Clear added players in temp state
+            // Back from "Add" to "Remove". Discard only the 'added' players list.
+            state.adminCourtManagement.addedPlayers = [];
             showRemovePlayerCard(courtId);
         }
+        
         updateGameModeBasedOnPlayerCount();
         render();
         saveState();
@@ -4067,60 +4256,70 @@ function playCustomTTS(message) {
 
     // Handles Confirm button on Card 3 (Final Save)
     function handleManageConfirm() {
-        const { courtId, currentCourtPlayers, removedPlayers, addedPlayers } = state.adminCourtManagement;
+        const { courtId, removedPlayers, addedPlayers } = state.adminCourtManagement;
         const court = state.courts.find(c => c.id === courtId);
         if (!court || court.status !== 'in_progress') {
             return handleManageClose();
         }
-        
-        let newCourtPlayers = currentCourtPlayers.filter(p => !removedPlayers.some(rp => rp.name === p.name));
-        newCourtPlayers = [...newCourtPlayers, ...addedPlayers];
-        
-        const newGameMode = newCourtPlayers.length === 2 ? 'singles' : 'doubles';
-        const removedCount = removedPlayers.length;
-        const removedNames = removedPlayers.map(p => p.name).join(' and ');
-        const addedNames = addedPlayers.map(p => p.name).join(' and ');
-        const newPlayerCount = newCourtPlayers.length;
 
-        let rosterChangeAnnouncement = '';
-        let finalAnnouncement;
-
-        if (newCourtPlayers.length < 2) {
-            // Cancellation is handled in the if block below
-        } else if (removedPlayers.length > 0 && addedPlayers.length > 0) {
-            const removedSubjectVerb = removedCount === 1 ? 'was' : 'were';
-            rosterChangeAnnouncement = `Attention on Court ${courtId}: Player substitution complete. ${removedNames} ${removedSubjectVerb} replaced by ${addedNames}.`;
-        } else if (removedPlayers.length > 0) {
-            if (newPlayerCount === 2) {
-                rosterChangeAnnouncement = `Attention on Court ${courtId}: Game simplified to singles. ${removedNames} have left the court.`;
-            } else {
-                rosterChangeAnnouncement = `Attention on Court ${courtId}: ${removedNames} have left the court. The match continues with ${newPlayerCount} players.`;
+        // (Position-Aware Swap Logic and Queue Swap Logic remain the same...)
+        let newCourtPlayers = [...court.players];
+        const removedPlayerNames = new Set(removedPlayers.map(p => p.name));
+        let playersToAdd = [...addedPlayers]; 
+        const vacantIndices = [];
+        newCourtPlayers.forEach((player, index) => {
+            if (removedPlayerNames.has(player.name)) {
+                vacantIndices.push(index);
             }
-        } else if (addedPlayers.length > 0) {
-            rosterChangeAnnouncement = `Attention on Court ${courtId}: ${addedNames} have joined the game.`;
-        } else {
-            return handleManageClose();
+        });
+        vacantIndices.forEach(index => {
+            if (playersToAdd.length > 0) {
+                newCourtPlayers[index] = playersToAdd.shift();
+            } else {
+                newCourtPlayers[index] = null;
+            }
+        });
+        newCourtPlayers = newCourtPlayers.filter(p => p !== null);
+        if (playersToAdd.length > 0) {
+            newCourtPlayers.push(...playersToAdd);
         }
+        let playersToRequeueInQueue = [...removedPlayers];
+        const addedPlayerNamesInQueue = new Set(addedPlayers.map(p => p.name));
+        let newAvailablePlayers = state.availablePlayers.map(playerInQueue => {
+            if (addedPlayerNamesInQueue.has(playerInQueue.name)) {
+                if (playersToRequeueInQueue.length > 0) {
+                    return playersToRequeueInQueue.shift();
+                } else {
+                    return null;
+                }
+            }
+            return playerInQueue;
+        });
+        newAvailablePlayers = newAvailablePlayers.filter(p => p !== null);
+        if (playersToRequeueInQueue.length > 0) {
+            newAvailablePlayers.push(...playersToRequeueInQueue);
+        }
+        state.availablePlayers = newAvailablePlayers;
+        
+        // --- UPDATED ANNOUNCEMENT LOGIC ---
+        const newGameMode = newCourtPlayers.length === 2 ? 'singles' : 'doubles';
+        
+        // Use the new helper function here
+        const formattedCourtId = formatCourtIdForTTS(courtId);
 
         if (newCourtPlayers.length < 2) {
             if(court.autoStartTimer) clearTimeout(court.autoStartTimer);
-            
-            const originalPlayers = court.players.filter(p => !p.guest);
-            state.availablePlayers = [...originalPlayers, ...state.availablePlayers];
-
+            state.availablePlayers.push(...court.players.filter(p => !p.guest));
             court.becameAvailableAt = Date.now();
             court.status = "available";
             court.players = [];
             court.teams = {team1:[], team2:[]};
             court.gameMode = null;
             court.gameStartTime = null;
-            
-            finalAnnouncement = `Attention on court: Game on Court ${courtId} has been cancelled due to insufficient players.`;
-
+            playCustomTTS(`Attention: Game on Court ${formattedCourtId} has been cancelled due to insufficient players.`);
         } else {
             court.gameMode = newGameMode;
             court.players = newCourtPlayers;
-            
             if (newGameMode === 'singles') {
                 court.teams.team1 = [newCourtPlayers[0]];
                 court.teams.team2 = [newCourtPlayers[1]];
@@ -4129,29 +4328,32 @@ function playCustomTTS(message) {
                 court.teams.team1 = newCourtPlayers.slice(0, teamSize);
                 court.teams.team2 = newCourtPlayers.slice(teamSize);
             }
+
+            const removedNamesStr = removedPlayers.map(p => p.name).join(' and ');
+            const addedNamesStr = addedPlayers.map(p => p.name).join(' and ');
+
+            let announcementPart1 = `Attention on Court ${formattedCourtId}. Player substitution complete.`;
+            let announcementPart2 = null;
+
+            if (removedPlayers.length > 0 && addedPlayers.length > 0) {
+                announcementPart2 = `${addedNamesStr} will be filling in for ${removedNamesStr}.`;
+            } else if (removedPlayers.length > 0) {
+                announcementPart1 = `Attention on Court ${formattedCourtId}: ${removedNamesStr} have left the game.`;
+            } else if (addedPlayers.length > 0) {
+                announcementPart1 = `Attention on Court ${formattedCourtId}: ${addedNamesStr} have joined the game.`;
+            }
             
-            finalAnnouncement = rosterChangeAnnouncement;
+            playAlertSound(announcementPart1, announcementPart2);
         }
+        // --- END UPDATED LOGIC ---
         
-        playCustomTTS(finalAnnouncement);
-        
-        const membersToRequeue = removedPlayers.filter(p => !p.guest); 
-        state.availablePlayers.push(...membersToRequeue);
-        
-        state.adminCourtManagement = {
-            mode: 'card1_select_court',
-            courtId: null,
-            currentCourtPlayers: [], 
-            removedPlayers: [], 
-            addedPlayers: [] 
-        };
-        
+        state.adminCourtManagement = { mode: 'card1_select_court', courtId: null, currentCourtPlayers: [], removedPlayers: [], addedPlayers: [] };
         manageCourtPlayersModal.classList.add('hidden');
+        
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
         render();
         saveState();
-        
         resetAlertSchedule();
         checkAndPlayAlert(false);
     }
@@ -4174,10 +4376,16 @@ function playCustomTTS(message) {
             } else if (mode === 'reset') {
                 checkResetPasscode();
                 return;
-            } else if (mode === 'stock') { // New: Confirm Stock Update
+            } else if (mode === 'addStock') {
                 confirmBallStockUpdate();
                 return;
-            } else if (mode === 'signout') { // New: Confirm Signout Quantity
+            } else if (mode === 'returnStock') {
+                confirmBallStockReturn();
+                return;
+            } else if (mode === 'returnUsed') {
+                confirmUsedBallReturn();
+                return;
+            } else if (mode === 'signOut') {
                 confirmSignOutQuantity();
                 return;
             } else if (activeInput && activeInput.classList.contains('reorder-position')) {
@@ -4287,27 +4495,32 @@ function playCustomTTS(message) {
         const formatCase = (str) => str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
         const formattedPlayerName = `${formatCase(firstName)} ${formatCase(lastName)}`;
         
-        const newPlayer = { name: formattedPlayerName, gender: gender, guest: isGuest, isPaused: false };
-        
-        if (isGuest) {
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            const existingGuest = state.guestHistory.find(g => g.name === formattedPlayerName);
-            if (!existingGuest) {
-                 // This is a brand new guest. Add them to our history.
-                 state.guestHistory.push({
-                    name: formattedPlayerName,
-                    gender: gender,
-                    lastCheckIn: today,
-                    daysVisited: 1,
-                    guest: true
-                });
-            }
-        }
+        let playerObject;
 
-        if (!state.availablePlayers.some(p => p.name === newPlayer.name)) {
-            state.availablePlayers.push(newPlayer);
+        // --- THIS IS THE NEW LOGIC ---
+        if (!isGuest) {
+            // This is a member. Try to find them in the master list.
+            playerObject = MASTER_MEMBER_LIST.find(p => p.name.toLowerCase() === formattedPlayerName.toLowerCase());
+
+            if (playerObject) {
+                // Found them! Remove from club members and add to available.
+                state.clubMembers = state.clubMembers.filter(p => p.name.toLowerCase() !== formattedPlayerName.toLowerCase());
+            } else {
+                // This is a new member not in the CSV, treat them like a guest for this session.
+                playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
+            }
+        } else {
+            // This is a guest. Create a new guest object.
+            playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
+        }
+        // --- END OF NEW LOGIC ---
+
+        // Add the final player object to the available list if they aren't already there
+        if (!state.availablePlayers.some(p => p.name === playerObject.name)) {
+            state.availablePlayers.push(playerObject);
         }
         
+        // Reset and close the modal
         guestNameModal.classList.add('hidden');
         checkInModal.classList.remove('hidden'); 
         populateCheckInModal(); 
@@ -4317,9 +4530,10 @@ function playCustomTTS(message) {
         guestConfirmBtn.disabled = true;
         document.querySelector('input[name="player-type"][value="guest"]').checked = true;
 
+        // Standard updates
         updateGameModeBasedOnPlayerCount();
         render();
-        saveState(); // This now saves the updated guestHistory
+        saveState();
     }
     function resetConfirmModal(){ 
         setTimeout(() => { 
@@ -4332,13 +4546,25 @@ function playCustomTTS(message) {
 
     function populateCheckInModal() {
         checkInList.innerHTML = "";
-        if (state.clubMembers.length === 0) {
+
+        // --- THIS IS THE NEW LOGIC ---
+        // 1. Get a list of all player names currently at the club (available or on court)
+        const checkedInPlayerNames = new Set([
+            ...state.availablePlayers.map(p => p.name),
+            ...state.courts.flatMap(c => c.players).map(p => p.name)
+        ]);
+
+        // 2. Filter the master list to exclude those already checked in
+        const membersAvailableToCheckIn = state.clubMembers.filter(member => !checkedInPlayerNames.has(member.name));
+        // --- END OF NEW LOGIC ---
+
+        if (membersAvailableToCheckIn.length === 0) {
             const li = document.createElement("li");
             li.textContent = "All club members are currently checked in.";
             li.style.justifyContent = "center";
             checkInList.appendChild(li);
         } else {
-            state.clubMembers.forEach(player => {
+            membersAvailableToCheckIn.forEach(player => {
                 const li = document.createElement("li");
                 const displayName = player.guest ? `${player.name} (Guest)` : player.name;
                 li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon add" data-player="${player.name}">+</span> `;
@@ -4346,7 +4572,7 @@ function playCustomTTS(message) {
                 checkInList.appendChild(li);
             });
         }
-        setupListWithIndex(state.clubMembers, checkInList, document.getElementById('check-in-abc-index'));
+        setupListWithIndex(membersAvailableToCheckIn, checkInList, document.getElementById('check-in-abc-index'));
     }
 
     function populateCheckOutModal() {
@@ -4837,9 +5063,12 @@ function playCustomTTS(message) {
 
             // Now that we have the member list, we can proceed
             loadState(MASTER_MEMBER_LIST);
+            state.clubMembers = [...MASTER_MEMBER_LIST].sort((a, b) => a.name.localeCompare(b.name));
             updateGameModeBasedOnPlayerCount();
             render();
             updateNotificationIcons();
+            applyFontSize();
+            applyDisplaySize(); // <-- ADD THIS LINE
             fetchWeather();
 
             // Set initial light icon state
@@ -4869,8 +5098,14 @@ function playCustomTTS(message) {
         const returningGuestList = document.getElementById('returning-guest-list');
         returningGuestList.innerHTML = "";
 
-        const checkedInPlayerNames = new Set([...state.availablePlayers, ...state.courts.flatMap(c => c.players)].map(p => p.name));
+        // --- THIS IS THE NEW LOGIC (Mirrors the fix in the other function) ---
+        const checkedInPlayerNames = new Set([
+            ...state.availablePlayers.map(p => p.name),
+            ...state.courts.flatMap(c => c.players).map(p => p.name)
+        ]);
+
         const availableGuests = state.guestHistory.filter(g => !checkedInPlayerNames.has(g.name));
+        // --- END OF NEW LOGIC ---
 
         if (availableGuests.length === 0) {
             const li = document.createElement("li");
@@ -5099,6 +5334,8 @@ function playCustomTTS(message) {
             executeAddBallStock();
         } else if (mode === "returnBallStock") { // FIX: Added missing handler
             executeReturnBallStock();
+        } else if (mode === "returnUsedBalls") { // <-- ADD THIS ELSE IF
+            executeUsedBallReturn();
         } else if (mode === "signOutBalls") {
             executeSignOutBalls();
         } else if (mode === "forceAnnouncement") {
@@ -5177,7 +5414,20 @@ function playCustomTTS(message) {
     const wireNameInputToKeypad = (input) => { input.readOnly = true; input.addEventListener('click', (e) => { showAlphaKeypad(e.target); }); };
     wireNameInputToKeypad(guestNameInput);
     wireNameInputToKeypad(guestSurnameInput);
-    adminCloseBtn.addEventListener('click', () => { adminSettingsModal.classList.add('hidden'); });
+
+    adminCloseBtn.addEventListener('click', () => {
+        adminSettingsModal.classList.add('hidden');
+
+        // This is now the ONLY place the timer is started.
+        if (adminSessionActive) {
+            adminSessionTimer = setTimeout(() => {
+                adminSessionActive = false;
+                adminSessionTimer = null;
+                playAlertSound(null, null, 'Alert7.mp3');
+            }, 120000); // 2 minutes
+        }
+    });
+
     reorderPlayersBtn.addEventListener('click', showReorderModal);
     reorderPlayersList.addEventListener('click', handleReorderClick);
 
@@ -5268,7 +5518,28 @@ function playCustomTTS(message) {
     soundConfirmBtn.addEventListener('click', confirmSoundSelection);
     soundCancelBtn.addEventListener('click', cancelSoundSelection);
 
+    // EVENT LISTENERS FOR STYLE EDITOR
+    editStylesBtn.addEventListener('click', showEditStylesModal);
+    editStylesCloseBtn.addEventListener('click', () => {
+        editStylesModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');
+    });
 
+    // EVENT LISTENER FOR NEW FONT SIZE BUTTONS
+    document.getElementById('font-size-selector').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const newSize = parseFloat(e.target.dataset.size);
+            handleFontSizeChange(newSize);
+        }
+    });
+
+    // EVENT LISTENER FOR NEW DISPLAY SIZE BUTTONS
+    document.getElementById('display-size-selector').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const newSize = parseFloat(e.target.dataset.size);
+            handleDisplaySizeChange(newSize);
+        }
+    });
     
     // EVENT LISTENERS FOR NOTIFICATION CONTROLS
     muteBtn.addEventListener('click', () => {
@@ -5302,13 +5573,6 @@ function playCustomTTS(message) {
         updateNotificationIcons();
     });
 
-    // EVENT LISTENERS FOR LIGHT MANAGEMENT (ADD THIS BLOCK)
-    lightManagementBtn.addEventListener('click', showLightManagementModal);
-    lightManagementCloseBtn.addEventListener('click', () => {
-        lightManagementModal.classList.add('hidden');
-        adminSettingsModal.classList.remove('hidden');
-    });
-
     // EVENT LISTENERS FOR BALL MANAGEMENT (FIXED: Event Delegation)
     ballManagementBtn.addEventListener('click', showBallManagementModal);
     ballManagementCloseBtn.addEventListener('click', () => {
@@ -5317,6 +5581,7 @@ function playCustomTTS(message) {
     });
     addStockBtn.addEventListener('click', handleAddStock);
     returnStockBtn.addEventListener('click', handleReturnStock);
+    returnUsedBallsBtn.addEventListener('click', handleReturnUsedBalls); // <-- ADD THIS LINE
     ballHistoryBtn.addEventListener('click', showBallHistoryModal);
     ballHistoryCloseBtn.addEventListener('click', () => {
         ballHistoryModal.classList.add('hidden');
@@ -5341,7 +5606,7 @@ function playCustomTTS(message) {
     });
 
     // EVENT LISTENERS FOR ADMIN COURT MANAGEMENT
-    manageCourtPlayersBtn.addEventListener('click', showManageCourtPlayersModal);
+
     managePlayersCloseBtn.addEventListener('click', handleManageClose);
     managePlayersBackBtn.addEventListener('click', handleManageBack);
     managePlayersConfirmBtn.addEventListener('click', handleManageConfirm);
@@ -5375,19 +5640,16 @@ function playCustomTTS(message) {
             adminCourtManagement.removedPlayers = adminCourtManagement.removedPlayers.filter(p => p.name !== playerName);
             showRemovePlayerCard(adminCourtManagement.courtId);
         } else if (action === 'add-player-temp') {
+            // Corrected: Just add to the temp list. Do NOT modify state.availablePlayers here.
             const playerObject = state.availablePlayers.find(p => p.name === playerName);
-            if (playerObject) {
-                state.availablePlayers = state.availablePlayers.filter(p => p.name !== playerName);
+            if (playerObject && !adminCourtManagement.addedPlayers.some(p => p.name === playerName)) {
                 adminCourtManagement.addedPlayers.push(playerObject);
                 renderAddPlayersList(adminCourtManagement.courtId);
             }
         } else if (action === 'undo-add-player-temp') {
-            const playerObject = adminCourtManagement.addedPlayers.find(p => p.name === playerName);
-            if (playerObject) {
-                adminCourtManagement.addedPlayers = adminCourtManagement.addedPlayers.filter(p => p.name !== playerName);
-                state.availablePlayers = [playerObject, ...state.availablePlayers]; 
-                renderAddPlayersList(adminCourtManagement.courtId);
-            }
+            // Corrected: Just remove from the temp list.
+            adminCourtManagement.addedPlayers = adminCourtManagement.addedPlayers.filter(p => p.name !== playerName);
+            renderAddPlayersList(adminCourtManagement.courtId);
         }
         updateGameModeBasedOnPlayerCount();
         saveState();
