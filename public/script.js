@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
     let MASTER_MEMBER_LIST = []; // Will be populated from the CSV file
@@ -52,6 +51,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let state = {
 
+        juniorClub: {
+            // Master list of all registered parents/children
+            parents: [], 
+            // Children currently checked into the club (will be returned to queue later)
+            activeChildren: [], 
+            // History logs check-in sessions for payment tracking
+            history: [], // { id, parentId, parentName, childNames: [], date, isPaid }
+            
+            // --- FIX: Corrected the object structure ---
+            statsFilter: { // This is for the History/Payment modal
+                parent: 'all',
+                paid: 'all', // 'all', 'paid', 'unpaid'
+            }, // <-- CORRECTED CLOSING BRACE
+
+            rosterFilter: { // This is for the new Roster modal
+                sortKey: 'name',         // 'name' or 'last_checkin'
+                sortOrder: 'asc',        // 'asc' or 'desc'
+                type: 'all',              // 'all', 'parents', 'children' <-- NEW PROPERTY
+ 
+            },
+            // NEW: State for the main check-in list filter
+            checkInFilter: {
+                displayMode: 'parent', // 'parent' or 'child'
+            },
+
+            // NEW STATE FOR DYNAMIC FORM FLOW
+            registrationFlow: {
+                parentCollapsed: false,
+                childrenExpanded: false,
+            }
+        },
+
         uiSettings: {
             fontSizeMultiplier: 1.0, // 1.0 is the default (100%)
             displaySizeMultiplier: 1.0 // Add this line
@@ -59,19 +90,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         detailedWeatherView: 'day', // 'day', 'morning', 'afternoon'
         weatherData: null,
+        pongAnimationOffset: 0,
 
         clubMembers: [...MASTER_MEMBER_LIST].sort((a, b) => a.name.localeCompare(b.name)),
         availablePlayers: [],
         courts: [
             // ADD isCollapsed: false to each court object
-            { id: 'A', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
-            { id: 'B', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
-            { id: 'C', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
-            { id: 'D', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
-            { id: 'E', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false },
+            { id: 'A', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+            { id: 'B', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+            { id: 'C', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+            { id: 'D', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+            { id: 'E', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
         ],
         courtSettings: {
-            visibleCourts: ['A', 'B', 'C', 'D', 'E']
+            visibleCourts: ['A', 'B', 'C', 'D', 'E'],
+            autoAssignModes: true // <-- ADD THIS NEW LINE
         },
 
         mobileControls: {
@@ -185,8 +218,59 @@ document.addEventListener('DOMContentLoaded', () => {
     // NEW ELEMENTS: Weather Modals
     const currentWeatherModal = document.getElementById('current-weather-modal');
     const detailedWeatherModal = document.getElementById('detailed-weather-modal');
+    // JUNIOR CLUB:
+    // --- NEW ELEMENTS: Junior Club Modals (Required for listeners and utility calls) ---
+    const juniorClubModal = document.getElementById('junior-club-modal');
+    const juniorClubList = document.getElementById('junior-club-list');
+    const juniorClubCloseBtn = document.getElementById('junior-club-close-btn');
+    const newParentBtn = document.getElementById('new-parent-btn');
+    const newParentModal = document.getElementById('new-parent-modal');
+    const newParentCancelBtn = document.getElementById('new-parent-cancel-btn');
+    const newParentConfirmBtn = document.getElementById('new-parent-confirm-btn');
+    const parentNameInput = document.getElementById('parent-name-input');
+    const parentSurnameInput = document.getElementById('parent-surname-input');
+    const childrenContainer = document.getElementById('children-container');
+    const addChildBtn = document.getElementById('add-child-btn');
+    const parentPhoneInput = document.getElementById('parent-phone-input'); // <-- NEW REFERENCE
+    const removeChildSelectionModal = document.getElementById('remove-child-selection-modal');
+    const childrenForRemovalList = document.getElementById('children-for-removal-list');
+    const removeChildSelectionBackBtn = document.getElementById('remove-child-selection-back-btn');
+    const removeChildSelectionConfirmBtn = document.getElementById('remove-child-selection-confirm-btn');
 
+    const childSelectionModal = document.getElementById('child-selection-modal');
+    const childSelectionConfirmBtn = document.getElementById('child-selection-confirm-btn');
+    const childSelectionBackBtn = document.getElementById('child-selection-back-btn');
+    const attendingChildrenList = document.getElementById('attending-children-list');
 
+    const juniorClubHistoryBtn = document.getElementById('junior-club-history-btn');
+    const juniorClubStatsModal = document.getElementById('junior-club-stats-modal');
+    const juniorClubHistoryList = document.getElementById('junior-club-history-list');
+    const juniorClubStatsBackBtn = document.getElementById('junior-club-stats-back-btn');
+    const juniorClubStatsDetailsBtn = document.getElementById('junior-club-stats-details-btn');
+    const juniorClubDetailModal = document.getElementById('junior-club-detail-modal');
+    const detailCloseBtn = document.getElementById('detail-close-btn');
+    const detailTogglePaidBtn = document.getElementById('detail-toggle-paid-btn');
+    const juniorClubBtn = document.getElementById('junior-club-btn');
+    // NEW: Reference to the filter group element
+    const juniorClubNameFilterGroup = document.getElementById('junior-club-name-filter-group');
+    const removeChildBtn = document.getElementById('remove-child-btn-main');
+
+    // --- NEW ELEMENTS FOR ROSTER MODAL ---
+    const juniorClubRosterBtn = document.getElementById('junior-club-roster-btn');
+    const juniorClubRosterModal = document.getElementById('junior-club-roster-modal');
+    const juniorClubRosterList = document.getElementById('junior-club-roster-list');
+    const rosterCloseBtn = document.getElementById('roster-close-btn');
+    const rosterTypeFilterGroup = document.getElementById('roster-type-filter-group'); // <-- NEW ELEMENT
+
+    // CRITICAL FIX: Add the missing gender filter element reference
+    const rosterGenderFilterGroup = document.getElementById('roster-gender-filter-group');
+
+    // --- NEW ELEMENTS FOR ROSTER DETAIL MODAL ---
+    const rosterDetailModal = document.getElementById('roster-detail-modal');
+    const rosterDetailTitle = document.getElementById('roster-detail-title');
+    const rosterDetailContent = document.getElementById('roster-detail-content');
+    const rosterDetailCloseBtn = document.getElementById('roster-detail-close-btn');
+    // --- END NEW ELEMENTS ---
     // --- DOM ELEMENTS ---
     const headerClock = document.getElementById('header-clock');
     const availablePlayersSection = document.getElementById('availablePlayersSection');
@@ -368,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getPlayerNames(playerObjects) { return playerObjects.map(p => p.name); }
     function totalPlayersAtClub(){ let total = state.availablePlayers.length; state.courts.forEach(court => { if (court.players) { total += court.players.length; } }); return total; }
     function saveState(){ localStorage.setItem("tennisSocialAppState", JSON.stringify(state)); }
+
     function loadState(MASTER_MEMBER_LIST){ // Add parameter here
         const savedState = localStorage.getItem("tennisSocialAppState");
         if (savedState) {
@@ -382,6 +467,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.courtSettings = {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
                 };
+            }
+
+            // Load new Junior Club Check-In filter state
+            if (!state.juniorClub.checkInFilter) {
+                state.juniorClub.checkInFilter = { displayMode: 'parent' };
             }
             
             state.gameHistory = state.gameHistory || [];
@@ -452,6 +542,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Initialize court-specific collapse state
                 court.isCollapsed = court.isCollapsed === undefined ? false : court.isCollapsed;
+                // NEW: Initialize mode overlay state
+                court.isModeOverlayActive = court.isModeOverlayActive === undefined ? false : court.isModeOverlayActive; // <--- INSERTED HERE
+                // NEW: Initialize court mode
+                court.courtMode = court.courtMode || 'doubles'; // <--- INSERTED HERE
 
                 court.players = ensurePlayerObjects(court.players, MASTER_MEMBER_LIST);
                 court.teams.team1 = ensurePlayerObjects(court.teams.team1, MASTER_MEMBER_LIST);
@@ -1312,35 +1406,35 @@ document.addEventListener('DOMContentLoaded', () => {
         resetConfirmModal(); // ADD THIS LINE
     }
 
-    function executeSignOutBalls() {
-        const cansCount = parseInt(cancelConfirmModal.dataset.count, 10);
-        const category = cancelConfirmModal.dataset.category;
-        const member = cancelConfirmModal.dataset.member;
+    //function executeSignOutBalls() {
+    //    const cansCount = parseInt(cancelConfirmModal.dataset.count, 10);
+    //    const category = cancelConfirmModal.dataset.category;
+    //    const member = cancelConfirmModal.dataset.member;
+//
+//        if (isNaN(cansCount) || state.ballManagement.stock < cansCount) {
+//            playCustomTTS("Sign out failed. Insufficient stock.");
+//            return;
+//        }
 
-        if (isNaN(cansCount) || state.ballManagement.stock < cansCount) {
-            playCustomTTS("Sign out failed. Insufficient stock.");
-            return;
-        }
-
-        const stockBefore = state.ballManagement.stock;
-        state.ballManagement.stock -= cansCount; // Deduct CANS
-        const stockAfter = state.ballManagement.stock;
-        state.ballManagement.history.push({
-            timestamp: Date.now(),
-            action: 'out',
-            category: category,
-            count: cansCount,
-            member: member, // Log the signing member
-            stockBefore: stockBefore,
-            stockAfter: stockAfter
-        });
+//        const stockBefore = state.ballManagement.stock;
+ //       state.ballManagement.stock -= cansCount; // Deduct CANS
+ //       const stockAfter = state.ballManagement.stock;
+ //       state.ballManagement.history.push({
+ //           timestamp: Date.now(),
+ //           action: 'out',
+ //           category: category,
+ //           count: cansCount,
+ //           member: member, // Log the signing member
+ //           stockBefore: stockBefore,
+ //           stockAfter: stockAfter
+ //       });
         
-        playCustomTTS(`Signed out ${cansCount} cans for ${category}, signed out by ${member}.`);
-        updateBallStockDisplay();
-        saveState();
-        cancelConfirmModal.classList.add("hidden");
-        ballManagementModal.classList.remove("hidden"); // Return to ball modal
-    }
+ //       playCustomTTS(`Signed out ${cansCount} cans for ${category}, signed out by ${member}.`);
+ //       updateBallStockDisplay();
+ //       saveState();
+ //       cancelConfirmModal.classList.add("hidden");
+ //       ballManagementModal.classList.remove("hidden"); // Return to ball modal
+ //   }
     
     function handleReturnStock() {
         showKeypad(null, { 
@@ -1474,17 +1568,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const firstLetters = [...new Set(playerList.map(player => player.name[0].toUpperCase()))].sort();
         indexElement.innerHTML = '';
 
-        // Define the scroll handler function once
         const scrollHandler = () => {
             updateActiveIndexLetter(listElement, indexElement);
         };
 
-        // Clean up any previous listener before attaching a new one
         if (listElement._scrollHandler) {
             listElement.removeEventListener('scroll', listElement._scrollHandler);
         }
 
-        // Attach the listener and store a reference to it
         listElement.addEventListener('scroll', scrollHandler);
         listElement._scrollHandler = scrollHandler;
 
@@ -1492,24 +1583,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const letterDiv = document.createElement('div');
             letterDiv.textContent = letter;
             letterDiv.addEventListener('click', () => {
-                // 1. Immediately remove the scroll listener to prevent it from firing
                 listElement.removeEventListener('scroll', listElement._scrollHandler);
 
-                // 2. Manually set the active class on the clicked letter
                 const allLetters = indexElement.querySelectorAll('div');
                 allLetters.forEach(el => el.classList.remove('active'));
                 letterDiv.classList.add('active');
 
-                // 3. Find the corresponding player and scroll to them
                 const playerToShow = listElement.querySelector(`[data-player-name^="${letter}"], [data-player-name^="${letter.toLowerCase()}"]`);
                 if (playerToShow) {
                     playerToShow.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
 
-                // 4. After a delay (allowing the scroll to finish), re-attach the listener
                 setTimeout(() => {
                     listElement.addEventListener('scroll', listElement._scrollHandler);
-                }, 500); // 500ms is a safe delay for the smooth scroll to complete
+                }, 500);
             });
             indexElement.appendChild(letterDiv);
         });
@@ -1522,17 +1609,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const listItems = Array.from(listElement.querySelectorAll('li[data-player-name]'));
         let activeLetter = '';
 
-        // Find the first item that is at or below the top of the viewport of the list
         const topItem = listItems.find(item => item.getBoundingClientRect().top >= listTop);
 
         if (topItem) {
             activeLetter = topItem.dataset.playerName[0].toUpperCase();
         } else if (listItems.length > 0) {
-            // If no item is found (scrolled to the bottom past all items), use the last one
             activeLetter = listItems[listItems.length - 1].dataset.playerName[0].toUpperCase();
         }
 
-        // Update the highlight class on the index letters
         const indexLetters = indexElement.querySelectorAll('div');
         indexLetters.forEach(letterDiv => {
             letterDiv.classList.toggle('active', letterDiv.textContent === activeLetter);
@@ -1540,40 +1624,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupListWithIndex(playerList, listElement, indexElement) {
-        // 1. Populate the ABC index
         populateAbcIndex(playerList, listElement, indexElement);
 
-        // 2. Clear any previous listeners to avoid memory leaks
         if (listElement._scrollHandler) {
             listElement.removeEventListener('scroll', listElement._scrollHandler);
         }
 
-        // 3. Define the handler for this specific list
         listElement._scrollHandler = () => updateActiveIndexLetter(listElement, indexElement);
 
-        // 4. Attach the new listener
         listElement.addEventListener('scroll', listElement._scrollHandler);
 
-        // 5. Set the initial active letter
         setTimeout(() => updateActiveIndexLetter(listElement, indexElement), 50);
 
-        // 6. NEW: Align the heights of the index and the list
-        alignIndexHeight(listElement, indexElement);
+
     }
     
-    function alignIndexHeight(listElement, indexElement) {
-        // Use a timeout to ensure the browser has rendered the index
-        // before we try to measure its height.
-        setTimeout(() => {
-            if (listElement && indexElement) {
-                // Get the actual, rendered height of the index.
-                const indexHeight = indexElement.offsetHeight;
-                
-                // Apply that exact height to the list element.
-                listElement.style.height = `${indexHeight}px`;
-            }
-        }, 0);
-    }
+
 
     
     function updateAlertStatusTimer() {
@@ -1639,81 +1705,249 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculatePlayerPlaytime() { const stats = calculatePlayerStats(); const now = Date.now(); state.courts.forEach(court => { if (court.status === 'in_progress' && court.gameStartTime) { const elapsed = Date.now() - court.gameStartTime; court.players.forEach(player => { const name = player.name; stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 }; stats[name].totalDurationMs += elapsed; }); } }); return stats; }
 
     function createCourtCard(court) {
-        const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
-        const playersSelected = state.selection.players.length;
-        const selectionComplete = playersSelected === requiredPlayers;
-        const isSelectableForOverlay = selectionComplete && court.status === 'available'; 
-        const isSelected = court.id === state.selection.courtId;
-        
-        const isCollapsed = court.isCollapsed;
-        const bodyClass = isCollapsed ? 'is-collapsed' : '';
-        const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
-        
-        const courtCard = document.createElement('div');
-        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${isSelectableForOverlay ? 'selectable' : ''} ${bodyClass}`;
-        courtCard.dataset.courtId = court.id;
-        
-        let cancelBtnHTML = '';
-        let editBtnHTML = ''; // --- ADD THIS LINE ---
+            const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
+            const playersSelected = state.selection.players.length;
+            const selectionComplete = playersSelected === requiredPlayers;
 
-        // Show cancel button for any game not 'available' or 'selected'
-        if (court.status !== 'available' && !isSelected) {
-            cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
-        }
+            const isCollapsed = court.isCollapsed;
+            const isModeOverlayActive = court.isModeOverlayActive === true;
+            const courtMode = court.courtMode || 'doubles';
+            const bodyClass = isCollapsed ? 'is-collapsed' : '';
+            const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
 
-        // --- ADD THIS ENTIRE IF BLOCK for the new edit button ---
-        // Only show the edit button for games currently in progress
-        if (court.status === 'in_progress') {
-            editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
-        }
-        // --- END OF NEW BLOCK ---
+            // --- CORE LOGIC FOR RESERVED / SELECTABLE STATES ---
+            let isReservedSelectable = false;
+            let isGreenBallSelectable = false;
 
-        let bodyTimerHTML = '';
-        if (court.status === 'in_progress' || court.status === 'game_pending') {
-            bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
-        }
-        
-        const statusText = isSelected ? 'SELECTED' : court.status.replace(/_/g, ' ');
-        const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
-        let playerSpotsHTML = '';
-        if (court.gameMode === 'singles') {
-            playerSpotsHTML = `
-                <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
-                <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
-            `;
-        } else {
-            if (court.teamsSet === false) {
-                playerSpotsHTML = `
-                    <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
-                    <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
-                    <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
-                    <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
-                    <div class="teams-not-set" data-action="choose-teams">Teams not set</div>
-                `;
-            } else {
-                playerSpotsHTML = `
-                    <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
-                    <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
-                    <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
-                    <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
-                `;
+            // Selection logic only runs if enough players are selected to potentially start *a game* (2 players).
+            if (court.status === 'available' && playersSelected >= 2) {
+
+                // CRITERIA FOR RED BALL (Reserved/Exclusionary)
+                if (courtMode === 'league' && selectionComplete) {
+                    isReservedSelectable = true;
+                }
+                // Singles court reserved if 4 players selected (incompatible with singles court)
+                else if (courtMode === 'singles' && playersSelected === 4) {
+                    isReservedSelectable = true;
+                }
+                // NEW CRITERIA: Block Doubles/League courts when Singles is selected (requiredPlayers = 2)
+                else if (requiredPlayers === 2 && (courtMode === 'doubles' || courtMode === 'league')) {
+                    isReservedSelectable = true;
+                }
+
+                // CRITERIA FOR GREEN BALL (Selectable for Play)
+                // FIX: Only allow selection if 'selectionComplete' is true, and then check compatibility.
+                if (!isReservedSelectable && selectionComplete) {
+                    if (requiredPlayers === 2) {
+                        // User selected 2 players (Singles Mode)
+                        if (courtMode === 'singles' || courtMode === 'rookie') {
+                            isGreenBallSelectable = true;
+                        }
+                    } else if (requiredPlayers === 4) {
+                        // User selected 4 players (Doubles Mode)
+                        if (courtMode === 'doubles' || courtMode === 'rookie') {
+                            isGreenBallSelectable = true;
+                        }
+                    }
+                }
             }
-        }
 
-        let overlayHTML = '';
-        // ... (rest of the overlayHTML logic remains unchanged) ...
+            // Final check for the 'selectable' class on the card (applies to both colors)
+            const isSelectable = isGreenBallSelectable || isReservedSelectable;
+
+            // FIX: Only apply the 'selectable' class if the selection is active AND at least 2 players are selected.
+            // This prevents any shading effect from activating when only 1 player is selected.
+            const selectionMinimumMet = playersSelected >= 2;
+            const finalIsSelectable = selectionMinimumMet && isSelectable;
+
+            // Class to mark the card itself as reserved only
+            const reservedClass = isReservedSelectable && !isGreenBallSelectable ? 'is-reserved-only' : '';
+
+            const isSelected = court.id === state.selection.courtId;
+
+            // --- UPDATED STATUS TEXT AND CLASS LOGIC ---
+            let statusText;
+            let isLeagueReserved = false;
+            let isRookieMode = courtMode === 'rookie'; // Flag for Rookie mode
+
             if (isSelected) {
-                const readyClass = selectionComplete ? 'is-ready' : ''; 
+                statusText = 'SELECTED';
+            } else if (court.status === 'available' && courtMode === 'league') {
+                statusText = 'League';
+                isLeagueReserved = true;
+            } else if (court.status === 'available' && isRookieMode) { // Status text for available Rookie court
+                statusText = 'Rookie';
+            } else {
+                statusText = court.status.replace(/_/g, ' ');
+            }
+
+            const courtCard = document.createElement('div');
+
+            // --- START OF FIX ---
+            // Only apply special mode classes if the court is available.
+            // If a game is in progress, no special mode class should be added.
+            let modeClass = '';
+            if (court.status === 'available') {
+                if (isLeagueReserved) {
+                    modeClass = 'is-league-reserved';
+                } else if (isRookieMode) {
+                    modeClass = 'is-rookie-mode';
+                }
+            }
+            // --- END OF FIX ---
+
+            courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${finalIsSelectable ? 'selectable' : ''} ${bodyClass} ${reservedClass} ${modeClass}`;
+            
+            courtCard.dataset.courtId = court.id;
+            if (isModeOverlayActive) {
+                courtCard.dataset.modeOverlayActive = 'true';
+            }
+
+            let cancelBtnHTML = '';
+            let editBtnHTML = '';
+
+            if (court.status !== 'available' && !isSelected) {
+                cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
+            }
+
+            if (court.status === 'in_progress') {
+                editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+            }
+
+            const moreOptionsBtnHTML = `
+                <button class="more-options-btn on-court bottom-left-btn" title="More Options" data-action="more-options" data-court-id="${court.id}">
+                    <i class="mdi mdi-dots-horizontal"></i>
+                </button>
+            `;
+
+            const modeOverlayHTML = `
+                <div class="mode-selection-overlay" data-court-id="${court.id}">
+                    <button class="mode-btn-overlay doubles-mode" data-action="set-court-mode" data-mode="doubles">Doubles</button>
+                    <button class="mode-btn-overlay singles-mode" data-action="set-court-mode" data-mode="singles">Singles</button>
+                    <button class="mode-btn-overlay beginner-mode" data-action="set-court-mode" data-mode="rookie">Rookie</button>
+                    <button class="mode-btn-overlay league-mode" data-action="set-court-mode" data-mode="league">League</button>
+                </div>
+            `;
+
+            // --- ANIMATION DELAY LOGIC (Dynamic Offset for Continuous Play) ---
+            const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E']; // Assuming this is the order
+            const courtIndex = COURT_HIERARCHY.indexOf(court.id);
+            const staticStaggerMs = courtIndex >= 0 ? courtIndex * 500 : 0;
+
+            // Base animation duration is 4s (4000ms). Double for Rookie mode.
+            let animationDurationMs = 4000;
+            if (courtMode === 'rookie') {
+                animationDurationMs = 8000; // DOUBLE DURATION FOR ROOKIE MODE
+            }
+
+            // Calculate how far into the cycle we should be
+            const elapsedTime = Date.now() - state.pongAnimationOffset;
+            const currentOffsetMs = (elapsedTime + staticStaggerMs) % animationDurationMs;
+
+            // Use a negative delay to force the animation to start at the correct mid-cycle point
+            const delayStyle = `animation-delay: -${(currentOffsetMs / 1000).toFixed(3)}s;`;
+
+            // --- Singles Pong Animation HTML Structure ---
+            const pongAnimationSinglesHTML = `
+                <div class="pong-animation-container" data-mode="singles">
+                    <div class="pong-paddle top-paddle" style="${delayStyle}"></div>
+                    <div class="pong-paddle bottom-paddle" style="${delayStyle}"></div>
+                    <div class="pong-ball" style="${delayStyle}"></div>
+                </div>
+            `;
+
+            // --- Doubles Pong Animation HTML Structure (Applying unique vertical keyframes) ---
+            const pongAnimationDoublesHTML = `
+                <div class="pong-animation-container" data-mode="doubles">
+                    <div class="pong-paddle double dl top-paddle" style="animation-name: pong-move-tl; ${delayStyle}"></div>
+                    <div class="pong-paddle double dr top-paddle" style="animation-name: pong-move-tr; ${delayStyle}"></div>
+                    <div class="pong-paddle double dl bottom-paddle" style="animation-name: pong-move-bl; ${delayStyle}"></div>
+                    <div class="pong-paddle double dr bottom-paddle" style="animation-name: pong-move-br; ${delayStyle}"></div>
+                    <div class="pong-ball" style="${delayStyle}"></div>
+                </div>
+            `;
+
+            // --- Red Ball Animation HTML Structure (Only the Ball for in_progress) ---
+            const pongAnimationRedBallHTML = `
+                <div class="pong-animation-container" data-mode="in_progress">
+                    <div class="pong-ball red-ball-in-progress" style="${delayStyle}"></div>
+                </div>
+            `;
+
+            let bodyTimerHTML = '';
+            if (court.status === 'in_progress' || court.status === 'game_pending') {
+                bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
+            }
+
+            const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
+
+            let playerSpotsHTML = '';
+            let coreReserveTextHTML = '';
+            let animationHTML = '';
+
+            // Logic for player names (when status is NOT available)
+            if (court.status !== 'available') {
+                if (court.gameMode === 'singles') {
+                    playerSpotsHTML = `
+                        <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
+                        <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
+                    `;
+                } else {
+                    // Doubles/Rookie/League
+                    if (court.teamsSet === false) {
+                        // Teams not set: Show player names from the general player list
+                        playerSpotsHTML = `
+                            <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
+                            <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
+                            <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
+                            <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
+                        `;
+                    } else {
+                        // Teams ARE set: Show player names from the teams list
+                        playerSpotsHTML = `
+                            <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
+                            <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
+                            <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
+                            <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
+                        `;
+                    }
+                }
+
+                // Generate the "Set Teams" button if teams are NOT set and status is not 'available'
+                if (court.teamsSet === false) {
+                    coreReserveTextHTML = `<div class="teams-not-set" data-action="choose-teams">Set Teams</div>`;
+                }
+
+                // Add the red ball animation alongside the player spots for in_progress
+                if (court.status === 'in_progress') {
+                    animationHTML = pongAnimationRedBallHTML;
+                }
+            }
+
+            let overlayHTML = '';
+
+            if (isSelected) {
+                const readyClass = selectionComplete ? 'is-ready' : '';
                 overlayHTML = `
                     <div class="confirmation-overlay">
                         <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
                         <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
                     </div>
                 `;
-            } else if (isSelectableForOverlay) { 
+            } else if (finalIsSelectable) {
+
+                const ballClass = isReservedSelectable ? 'reserved-ball' : '';
+                const isEligibleForSelection = isGreenBallSelectable ? '' : 'data-reserved-only="true"';
+
+                // Disable the button if it's the reserved (red) ball OR if it's the permanent league reserved court
+                const disabledAttr = isReservedSelectable || isLeagueReserved ? 'disabled' : '';
+
+                // Text content of the button is empty if it's a reserved ball
+                const buttonText = isReservedSelectable || isLeagueReserved ? '' : `SELECT<br>COURT ${court.id}`;
+
                 overlayHTML = `
                     <div class="court-selection-overlay">
-                        <button class="court-confirm-btn select-court" data-action="select-court-action">SELECT<br>COURT ${court.id}</button>
+                        <button class="court-confirm-btn select-court ${ballClass}" data-action="select-court-action" ${isEligibleForSelection} ${disabledAttr}>${buttonText}</button>
                     </div>
                 `;
             }
@@ -1739,31 +1973,55 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-        // ... (end of overlayHTML logic) ...
 
-        courtCard.innerHTML = `
-            <div class="card-header header-status-${court.status}">
-                <h3>Court ${court.id}</h3>
-                <div class="header-controls">
-                    <span class="status-tag">${statusText}</span>
-                    <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
-                        <i class="mdi ${iconClass}"></i>
-                    </button>
+            let reserveTextHTML = coreReserveTextHTML;
+
+            // FINAL LOGIC: Overwrite the team status text if the court is AVAILABLE (Reserved For X).
+            if (court.status === 'available') {
+                // Remove the 'Reserved For X' text as visual cues are now used.
+                reserveTextHTML = '';
+
+                // 🟢 ANIMATION LOGIC: Show appropriate animation based on court mode
+                if (courtMode === 'league') {
+                    // If permanently reserved for League, add the static reserved icon
+                    playerSpotsHTML = `<div class="league-reserved-icon-container"></div>`;
+                } else if (courtMode === 'singles') {
+                    playerSpotsHTML = pongAnimationSinglesHTML;
+                } else if (courtMode === 'doubles' || courtMode === 'rookie') { // Doubles and Rookie get the Doubles animation
+                    playerSpotsHTML = pongAnimationDoublesHTML;
+                } else {
+                    // For other AVAILABLE modes (e.g., if one was added), player spots are empty
+                    playerSpotsHTML = '';
+                }
+            }
+
+            courtCard.innerHTML = `
+                <div class="card-header header-status-${court.status}">
+                    <h3>Court ${court.id}</h3>
+                    <div class="header-controls">
+                        <span class="status-tag">${statusText}</span>
+                        <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
+                            <i class="mdi ${iconClass}"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="card-body">
-                <div class="court-inner">
-                    ${bodyTimerHTML}
-                    <div class="center-service-line"></div>
-                    ${playerSpotsHTML}
-                    ${overlayHTML} 
-                </div>
-                ${cancelBtnHTML}
-                ${editBtnHTML}  
-            </div>`;
-        
-        return courtCard;
-    }
+                <div class="card-body">
+                    <div class="court-inner">
+                        ${bodyTimerHTML}
+                        <div class="center-service-line"></div>
+                        ${playerSpotsHTML}
+                        ${animationHTML}
+                        ${overlayHTML}
+                        ${reserveTextHTML}
+                        ${modeOverlayHTML}
+                    </div>
+                    ${cancelBtnHTML}
+                    ${editBtnHTML}
+                    ${moreOptionsBtnHTML}
+                </div>`;
+
+            return courtCard;
+        }
 
     // NEW FUNCTION: Calculate the players with the highest stats overall
     function calculateStarPlayers() {
@@ -1816,6 +2074,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalVisibleCourts = state.courtSettings.visibleCourts.length;
         const onDutyName = state.onDuty === 'None' ? 'Nobody' : state.onDuty;
         
+        // --- START OF FIX ---
+        // Dynamically set the label based on whether someone is on duty.
+        const dutyLabel = state.onDuty === 'None' ? 'Call Any Committee Member!' : 'Is On Duty. Call Me!';
+        // --- END OF FIX ---
+
         // Determine initial icon and class based on state
         const isExpanded = state.mobileControls.isSummaryExpanded;
         const bodyClass = isExpanded ? '' : 'is-collapsed';
@@ -1842,7 +2105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                             <div class="duty-info">
                                 <p class="duty-name">${onDutyName}</p>
-                                <p class="duty-label">Is On Duty. Call Me!</p>
+                                <p class="duty-label">${dutyLabel}</p>
                             </div>
                         </div>
                         <span id="alert-status-display"></span>
@@ -1884,6 +2147,42 @@ document.addEventListener('DOMContentLoaded', () => {
             state.selection.players = [];
             state.selection.courtId = null;
         }
+    }
+
+    // --- NEW HELPER FUNCTION ---
+    function getLastCheckInForChild(childFullName) {
+        let latestCheckIn = 0;
+        
+        // Iterate through all history entries
+        state.juniorClub.history.forEach(historyEntry => {
+            // Check if the child attended this session (childFullName is in the childNames array)
+            if (historyEntry.childNames && historyEntry.childNames.includes(childFullName)) {
+                // The historyEntry.id is the timestamp of the session check-in
+                if (historyEntry.id > latestCheckIn) {
+                    latestCheckIn = historyEntry.id;
+                }
+            }
+        });
+        
+        return latestCheckIn; // Returns 0 if no history found
+    }   
+
+    // --- NEW HELPER FUNCTION ---
+    function getLastCheckInForChild(childFullName) {
+        let latestCheckIn = 0;
+        
+        // Iterate through all history entries
+        state.juniorClub.history.forEach(historyEntry => {
+            // FIX 1: Trim the lookup key (childFullName) before checking inclusion.
+            if (historyEntry.childNames && historyEntry.childNames.includes(childFullName.trim())) {
+                // The historyEntry.id is the timestamp of the session check-in
+                if (historyEntry.id > latestCheckIn) {
+                    latestCheckIn = historyEntry.id;
+                }
+            }
+        });
+        
+        return latestCheckIn; // Returns 0 if no history found
     }
 
     // --- ADDED HELPER FUNCTION ---
@@ -2251,21 +2550,75 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    // This function needs to be added to public/script.js (around line 1400, near other handlers)
+    function handleModeOptionsClick(courtId) {
+        // If an admin session is not active, trigger the login process.
+        if (!adminSessionActive) {
+            // Store the action to be performed after a successful login.
+            keypadConfig.afterSuccess = () => handleModeOptionsClick(courtId);
+            handleAdminLogin();
+            return; // Stop execution until login is successful
+        }
+
+        // If the session is active, proceed with the original logic.
+        const court = state.courts.find(c => c.id === courtId);
+        if (court) {
+            court.isModeOverlayActive = !court.isModeOverlayActive;
+            if (court.isModeOverlayActive) {
+                state.courts.forEach(c => {
+                    if (c.id !== courtId) c.isModeOverlayActive = false;
+                });
+            }
+            render();
+            saveState();
+        }
+    }
+
+
+
+    // NEW FUNCTION: Sets the court mode and closes the mode overlay
+    function handleSetCourtMode(courtId, newMode) {
+        const court = state.courts.find(c => c.id === courtId);
+        if (court) {
+            court.courtMode = newMode;
+            court.isModeOverlayActive = false; // Always close the overlay after selection
+
+            // Preserve the existing player selection and re-render the court grid.
+            render();
+            saveState();
+
+            // CRITICAL FIX: After the render cycle, use requestAnimationFrame
+            // to guarantee that the animation is restored to all now-selectable courts.
+            requestAnimationFrame(ensureCourtSelectionAnimation);
+        }
+    }
+
     function handleCourtGridClick(e){
         const courtCard = e.target.closest(".court-card");
         if (!courtCard) return;
 
-        // --- THIS IS THE CORRECTED LOGIC ---
         // Find the closest element with a data-action, not just the direct click target.
         const actionTarget = e.target.closest('[data-action]');
         const action = actionTarget ? actionTarget.dataset.action : null;
-        // --- END OF CORRECTION ---
         
         const courtId = courtCard.dataset.courtId;
 
         const teamsNotSet = e.target.closest(".teams-not-set");
         if (teamsNotSet) {
-            handleChooseTeams(courtId);
+            // Ignore click if it's the non-clickable 'Reserved For X' text
+            if (teamsNotSet.style.cursor !== 'default') {
+                handleChooseTeams(courtId);
+                return;
+            }
+        }
+
+        if (action === 'more-options') { // ✅ NEW: Toggles the Mode Selection Overlay
+            handleModeOptionsClick(courtId);
+            return;
+        }
+        
+        if (action === 'set-court-mode') { // ✅ NEW: Sets the court mode
+            handleSetCourtMode(courtId, actionTarget.dataset.mode); 
             return;
         }
 
@@ -2311,6 +2664,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (action === 'select-court-action') {
             const clickedButton = e.target.closest('.court-confirm-btn');
             if (!clickedButton) return;
+            
+            // 🔴 EXCLUSION LOGIC: Block selection if the court is only marked as reserved
+            if (clickedButton.dataset.reservedOnly === 'true') {
+                playCustomTTS("This court is reserved for a different type of match.");
+                return;
+            }
 
             const allSelectableButtons = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
             clickedButton.classList.remove('serve-in');
@@ -2365,7 +2724,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
     }
-    
+
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
     function calculatePlayerStats(){
         const stats = {};
@@ -2409,54 +2768,54 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatWinPercentage(played, won){ return played === 0 ? "N/A" : `${Math.round(won / played * 100)}%`; }
 
 // ADD NEW FUNCTION: Pause/Resume game play click handler
-    function handlePauseToggleClick(e) {
-        const button = e.target.closest(".pause-toggle-btn");
-        // We know button exists because it was checked in handlePlayerClick
-        
-        const playerName = button.dataset.playerName;
-        const action = button.dataset.action; // 'pause' or 'resume'
-        const playerObj = state.availablePlayers.find(p => p.name === playerName);
-
-        if (!playerObj) return;
-
-        const verb = action === 'pause' ? 'pause' : 'resume';
-        const message = action === 'pause' 
-            ? `Are you sure you want to pause your game play? You will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
-            : `Are you sure you want to resume your game play? You will be immediately restored to position #${state.availablePlayers.indexOf(playerObj) + 1}.`;
-
-        cancelConfirmModal.querySelector("h3").textContent = `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`;
-        cancelConfirmModal.querySelector("p").textContent = message;
-        modalBtnYesConfirm.textContent = verb.charAt(0).toUpperCase() + verb.slice(1);
-        modalBtnNo.textContent = "Close";
-        
-        cancelConfirmModal.dataset.mode = "pauseToggle";
-        cancelConfirmModal.dataset.player = playerName;
-        cancelConfirmModal.dataset.verb = action;
-
-        cancelConfirmModal.classList.remove("hidden");
-    }
+//    function handlePauseToggleClick(e) {
+ //       const button = e.target.closest(".pause-toggle-btn");
+//        // We know button exists because it was checked in handlePlayerClick
+//        
+//        const playerName = button.dataset.playerName;
+//        const action = button.dataset.action; // 'pause' or 'resume'
+//        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+//
+//        if (!playerObj) return;
+//
+ //       const verb = action === 'pause' ? 'pause' : 'resume';
+ //       const message = action === 'pause' 
+//            ? `Are you sure you want to pause your game play? You will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
+//            : `Are you sure you want to resume your game play? You will be immediately restored to position #${state.availablePlayers.indexOf(playerObj) + 1}.`;
+////
+//        cancelConfirmModal.querySelector("h3").textContent = `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`;
+//        cancelConfirmModal.querySelector("p").textContent = message;
+//        modalBtnYesConfirm.textContent = verb.charAt(0).toUpperCase() + verb.slice(1);
+//        modalBtnNo.textContent = "Close";
+//        
+ //       cancelConfirmModal.dataset.mode = "pauseToggle";
+//        cancelConfirmModal.dataset.player = playerName;
+//        cancelConfirmModal.dataset.verb = action;
+//
+//        cancelConfirmModal.classList.remove("hidden");
+//    }
 
 // ADD NEW FUNCTION: Pause/Resume game play click handler (IMMEDIATE ACTION)
-    function handlePauseToggleClick(e) {
-        const button = e.target.closest(".pause-toggle-btn");
-        if (!button) return;
-        
-        const playerName = button.dataset.playerName;
-        const action = button.dataset.action;
-        const playerObj = state.availablePlayers.find(p => p.name === playerName);
-
-        if (playerObj) {
-            // IMMEDIATE ACTION: Toggle the paused state
-            playerObj.isPaused = (action === 'pause');
-            
-            // Re-run necessary updates
-            updateGameModeBasedOnPlayerCount();
-            enforceDutyPosition();
-            render();
-            saveState();
-            checkAndPlayAlert(false);
-        }
-    }
+//    function handlePauseToggleClick(e) {
+//        const button = e.target.closest(".pause-toggle-btn");
+//        if (!button) return;
+//        
+//        const playerName = button.dataset.playerName;
+//        const action = button.dataset.action;
+//        const playerObj = state.availablePlayers.find(p => p.name === playerName);
+//
+//        if (playerObj) {
+//            // IMMEDIATE ACTION: Toggle the paused state
+//            playerObj.isPaused = (action === 'pause');
+//            
+//            // Re-run necessary updates
+//            updateGameModeBasedOnPlayerCount();
+//            enforceDutyPosition();
+//            render();
+//            saveState();
+//            checkAndPlayAlert(false);
+//        }
+//    }
 
     function handleSort(key) { if (state.statsFilter.sortKey === key) { state.statsFilter.sortOrder = state.statsFilter.sortOrder === 'asc' ? 'desc' : 'asc'; } else { state.statsFilter.sortKey = key; state.statsFilter.sortOrder = key === 'name' ? 'asc' : 'desc'; } renderHistory(); saveState(); }
     function renderHistory(){
@@ -2649,8 +3008,61 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSortClick(e) { const key = e.target.dataset.sortKey; if (key) { handleSort(key); } }
     
     // Player selection and game setup functions (no alert calls here)
-    function handleCancelSelection(){ state.selection.players = []; state.selection.courtId = null; render(); saveState(); }
-    function handleModeChange(mode){ state.selection.gameMode = mode; state.selection.players = []; state.selection.courtId = null; render(); saveState(); }
+    function handleCancelSelection() {
+        // This is the corrected logic. It preserves the selected players
+        // and only nullifies the court selection before re-rendering.
+        state.selection.courtId = null;
+        render();
+        saveState();
+    }
+    function handleModeChange(mode){
+        // 1. Unconditionally preserve the current selection at the start.
+        const playersToPreserve = [...state.selection.players];
+
+        state.selection.gameMode = mode;
+        state.selection.courtId = null;
+
+        const newRequiredPlayers = mode === "doubles" ? 4 : 2;
+
+        // 2. Decide whether to keep or clear the preserved players.
+        // This logic correctly handles switching from a 4-player selection to Singles.
+        if (newRequiredPlayers === 2 && playersToPreserve.length > 2) {
+            state.selection.players = [];
+        } else {
+            state.selection.players = playersToPreserve;
+        }
+
+        // 3. Rebuild the UI.
+        render();
+
+        // 4. CRITICAL FIX: Schedule the animation to run after the next browser paint.
+        // This guarantees that the '.selectable' courts exist in the DOM before we try to animate them.
+        requestAnimationFrame(() => {
+            // This second frame is a failsafe to ensure the paint has completed.
+            requestAnimationFrame(ensureCourtSelectionAnimation);
+        });
+
+        saveState();
+    }
+
+    function ensureCourtSelectionAnimation() {
+        const { players: selectedPlayerNames, gameMode } = state.selection;
+        const requiredPlayers = gameMode === "doubles" ? 4 : 2;
+
+        if (selectedPlayerNames.length === requiredPlayers) {
+            const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+            selectableCourts.forEach(button => {
+                // Unconditionally add the class to make the ball visible
+                button.classList.add('serve-in');
+            });
+        } else {
+            // If the selection is not complete, ensure the class is removed from all buttons.
+            const allCourts = document.querySelectorAll('.court-confirm-btn.select-court');
+            allCourts.forEach(button => {
+                button.classList.remove('serve-in');
+            });
+        }
+    }
     function handlePlayerClick(e){
     // 1. Check for the Pause button click first
     const pauseButton = e.target.closest(".pause-toggle-btn");
@@ -2733,6 +3145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.selection = {gameMode: state.selection.gameMode, players: [], courtId: null};
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
+        autoAssignCourtModes();
         render();
         saveState();
     }
@@ -2816,7 +3229,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
-function handleStartGame(courtId){
+
+    function handleStartGame(courtId){
     const court = state.courts.find(c => c.id === courtId);
     if (!court) return;
 
@@ -2875,77 +3289,6 @@ function handleStartGame(courtId){
         checkAndPlayAlert(false);
     }, 2000);
 }
-
-    function handleStartGame(courtId){
-        const court = state.courts.find(c => c.id === courtId);
-        if (!court) return;
-
-        const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
-        const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
-
-        if (startButton) {
-            startButton.classList.add('start-game-hop');
-        }
-
-        setTimeout(() => {
-            if(court.autoStartTimer) {
-                clearTimeout(court.autoStartTimer);
-                court.autoStartTimer = null;
-            }
-            court.status = "in_progress";
-            court.gameStartTime = Date.now();
-            court.autoStartTimeTarget = null;
-            court.isNewGame = true; 
-
-            // --- NEW GAME START ANNOUNCEMENT LOGIC ---
-            const team1Names = getPlayerNames(court.teams.team1);
-            const team2Names = getPlayerNames(court.teams.team2);
-            let announcementMessage;
-            
-            const formatTeamNames = (names) => {
-                if (names.length === 1) return names[0];
-                if (names.length === 2) return `${names[0]} and ${names[1]}`;
-                // For social tennis matches with 3+ in a team (e.g., in a 3v3 match)
-                return names.slice(0, -1).join(', ') + ` and ${names.slice(-1)[0]}`;
-            };
-
-            if (court.gameMode === 'singles') {
-                // Singles format: Player A and Player B are on Court X.
-                announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ...are on Court ${court.id}... Lekker Speel!`;
-            } else if (court.gameMode === 'doubles') {
-                if (court.teamsSet === false) {
-                    const playerNames = getPlayerNames(court.players);
-                    const namesList = formatTeamNames(playerNames);
-                    announcementMessage = `It's ${namesList}, on Court ${court.id}... Lekker Speel!`;
-                } else {
-                    // Doubles format: its player w & playerx vs player y & player z on Court X... Lekker Speel!
-                    const team1String = formatTeamNames(team1Names);
-                    const team2String = formatTeamNames(team2Names);
-                    
-                    announcementMessage = `It's team ${team1String}, versus team ${team2String} ...on Court ${court.id}... Lekker Speel!`;
-                }
-            } else {
-                // Fallback for other player counts/modes
-                const playerNames = getPlayerNames(court.players);
-                const namesList = formatTeamNames(playerNames);
-                announcementMessage = `${namesList} are on Court ${court.id}. Game in progress!`;
-            }
-            
-            // Announce the players and court
-            playAlertSound(announcementMessage, null);
-            // --- END NEW GAME START ANNOUNCEMENT LOGIC --
-
-
-            render(); 
-
-            court.isNewGame = false;
-            saveState();
-
-            resetAlertSchedule();
-            checkAndPlayAlert(false);
-        }, 2000); // Wait for the "start-game-hop" animation to finish
-    }
-
 
     function handleEndGame(courtId){
         const court = state.courts.find(c => c.id === courtId);
@@ -3029,6 +3372,15 @@ function handleStartGame(courtId){
         if (court) {
             if(court.autoStartTimer) clearTimeout(court.autoStartTimer);
             
+            // --- Preserve Players (NEW LOGIC) ---
+            // 1. Get the list of players who were on the court
+            const playersWhoWereSelected = court.players.map(p => p.name);
+            
+            // 2. Clear any existing selection and set the court's players as the new selection
+            state.selection.players = playersWhoWereSelected; 
+            state.selection.courtId = null; // Clear court ID selection
+            // --- End New Logic ---
+
             // --- If a queue snapshot exists, restore it. This is the "undo" action. ---
             if (court.queueSnapshot) {
                 state.availablePlayers = court.queueSnapshot;
@@ -3051,6 +3403,7 @@ function handleStartGame(courtId){
             cancelConfirmModal.classList.add("hidden");
             updateGameModeBasedOnPlayerCount();
             enforceDutyPosition(); // Re-check fairness rule on the restored list
+            autoAssignCourtModes();
             render();
             saveState();
             checkAndPlayAlert(false);
@@ -3070,6 +3423,7 @@ function handleStartGame(courtId){
             checkInModal.classList.remove("hidden"); // Show the list again
             updateGameModeBasedOnPlayerCount();
             enforceDutyPosition(); // --- ADDED LINE ---
+            autoAssignCourtModes();
             render();
             saveState();
             checkAndPlayAlert(false);
@@ -3080,9 +3434,19 @@ function handleStartGame(courtId){
         const playerToCheckOutName = cancelConfirmModal.dataset.player;
         if (playerToCheckOutName) {
             const playerObject = state.availablePlayers.find(p => p.name === playerToCheckOutName);
-            if (playerObject && !playerObject.guest) { // Only add back non-guests
-                state.clubMembers.push(playerObject);
-                state.clubMembers.sort((a, b) => a.name.localeCompare(b.name));
+            if (playerObject) { // Check if player was found
+
+                // --- START FIX ---
+                // If the player being checked out is a junior, remove them from the activeChildren list
+                if (playerObject.isJunior) {
+                    state.juniorClub.activeChildren = state.juniorClub.activeChildren.filter(child => child.name !== playerToCheckOutName);
+                }
+                // --- END FIX ---
+
+                if (!playerObject.guest) { // Only add back non-guests
+                    state.clubMembers.push(playerObject);
+                    state.clubMembers.sort((a, b) => a.name.localeCompare(b.name));
+                }
             }
             state.availablePlayers = state.availablePlayers.filter(p => p.name !== playerToCheckOutName);
             
@@ -3090,6 +3454,7 @@ function handleStartGame(courtId){
             populateCheckOutModal(); // Repopulate the list
             checkOutModal.classList.remove("hidden"); // Show the list again
             updateGameModeBasedOnPlayerCount();
+            autoAssignCourtModes();
             render();
             saveState();
         }
@@ -3326,7 +3691,7 @@ function handleStartGame(courtId){
             utterance.voice = preferredVoice;
         }
         utterance.rate = 0.85;
-        utterance.pitch = 1.15;
+        utterance.pitch = 0.95;
         
         return utterance;
     }
@@ -3350,6 +3715,28 @@ function handleStartGame(courtId){
              window.speechSynthesis.speak(utterance);
          }
     }
+
+    /**
+     * Calculates the age of a person in full years from a date string (YYYY-MM-DD).
+     * @param {string} dateString The birth date in 'YYYY-MM-DD' format.
+     * @returns {number|null} The age in years, or null if the date is invalid.
+     */
+    function calculateAge(dateString) {
+        if (!dateString) return null;
+        const today = new Date();
+        const birthDate = new Date(dateString);
+
+        if (isNaN(birthDate)) return null;
+
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    }
+
     
 // NEW FUNCTION: Function that handles the actual sound + TTS sequence for a single item
 function _playAnnouncementSequence(item, callback) {
@@ -3604,23 +3991,39 @@ function playCustomTTS(message) {
     }
 
     function checkAdminPasscode() {
-        // --- MODIFIED LINE: Read from the hidden dataset value, not the display text ---
         const enteredCode = keypadDisplay.dataset.hiddenValue;
         const expectedCode = getAdminPasscode();
-                
+
         if (enteredCode === expectedCode) {
-            hideKeypad();
-            adminSessionActive = true; // Set the session as active
-            showAdminModal();          // Then show the modal
-            // The timer is NOT started here anymore.
+            const afterSuccessCallback = keypadConfig.afterSuccess; // Store the callback locally
+            hideKeypad(); // This now safely clears the global keypadConfig
+            adminSessionActive = true;
+
+            if (afterSuccessCallback) {
+                afterSuccessCallback(); // Execute the stored callback
+
+                // Start the session timer
+                if (adminSessionTimer) clearTimeout(adminSessionTimer);
+                adminSessionTimer = setTimeout(() => {
+                    adminSessionActive = false;
+                    adminSessionTimer = null;
+                    // When the timer expires, close any open mode overlays.
+                    state.courts.forEach(c => c.isModeOverlayActive = false);
+                    render();
+                    playAlertSound(null, null, 'Alert7.mp3');
+                }, 60000); // 1 minute
+            } else {
+                // If no specific action was pending, just open the main admin modal.
+                showAdminModal();
+            }
 
         } else {
+            // If the PIN is incorrect, shake the keypad.
             const keypadContent = customKeypadModal.querySelector('.keypad-content');
             keypadContent.classList.add('shake');
             setTimeout(() => {
                 keypadContent.classList.remove('shake');
                 keypadDisplay.textContent = '';
-                // Clear the hidden value as well
                 if (keypadDisplay.dataset.hiddenValue) {
                     keypadDisplay.dataset.hiddenValue = '';
                 }
@@ -3699,62 +4102,80 @@ function playCustomTTS(message) {
         if (noSpeechIcon) noSpeechIcon.className = state.notificationControls.isTTSDisabled ? 'mdi mdi-microphone-off' : 'mdi mdi-microphone-message';
     }
 
-        function showAdminModal() {
-            const committeeMembers = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a,b) => a.name.localeCompare(b.name));
-            const isNoneChecked = state.onDuty === 'None' ? 'checked' : '';
-            committeeMemberList.innerHTML = ` <li class="committee-member"> <label> <input type="radio" name="onDutyMember" value="None" ${isNoneChecked}> <div class="member-details"> <span class="member-name">None</span> </div> </label> </li> `;
-            committeeMembers.forEach(member => {
-                const li = document.createElement('li');
-                li.className = 'committee-member';
-                const isChecked = member.name === state.onDuty ? 'checked' : '';
-                li.innerHTML = ` <label> <input type="radio" name="onDutyMember" value="${member.name}" ${isChecked}> <div class="member-details"> <span class="member-name">${member.name}</span> <span class="member-designation">${member.committee}</span> </div> </label> `;
-                committeeMemberList.appendChild(li);
-            });
-            committeeMemberList.querySelectorAll('input[name="onDutyMember"]').forEach(radio => {
-                radio.addEventListener('change', handleOnDutyChange);
-            });
+    function showAdminModal() {
+        const committeeMembers = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
+        const isNoneChecked = state.onDuty === 'None' ? 'checked' : '';
+        committeeMemberList.innerHTML = ` <li class="committee-member"> <label> <input type="radio" name="onDutyMember" value="None" ${isNoneChecked}> <div class="member-details"> <span class="member-name">None</span> </div> </label> </li> `;
+        committeeMembers.forEach(member => {
+            const li = document.createElement('li');
+            li.className = 'committee-member';
+            const isChecked = member.name === state.onDuty ? 'checked' : '';
+            li.innerHTML = ` <label> <input type="radio" name="onDutyMember" value="${member.name}" ${isChecked}> <div class="member-details"> <span class="member-name">${member.name}</span> <span class="member-designation">${member.committee}</span> </div> </label> `;
+            committeeMemberList.appendChild(li);
+        });
+        committeeMemberList.querySelectorAll('input[name="onDutyMember"]').forEach(radio => {
+            radio.addEventListener('change', handleOnDutyChange);
+        });
 
-            // --- THIS IS THE UPDATED BLOCK ---
-            courtAvailabilityList.innerHTML = '';
-            state.courts.forEach(court => {
-                const li = document.createElement('li');
-                li.className = 'court-availability-item';
-                const isVisible = state.courtSettings.visibleCourts.includes(court.id);
-                
-                // Get light status for this court
-                const light = state.lightSettings.courts[court.id];
-                const isLightManaged = light && light.isManaged;
-                const isLightActive = isLightManaged && light.isActive;
-                const lightIconClass = isLightActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline';
-                const lightDisabledAttr = isLightManaged ? '' : 'disabled';
+        courtAvailabilityList.innerHTML = '';
+        // --- NEW: Render the Auto-Assign Toggle First ---
+        const autoAssignToggleLi = document.createElement('li');
+        autoAssignToggleLi.className = 'court-availability-item';
+        autoAssignToggleLi.innerHTML = `
+            <label for="auto-assign-toggle">Auto Assign Modes</label>
+            <label class="switch">
+                <input type="checkbox" id="auto-assign-toggle" ${state.courtSettings.autoAssignModes ? 'checked' : ''}>
+                <span class="slider"></span>
+            </label>
+        `;
+        courtAvailabilityList.appendChild(autoAssignToggleLi);
+        // --- END NEW ---
 
-                // Modified innerHTML to include the lightbulb button
-                li.innerHTML = `
-                    <label for="court-toggle-${court.id}">${court.id}</label>
-                    <button class="light-toggle-btn" data-court-id="${court.id}" title="Toggle Court ${court.id} Lights" ${lightDisabledAttr}>
-                        <i class="mdi ${lightIconClass}"></i>
-                    </button>
-                    <label class="switch">
-                        <input type="checkbox" id="court-toggle-${court.id}" data-court-id="${court.id}" ${isVisible ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                `;
-                courtAvailabilityList.appendChild(li);
-            });
+        state.courts.forEach(court => {
+            const li = document.createElement('li');
+            li.className = 'court-availability-item';
+            const isVisible = state.courtSettings.visibleCourts.includes(court.id);
+            const light = state.lightSettings.courts[court.id];
+            const isLightManaged = light && light.isManaged;
+            const isLightActive = isLightManaged && light.isActive;
+            const lightIconClass = isLightActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline';
+            const lightDisabledAttr = isLightManaged ? '' : 'disabled';
 
-            courtAvailabilityList.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
-                toggle.addEventListener('change', handleCourtVisibilityChange);
-            });
-            
-            // Add new event listener for the light buttons
-            courtAvailabilityList.querySelectorAll('.light-toggle-btn').forEach(button => {
-                button.addEventListener('click', handleLightToggleChange);
-            });
-            // --- END OF UPDATED BLOCK ---
+            li.innerHTML = `
+                <label for="court-toggle-${court.id}">${court.id}</label>
+                <button class="light-toggle-btn" data-court-id="${court.id}" title="Toggle Court ${court.id} Lights" ${lightDisabledAttr}>
+                    <i class="mdi ${lightIconClass}"></i>
+                </button>
+                <label class="switch">
+                    <input type="checkbox" id="court-toggle-${court.id}" data-court-id="${court.id}" ${isVisible ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            `;
+            courtAvailabilityList.appendChild(li);
+        });
 
-            updateLightIcon();
-            adminSettingsModal.classList.remove('hidden');
-        }
+        // --- NEW: Event Listener for the new toggle ---
+        document.getElementById('auto-assign-toggle').addEventListener('change', (e) => {
+            state.courtSettings.autoAssignModes = e.target.checked;
+            if (e.target.checked) {
+                autoAssignCourtModes(); // Immediately run logic when toggled on
+                render();
+            }
+            saveState();
+        });
+        // --- END NEW ---
+
+        courtAvailabilityList.querySelectorAll('input[type="checkbox"][id^="court-toggle"]').forEach(toggle => {
+            toggle.addEventListener('change', handleCourtVisibilityChange);
+        });
+
+        courtAvailabilityList.querySelectorAll('.light-toggle-btn').forEach(button => {
+            button.addEventListener('click', handleLightToggleChange);
+        });
+
+        updateLightIcon();
+        adminSettingsModal.classList.remove('hidden');
+    }
 
     // FIX 5: Add checkAndPlayAlert(false) to trigger re-evaluation after court visibility change
     function handleCourtVisibilityChange(e) {
@@ -4352,6 +4773,7 @@ function playCustomTTS(message) {
         
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
+        autoAssignCourtModes();
         render();
         saveState();
         resetAlertSchedule();
@@ -4360,11 +4782,20 @@ function playCustomTTS(message) {
 
     function handleOnDutyChange(e) { state.onDuty = e.target.value; saveState(); render(); }
     
-    // MODIFIED: Logic updated to use hiddenValue for masking
     function handleKeypadClick(e) {
         const key = e.target.dataset.key;
         let displayValue;
         const mode = keypadConfig.mode;
+
+        // --- START OF FIX ---
+        if (mode === 'date') {
+            handleDateInput(activeInput, key);
+            if (e.target.id === 'keypad-confirm-btn') {
+                hideKeypad();
+            }
+            return; // Stop further execution for date mode
+        }
+        // --- END OF FIX ---
 
         // On confirm, decide what action to take based on the mode
         if (e.target.id === 'keypad-confirm-btn') {
@@ -4435,18 +4866,17 @@ function playCustomTTS(message) {
         keypadConfig = config;
         const mode = config.mode;
 
-        // Reset display for all modes
-        keypadDisplay.textContent = '';
+        // Reset display for all modes, except for date which needs to show the current value
+        keypadDisplay.textContent = (mode === 'date' && activeInput) ? activeInput.value : '';
         delete keypadDisplay.dataset.hiddenValue;
 
-        // Configure based on mode
         if (mode === 'admin' || mode === 'reset') {
             keypadDisplay.setAttribute('data-mode', mode);
             keypadDisplay.setAttribute('data-placeholder', config.title || 'Enter PIN');
             keypadCancelBtn.classList.remove('hidden');
             keypadConfirmBtn.classList.remove('wide-full');
             keypadConfirmBtn.classList.add('wide-half');
-        } else { // Default mode for scores, reordering, etc.
+        } else {
             keypadDisplay.removeAttribute('data-mode');
             if (config.title) {
                 keypadDisplay.setAttribute('data-placeholder', config.title);
@@ -4454,17 +4884,11 @@ function playCustomTTS(message) {
                 keypadDisplay.removeAttribute('data-placeholder');
             }
             
-            // This is the fix: Always clear the display and input value
-            // instead of carrying over the old score.
-            keypadDisplay.textContent = '';
-            if (activeInput) activeInput.value = '';
-            
             keypadCancelBtn.classList.add('hidden');
             keypadConfirmBtn.classList.remove('wide-half');
             keypadConfirmBtn.classList.add('wide-full');
         }
 
-        // Show modal and set initial button state
         customKeypadModal.classList.remove('hidden');
         keypadConfirmBtn.disabled = keypadDisplay.textContent.length === 0;
     }
@@ -4477,11 +4901,137 @@ function playCustomTTS(message) {
             showKeypad(e.target); 
         }); 
     }
-    const QWERTY_LAYOUT = [ ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], ['Z', 'X', 'C', 'V', 'B', 'N', 'M'] ];
-    function generateAlphaKeypad() { alphaKeypadGrid.innerHTML = ''; const displayValue = alphaKeypadDisplay.textContent; const lastChar = displayValue.slice(-1); QWERTY_LAYOUT.forEach((row, index) => { const rowDiv = document.createElement('div'); rowDiv.className = `key-row-${index + 1}`; row.forEach(key => { const button = document.createElement('button'); button.className = 'keypad-btn'; button.dataset.key = key; let char = key; if (displayValue.length === 0 || displayValue.slice(-1) === ' ') { char = key.toUpperCase(); } else { char = key.toLowerCase(); } button.textContent = char; rowDiv.appendChild(button); }); alphaKeypadGrid.appendChild(rowDiv); }); const lastRowDiv = document.createElement('div'); lastRowDiv.className = `key-row-4`; const spaceBtn = document.createElement('button'); spaceBtn.className = 'keypad-btn wide-control control'; spaceBtn.dataset.key = 'space'; spaceBtn.textContent = 'Space'; lastRowDiv.appendChild(spaceBtn); const backspace = document.createElement('button'); backspace.className = 'keypad-btn control'; backspace.dataset.key = 'backspace'; backspace.textContent = '⌫'; lastRowDiv.appendChild(backspace); const done = document.createElement('button'); done.className = 'keypad-btn wide-control confirm'; done.id = 'alpha-keypad-confirm-btn'; done.textContent = 'Done'; lastRowDiv.appendChild(done); alphaKeypadGrid.appendChild(lastRowDiv); document.querySelectorAll('#custom-alpha-keypad-modal .keypad-btn').forEach(button => { button.removeEventListener('click', handleAlphaKeypadClick); button.addEventListener('click', handleAlphaKeypadClick); }); }
-    function handleAlphaKeypadClick(e) { const key = e.target.dataset.key; let displayValue = alphaKeypadDisplay.textContent; if (!activeAlphaInput) return; if (key === 'backspace') { displayValue = displayValue.slice(0, -1); } else if (key === 'space') { if (displayValue.length > 0 && displayValue.slice(-1) !== ' ') { displayValue += ' '; } } else if (e.target.id === 'alpha-keypad-confirm-btn') { hideAlphaKeypad(); return; } else { let char = key; if (displayValue.length === 0 || displayValue.slice(-1) === ' ') { char = key.toUpperCase(); } else { char = key.toLowerCase(); } displayValue += char; } alphaKeypadDisplay.textContent = displayValue; activeAlphaInput.value = displayValue; generateAlphaKeypad(); validateGuestForm(); }
-    function showAlphaKeypad(input) { activeAlphaInput = input; alphaKeypadDisplay.textContent = activeAlphaInput.value; generateAlphaKeypad(); customAlphaKeypadModal.classList.remove('hidden'); guestNameModal.classList.add('hidden'); }
-    function hideAlphaKeypad() { customAlphaKeypadModal.classList.add('hidden'); guestNameModal.classList.remove('hidden'); activeAlphaInput = null; validateGuestForm(); }
+    // --- ALPHA KEYPAD CORE DATA (Required for alphabetical input) ---
+    const QWERTY_LAYOUT = [ 
+        ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], 
+        ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], 
+        ['Z', 'X', 'C', 'V', 'B', 'N', 'M'] 
+    ];
+
+    function generateAlphaKeypad() {
+        const displayValue = alphaKeypadDisplay.textContent;
+        alphaKeypadGrid.innerHTML = '';
+        
+        QWERTY_LAYOUT.forEach((row, index) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = `key-row-${index + 1}`;
+            row.forEach(key => {
+                const button = document.createElement('button');
+                button.className = 'keypad-btn';
+                button.dataset.key = key;
+                let char = key;
+                if (displayValue.length === 0 || displayValue.slice(-1) === ' ') {
+                    char = key.toUpperCase();
+                } else {
+                    char = key.toLowerCase();
+                }
+                button.textContent = char;
+                rowDiv.appendChild(button);
+            });
+            alphaKeypadGrid.appendChild(rowDiv);
+        });
+
+        const lastRowDiv = document.createElement('div');
+        lastRowDiv.className = `key-row-4`;
+        
+        const spaceBtn = document.createElement('button');
+        spaceBtn.className = 'keypad-btn wide-control control';
+        spaceBtn.dataset.key = 'space';
+        spaceBtn.textContent = 'Space';
+        lastRowDiv.appendChild(spaceBtn);
+
+        const backspace = document.createElement('button');
+        backspace.className = 'keypad-btn control';
+        backspace.dataset.key = 'backspace';
+        backspace.textContent = '⌫';
+        lastRowDiv.appendChild(backspace);
+
+        const done = document.createElement('button');
+        done.className = 'keypad-btn wide-control confirm';
+        done.id = 'alpha-keypad-confirm-btn';
+        done.textContent = 'Done';
+        lastRowDiv.appendChild(done);
+
+        alphaKeypadGrid.appendChild(lastRowDiv);
+
+        document.querySelectorAll('#custom-alpha-keypad-modal .keypad-btn').forEach(button => { 
+            button.removeEventListener('click', handleAlphaKeypadClick);
+            button.addEventListener('click', handleAlphaKeypadClick); 
+        });
+    }
+    function handleAlphaKeypadClick(e) {
+        const key = e.target.dataset.key;
+        let displayValue = alphaKeypadDisplay.textContent;
+        if (!activeAlphaInput) return;
+
+        if (key === 'backspace') {
+            displayValue = displayValue.slice(0, -1);
+        } else if (key === 'space') {
+            if (displayValue.length > 0 && displayValue.slice(-1) !== ' ') {
+                displayValue += ' ';
+            }
+        } else if (e.target.id === 'alpha-keypad-confirm-btn') {
+            hideAlphaKeypad();
+            return;
+        } else {
+            let char = key;
+            if (displayValue.length === 0 || displayValue.slice(-1) === ' ') {
+                char = key.toUpperCase();
+            } else {
+                char = key.toLowerCase();
+            }
+            displayValue += char;
+        }
+
+        alphaKeypadDisplay.textContent = displayValue;
+        activeAlphaInput.value = displayValue;
+        generateAlphaKeypad(); 
+        
+        // --- FIX: Manually dispatch 'input' event to trigger listeners (autofill & validation) ---
+        if (activeAlphaInput.closest('#new-parent-modal')) {
+             activeAlphaInput.dispatchEvent(new Event('input'));
+        }
+        // --- END FIX ---
+        
+        validateGuestForm();
+    }
+    
+    function showAlphaKeypad(input) {
+        activeAlphaInput = input;
+        alphaKeypadDisplay.textContent = activeAlphaInput.value;
+        generateAlphaKeypad();
+        customAlphaKeypadModal.classList.remove('hidden');
+        guestNameModal.classList.add('hidden');
+        
+        // Check if the input is a child's name field and hide the original new parent modal
+        if (input.closest('#new-parent-modal')) {
+            document.getElementById('new-parent-modal').classList.add('hidden');
+        }
+    }
+    function hideAlphaKeypad() {
+        customAlphaKeypadModal.classList.add('hidden');
+        // Restore the correct parent modal (either guestNameModal or newParentModal)
+        if (activeAlphaInput && activeAlphaInput.closest('#new-parent-modal')) {
+            document.getElementById('new-parent-modal').classList.remove('hidden');
+            
+            // --- FIX: Manually dispatch 'input' event on close for final validation/autofill ---
+            activeAlphaInput.dispatchEvent(new Event('input')); 
+            // --- END FIX ---
+
+        } else {
+            guestNameModal.classList.remove('hidden');
+        }
+        activeAlphaInput = null;
+        validateGuestForm();
+    }
+    function wireAlphaKeypadToInput(input, validationCallback) {
+        input.readOnly = true;
+        input.addEventListener('click', (e) => {
+            showAlphaKeypad(e.target);
+        });
+        input.addEventListener('input', validationCallback);
+    }
+
     function validateGuestForm() { const name = guestNameInput.value.trim(); const surname = guestSurnameInput.value.trim(); const isReady = (name.length > 0 && surname.length > 0); guestConfirmBtn.disabled = !isReady; guestConfirmBtn.style.backgroundColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)'; guestConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)'; }
     function handleGuestCheckIn() {
         const firstName = guestNameInput.value.trim();
@@ -4532,6 +5082,7 @@ function playCustomTTS(message) {
 
         // Standard updates
         updateGameModeBasedOnPlayerCount();
+        autoAssignCourtModes();
         render();
         saveState();
     }
@@ -4817,6 +5368,68 @@ function playCustomTTS(message) {
         }
     }
 
+    function autoAssignCourtModes() {
+        // 1. Check if the feature is enabled in admin settings
+        if (!state.courtSettings.autoAssignModes) {
+            return;
+        }
+
+        // 2. Perform Calculations
+        const visibleSocialCourts = state.courts.filter(c =>
+            state.courtSettings.visibleCourts.includes(c.id) && c.courtMode !== 'league'
+        );
+        const visibleSocialCourtCount = visibleSocialCourts.length;
+
+        const activeLeagueCourts = state.courts.filter(c => c.courtMode === 'league' && c.status === 'in_progress').length;
+        const socialPlayersOnCourt = state.courts
+            .filter(c => c.courtMode !== 'league')
+            .reduce((sum, court) => sum + court.players.length, 0);
+        const totalSocialPlayers = state.availablePlayers.length + socialPlayersOnCourt;
+
+        // Filter for courts that are available, visible, and not league courts
+        const courtsToModify = state.courts.filter(c =>
+            c.status === 'available' &&
+            state.courtSettings.visibleCourts.includes(c.id) &&
+            c.courtMode !== 'league'
+        );
+
+        // 3. Apply Prioritized Rules
+        // Rule 1: League Priority
+        if (activeLeagueCourts >= 2) {
+            courtsToModify.forEach(court => {
+                if (court.courtMode !== 'doubles') court.courtMode = 'doubles';
+            });
+        }
+        // Rule 2: Full Capacity (Dynamic)
+        else if (totalSocialPlayers >= visibleSocialCourtCount * 4) {
+            courtsToModify.forEach(court => {
+                if (court.courtMode !== 'doubles') court.courtMode = 'doubles';
+            });
+        }
+        // Rule 3: High Occupancy (Dynamic)
+        else if (totalSocialPlayers >= (visibleSocialCourtCount - 1) * 4) {
+            courtsToModify.forEach(court => {
+                if (court.id === 'A' && court.courtMode !== 'doubles') {
+                    court.courtMode = 'doubles';
+                } else if (court.id === 'E' && court.courtMode !== 'rookie') {
+                    court.courtMode = 'rookie';
+                }
+            });
+        }
+        // Rule 4: Low Occupancy (Default)
+        else {
+            courtsToModify.forEach(court => {
+                if (court.id === 'A' && court.courtMode !== 'singles') {
+                    court.courtMode = 'singles';
+                } else if (court.id === 'E' && court.courtMode !== 'rookie') {
+                    court.courtMode = 'rookie';
+                }
+            });
+        }
+        saveState(); // Save any changes made to court modes
+    }
+
+
     // --- ADDED FUNCTION ---
     function handleReorderPositionChange(newPositionStr) {
         if (!activeInput || !activeInput.dataset.playerName) return;
@@ -4886,6 +5499,7 @@ function playCustomTTS(message) {
         
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
+        autoAssignCourtModes();
         render();
         saveState();
     }
@@ -5047,10 +5661,1422 @@ function playCustomTTS(message) {
 
         // Save the new, clean state and re-render the UI
         saveState();
+        autoAssignCourtModes();
         render();
         alert("Application has been reset.");
     }
 
+    function formatCase(str) {
+        return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+
+    // --- ADDED FUNCTION: Wrapper for the Add Child button click ---
+    function addChild() {
+        generateChildField();
+    }
+
+    // --- JUNIOR CLUB FUNCTIONS (RESTORED) ---
+    function generateChildField() {
+        const groupId = Date.now();
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'child-field-group';
+        fieldGroup.dataset.groupId = groupId;
+        fieldGroup.dataset.complete = 'false';
+        
+        const currentParentSurname = parentSurnameInput.value.trim();
+        
+        // --- MODIFIED HTML STRUCTURE: All fields are now 100% width and stacked ---
+        // --- THIS IS THE UPDATED HTML BLOCK ---
+        fieldGroup.innerHTML = `
+            <div class="child-collapsed-display collapsed-area hidden"></div>
+            
+            <div class="child-expanded-fields">
+                <div style="display: block;">
+                    <div class="child-name-input score-input-area" style="flex-direction: column; align-items: stretch; width: 100%;">
+                        <label for="child-name-${groupId}">Child First Name:</label>
+                        <input type="text" id="child-name-${groupId}" name="childName" readonly placeholder="Tap to enter name" style="width: 100%;">
+                    </div>
+                    <div class="child-surname-container score-input-area" style="flex-direction: column; align-items: stretch; width: 100%;">
+                        <label for="child-surname-${groupId}">Child Surname:</label>
+                        <input type="text" id="child-surname-${groupId}" name="childSurname" readonly placeholder="Tap to enter surname" style="width: 100%;" data-autofill-surname="${currentParentSurname}"> 
+                    </div>
+                </div>
+
+                <div class="child-dob-input score-input-area" style="flex-direction: column; align-items: stretch; width: 100%; margin-top: 0.5rem; position: relative;">
+                    <label for="child-dob-${groupId}">Birth Date:</label>
+                    
+                    <div id="date-display-${groupId}" class="date-display" data-placeholder="YYYY/MM/DD">YYYY/MM/DD</div>
+                    
+                    <input type="text" inputmode="numeric" id="child-dob-${groupId}" name="childBirthDate" readonly style="display: none;">
+                </div>
+                
+                <div class="gender-selector score-input-area" style="flex-direction: column; align-items: stretch; width: 100%; margin-top: 0.5rem;">
+                    <label>Gender:</label>
+                    <div class="radio-group" style="background-color: transparent; border: 1px solid var(--border-color); border-radius: 5px; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: space-around; padding: 0.25rem 0.5rem;">
+                        <label>
+                            <input type="radio" name="child-gender-${groupId}" value="M"> Male
+                        </label>
+                        <label>
+                            <input type="radio" name="child-gender-${groupId}" value="F"> Female
+                        </label>
+                    </div>
+                </div>
+            </div>
+        `;
+        // --- END OF UPDATED HTML ---
+        
+        const childNameInput = fieldGroup.querySelector('[name="childName"]');
+        const childSurnameInput = fieldGroup.querySelector('[name="childSurname"]');
+        
+        // --- THIS IS THE CORRECTED LOGIC BLOCK ---
+        const childDobInput = fieldGroup.querySelector('[name="childBirthDate"]');
+        const dateDisplay = fieldGroup.querySelector('.date-display');
+
+        // When the visual display is clicked, open the numeric keypad for the hidden input
+        dateDisplay.addEventListener('click', () => {
+            showKeypad(childDobInput, { 
+                maxLength: 8, // YYYY/MM/DD = 8 digits
+                title: 'YYYYMMDD' 
+            });
+        });
+
+        // When the keypad types into the hidden input, update the visual display
+        childDobInput.addEventListener('input', () => {
+            updateDateDisplay(childDobInput);
+            validateNewParentForm(); // Re-validate the form
+        });
+        
+        // Initial setup for the placeholder
+        updateDateDisplay(childDobInput);
+        // --- END OF CORRECTED LOGIC ---
+
+        const validationHandler = () => {
+            checkAndCollapseChild(fieldGroup);
+            validateNewParentForm();
+            renderParentForm();
+        };
+        
+        wireAlphaKeypadToInput(childNameInput, validationHandler);
+        wireAlphaKeypadToInput(childSurnameInput, validationHandler);
+        
+        childDobInput.addEventListener('change', validationHandler);
+        fieldGroup.querySelectorAll(`input[name^="child-gender"]`).forEach(radio => {
+            radio.addEventListener('change', validationHandler);
+        });
+
+        // Autofill logic for child surname
+        childNameInput.addEventListener('input', () => {
+            const surnameToAutofill = childSurnameInput.dataset.autofillSurname;
+            if (surnameToAutofill && childNameInput.value.trim().length > 0) {
+                childSurnameInput.value = surnameToAutofill;
+            } else if (childNameInput.value.trim().length === 0) {
+                childSurnameInput.value = '';
+            }
+            validationHandler();
+        });
+
+        // Add listener to the collapsed area to re-expand on click
+        fieldGroup.querySelector('.child-collapsed-display').addEventListener('click', () => {
+            fieldGroup.dataset.complete = 'false';
+            renderChildFields();
+        });
+        
+        childrenContainer.appendChild(fieldGroup);
+        validationHandler();
+    }
+
+    function showEditParentModal(parent) {
+        // 1. Set the modal to 'edit' mode and store the parent's original ID.
+        newParentModal.querySelector('h3').textContent = 'Edit Parent Profile';
+        newParentModal.dataset.mode = 'edit';
+        newParentModal.dataset.originalParentId = parent.id;
+        newParentConfirmBtn.textContent = 'Save Changes';
+
+        // 2. Populate the main parent fields.
+        parentNameInput.value = parent.name;
+        parentSurnameInput.value = parent.surname;
+        parentPhoneInput.value = parent.phone || '';
+
+        // 3. Clear any old child forms.
+        childrenContainer.innerHTML = '';
+
+        // 4. Loop through the existing children and create a pre-filled form for each.
+        parent.registeredChildren.forEach(child => {
+            // Creates a new, empty child form group.
+            generateChildField(); 
+            
+            // Get a reference to the form we just created.
+            const lastChildGroup = childrenContainer.lastElementChild;
+            if (lastChildGroup) {
+                // Populate the fields of that form with the child's data.
+                lastChildGroup.querySelector('[name="childName"]').value = child.name;
+                lastChildGroup.querySelector('[name="childSurname"]').value = child.surname;
+                lastChildGroup.querySelector('[name="childBirthDate"]').value = child.birthDate;
+                
+                const genderRadio = lastChildGroup.querySelector(`input[name^="child-gender"][value="${child.gender}"]`);
+                if (genderRadio) {
+                    genderRadio.checked = true;
+                }
+
+                // --- THIS IS THE CRITICAL FIX ---
+                // Manually run the check to mark this pre-filled form as "complete".
+                checkAndCollapseChild(lastChildGroup);
+                // --- END OF FIX ---
+            }
+        });
+
+        // 5. Set the initial state to show the form as already collapsed.
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: true,
+            childrenExpanded: true,
+        };
+
+        // 6. Show the modal.
+        juniorClubModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+
+        // 7. Render the form. Because we fixed the "complete" state in step 4,
+        // this will now correctly render the collapsed summary view.
+        renderParentForm();
+    }
+
+    function showJuniorClubRosterModal() {
+        renderJuniorClubRoster(); // Renders with default/last applied sort
+        juniorClubModal.classList.add('hidden');
+        juniorClubRosterModal.classList.remove('hidden');
+    }
+
+    function showRosterDetailModal(item) {
+        rosterDetailContent.innerHTML = '';
+        
+        // Ensure the detail modal content container is visible
+        rosterDetailModal.classList.add('hidden');
+
+        if (item.isParent) {
+            // --- PARENT DETAIL VIEW: List Children ---
+            rosterDetailTitle.textContent = `${item.name} ${item.surname}'s Registered Children`;
+            // ADDED STYLE: Compact Title
+            rosterDetailTitle.style.marginTop = '0';
+            rosterDetailTitle.style.marginBottom = '0.5rem';
+
+            if (item.children && item.children.length > 0) {
+                const ul = document.createElement('ul');
+                ul.style.listStyleType = 'none';
+                ul.style.padding = '0';
+                ul.style.margin = '0.5rem 0';
+                
+                item.children.forEach(childName => {
+                    const childLastCheckInMs = getLastCheckInForChild(childName);
+                    const checkInDisplay = childLastCheckInMs > 0 
+                        ? new Date(childLastCheckInMs).toLocaleDateString('en-ZA') 
+                        : 'Never Checked In';
+
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px dashed #eee;">
+                            <span style="font-weight: 500; color: var(--dark-text);">${childName}</span>
+                            <span style="font-size: 0.9em; color: var(--neutral-color);">${checkInDisplay}</span>
+                        </div>
+                    `;
+                    ul.appendChild(li);
+                });
+                rosterDetailContent.appendChild(ul);
+            } else {
+                // MODIFIED STYLE: Compact margin for empty state
+                rosterDetailContent.innerHTML = '<p style="text-align: center; color: var(--neutral-color); margin-top: 1rem; margin-bottom: 0;">No children currently registered under this parent.</p>';
+            }
+
+        } else {
+            // --- CHILD DETAIL VIEW: Show Parent in list style ---
+            rosterDetailTitle.textContent = `${item.name} ${item.surname}'s Parent`;
+            // ADDED STYLE: Compact Title
+            rosterDetailTitle.style.marginTop = '0';
+            rosterDetailTitle.style.marginBottom = '0.5rem';
+            
+            const ul = document.createElement('ul');
+            ul.style.listStyleType = 'none';
+            ul.style.padding = '0';
+            ul.style.margin = '0.5rem 0';
+
+            // Find the parent object to get their last check-in details
+            const parent = state.juniorClub.parents.find(p => `${p.name} ${p.surname}` === item.parentName);
+            let parentLastCheckInDisplay = 'Never Checked In';
+
+            if (parent) {
+                // Re-use the existing logic to find the parent's most recent check-in through children
+                let latestParentChildrenCheckIn = 0;
+                parent.registeredChildren.forEach(child => {
+                    const childFullName = `${child.name} ${child.surname}`;
+                    const childCheckIn = getLastCheckInForChild(childFullName);
+                    if (childCheckIn > latestParentChildrenCheckIn) {
+                        latestParentChildrenCheckIn = childCheckIn;
+                    }
+                });
+
+                if (latestParentChildrenCheckIn > 0) {
+                    parentLastCheckInDisplay = new Date(latestParentChildrenCheckIn).toLocaleDateString('en-ZA');
+                }
+            }
+
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px dashed #eee;">
+                    <span style="font-weight: 500; color: var(--dark-text);">Parent: ${item.parentName}</span>
+                    <span style="font-size: 0.9em; color: var(--neutral-color);">${parentLastCheckInDisplay}</span>
+                </div>
+            `;
+            ul.appendChild(li);
+            rosterDetailContent.appendChild(ul);
+        }
+
+        // Hide the roster modal and show the detail modal
+        juniorClubRosterModal.classList.add('hidden');
+        rosterDetailModal.classList.remove('hidden');
+    }
+
+    function renderJuniorClubRoster() {
+        juniorClubRosterList.innerHTML = '';
+        const { sortKey, sortOrder, type } = state.juniorClub.rosterFilter;
+
+        let finalRoster = [];
+        if (type === 'parents') {
+            state.juniorClub.parents.forEach(parent => {
+                let latestChildCheckIn = 0;
+                parent.registeredChildren.forEach(child => {
+                    const childFullName = `${child.name} ${child.surname}`.trim();
+                    const childCheckIn = getLastCheckInForChild(childFullName);
+                    if (childCheckIn > latestChildCheckIn) latestChildCheckIn = childCheckIn;
+                });
+                finalRoster.push({ isParentOnlyView: true, id: parent.id, name: `${parent.name} ${parent.surname}`, phone: parent.phone || 'N/A', lastCheckInMs: latestChildCheckIn });
+            });
+        } else if (type === 'all') {
+            state.juniorClub.parents.forEach(parent => {
+                parent.registeredChildren.forEach(child => {
+                    const childFullName = `${child.name} ${child.surname}`.trim();
+                    const childAge = calculateAge(child.birthDate);
+                    finalRoster.push({
+                        isAllView: true,
+                        id: childFullName,
+                        parentName: `${parent.name} ${parent.surname}`,
+                        childData: { name: childFullName, age: childAge, ageDisplay: childAge !== null ? `${childAge}y` : 'N/A', gender: child.gender || '?' },
+                        lastCheckInMs: getLastCheckInForChild(childFullName)
+                    });
+                });
+            });
+        } else { // 'children' view
+            state.juniorClub.parents.forEach(parent => {
+                parent.registeredChildren.forEach(child => {
+                    const childFullName = `${child.name} ${child.surname}`.trim();
+                    const childAge = calculateAge(child.birthDate);
+                    finalRoster.push({
+                        isChildrenView: true,
+                        id: childFullName,
+                        name: `${child.name} ${child.surname}`,
+                        age: childAge,
+                        ageDisplay: childAge !== null ? `${childAge}y` : 'N/A',
+                        gender: child.gender || '?',
+                        lastCheckInMs: getLastCheckInForChild(childFullName),
+                    });
+                });
+            });
+        }
+
+        let uniqueRoster = finalRoster;
+        uniqueRoster.sort((a, b) => {
+            let compareValue = 0;
+            const nameA = a.isParentOnlyView ? a.name : (a.isAllView ? a.childData.name : a.name);
+            const nameB = b.isParentOnlyView ? b.name : (b.isAllView ? b.childData.name : b.name);
+            if (sortKey === 'name') { compareValue = nameA.localeCompare(nameB); }
+            else if (sortKey === 'last_checkin') { compareValue = a.lastCheckInMs - b.lastCheckInMs; }
+            else if (sortKey === 'age') {
+                const ageA = a.isChildrenView ? a.age : (a.isAllView ? a.childData.age : -1);
+                const ageB = b.isChildrenView ? b.age : (b.isAllView ? b.childData.age : -1);
+                compareValue = (ageA ?? -1) - (ageB ?? -1);
+            } else if (sortKey === 'gender') {
+                const genderA = a.isChildrenView ? a.gender : (a.isAllView ? a.childData.gender : '');
+                const genderB = b.isChildrenView ? b.gender : (b.isAllView ? a.childData.gender : '');
+                compareValue = (genderA || '').localeCompare(genderB || '');
+            }
+            return sortOrder === 'asc' ? compareValue : -compareValue;
+        });
+
+        // --- NEW LOGIC FOR ABC INDEXING ---
+        const indexList = uniqueRoster.map(item => {
+            const name = item.isParentOnlyView 
+                ? item.name 
+                : (item.isAllView ? item.childData.name : item.name); 
+            return { name: name };
+        });
+
+        if (uniqueRoster.length === 0) {
+            document.getElementById('junior-club-roster-abc-index').innerHTML = '';
+            juniorClubRosterList.innerHTML = '<li class="waiting-message">No members match the current filters.</li>';
+            return;
+        }
+
+        juniorClubRosterList.rosterData = uniqueRoster;
+        const getSortIcon = (key) => (state.juniorClub.rosterFilter.sortKey !== key) ? ' ' : (sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+        document.getElementById('roster-type-filter-group').querySelectorAll('input[name="roster-type-filter"]').forEach(radio => {
+            radio.checked = radio.value === type;
+        });
+
+        const buttonStyle = "background: none; color: var(--dark-text); border: none; padding: 0.5rem; min-width: 0; line-height: 1.2;";
+        let headerHTML = '';
+        if (type === 'parents') {
+            headerHTML = `<div class="history-item roster-header" style="padding: 0.5rem 1rem;">
+                <div class="roster-row">
+                    <button class="action-btn roster-sort-btn roster-col-name" data-sort-key="name" style="${buttonStyle}">Parent Name${getSortIcon('name')}</button>
+                    <span class="roster-col-contact" style="color: var(--dark-text); font-weight: bold;">Contact Number</span>
+                    <button class="action-btn roster-sort-btn roster-col-checkin" data-sort-key="last_checkin" style="${buttonStyle}">Last<br>Check-In${getSortIcon('last_checkin')}</button>
+                </div></div>`;
+        } else {
+            headerHTML = `<div class="history-item roster-header" style="padding: 0.5rem 1rem;">
+                <div class="roster-row">
+                    <button class="action-btn roster-sort-btn roster-col-name" data-sort-key="name" style="${buttonStyle}">${type === 'all' ? 'Parent / Child' : 'Name'}${getSortIcon('name')}</button>
+                    <button class="action-btn roster-sort-btn roster-col-gender" data-sort-key="gender" style="${buttonStyle}">Gender${getSortIcon('gender')}</button>
+                    <button class="action-btn roster-sort-btn roster-col-age" data-sort-key="age" style="${buttonStyle}">Age${getSortIcon('age')}</button>
+                    <button class="action-btn roster-sort-btn roster-col-checkin" data-sort-key="last_checkin" style="${buttonStyle}">Last<br>Check-In${getSortIcon('last_checkin')}</button>
+                </div></div>`;
+        }
+        juniorClubRosterList.innerHTML = headerHTML;
+
+        uniqueRoster.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'roster-item';
+            li.dataset.rosterIndex = index;
+            const nameToIndex = item.isParentOnlyView ? item.name : (item.isAllView ? item.childData.name : item.name);
+            li.dataset.playerName = nameToIndex; // CRITICAL: Set for indexing
+
+            const lastCheckInDate = item.lastCheckInMs > 0 ? new Date(item.lastCheckInMs).toLocaleDateString('en-ZA') : 'N/A';
+            const itemStyle = "min-width: 0;";
+
+            if (item.isParentOnlyView) {
+                li.innerHTML = `<div class="roster-row">
+                        <span class="roster-col-name" style="font-weight: 700; color: var(--primary-blue); ${itemStyle}">${item.name}</span>
+                        <span class="roster-col-contact" style="color: var(--neutral-color); ${itemStyle}">${item.phone}</span>
+                        <span class="roster-col-checkin" style="font-size: 0.85em; color: var(--neutral-color); font-weight: 500; ${itemStyle}">${lastCheckInDate}</span>
+                    </div>`;
+            } else if (item.isAllView) {
+                li.innerHTML = `<div class="roster-row">
+                        <div class="roster-col-name" style="display: flex; flex-direction: column; ${itemStyle}">
+                            <span style="font-weight: 700; color: var(--primary-blue);">${item.parentName}</span>
+                            <span style="font-size: 0.9em; color: var(--dark-text); padding-left: 1rem;">${item.childData.name}</span>
+                        </div>
+                        <span class="roster-col-gender" style="color: var(--neutral-color); ${itemStyle}">${item.childData.gender}</span>
+                        <span class="roster-col-age" style="color: var(--neutral-color); ${itemStyle}">${item.childData.ageDisplay}</span>
+                        <span class="roster-col-checkin" style="font-size: 0.85em; color: var(--neutral-color); font-weight: 500; ${itemStyle}">${lastCheckInDate}</span>
+                    </div>`;
+            } else {
+                li.style.padding = '0.8rem 1rem';
+                li.innerHTML = `<div class="roster-row">
+                        <span class="roster-col-name" style="font-weight: 700; color: var(--dark-text); ${itemStyle}">${item.name}</span>
+                        <span class="roster-col-gender" style="color: var(--neutral-color); ${itemStyle}">${item.gender}</span>
+                        <span class="roster-col-age" style="color: var(--neutral-color); ${itemStyle}">${item.ageDisplay}</span>
+                        <span class="roster-col-checkin" style="font-size: 0.85em; color: var(--neutral-color); font-weight: 500; ${itemStyle}">${lastCheckInDate}</span>
+                    </div>`;
+            }
+            juniorClubRosterList.appendChild(li);
+        });
+
+        juniorClubRosterList.querySelectorAll('.roster-sort-btn').forEach(btn => {
+            btn.addEventListener('click', handleRosterSortClick);
+        });
+
+        // CRITICAL: Setup the index
+        setupListWithIndex(indexList, juniorClubRosterList, document.getElementById('junior-club-roster-abc-index'));
+    }
+    
+    // New handler for the radio buttons
+    function handleRosterTypeFilterChange(e) {
+        state.juniorClub.rosterFilter.type = e.target.value;
+        saveState();
+        renderJuniorClubRoster();
+    }
+
+
+    // New handler function for sort button clicks (The correct and final version)
+    function handleRosterSortClick(e) {
+        // Find the button element by traversing up from the click target
+        const button = e.target.closest('[data-sort-key]');
+        if (!button) return;
+
+        const key = button.dataset.sortKey;
+        if (key) {
+            if (state.juniorClub.rosterFilter.sortKey === key) {
+                state.juniorClub.rosterFilter.sortOrder = state.juniorClub.rosterFilter.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.juniorClub.rosterFilter.sortKey = key;
+                state.juniorClub.rosterFilter.sortOrder = key === 'name' ? 'asc' : 'desc';
+            }
+            saveState();
+            renderJuniorClubRoster();
+        }
+    }
+
+    function isChildFieldComplete(group) {
+        const childName = group.querySelector('[name="childName"]').value.trim();
+        const childSurname = group.querySelector('[name="childSurname"]').value.trim();
+        const childDob = group.querySelector('[name="childBirthDate"]').value;
+        const childGender = group.querySelector(`input[name^="child-gender"]:checked`);
+
+        return childName.length > 0 && childSurname.length > 0 && !!childDob && !!childGender;
+    }
+
+    function checkAndCollapseChild(group) {
+        const isComplete = isChildFieldComplete(group);
+        group.dataset.complete = isComplete ? 'true' : 'false';
+    }
+
+
+    function validateNewParentForm() {
+        const parentName = parentNameInput.value.trim();
+        const parentSurname = parentSurnameInput.value.trim();
+        const parentPhone = parentPhoneInput.value.trim();
+        
+        const parentFieldsValid = parentName.length > 0 && parentSurname.length > 0 && parentPhone.length > 0; 
+        
+        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
+        let allChildrenComplete = childGroups.length > 0;
+        
+        const addChildBtn = document.getElementById('add-child-btn');
+        const removeChildBtn = document.getElementById('remove-child-btn-main');
+        const lastChildGroup = childGroups.length > 0 ? childGroups[childGroups.length - 1] : null;
+
+        childGroups.forEach((group) => {
+            if (!isChildFieldComplete(group)) {
+                allChildrenComplete = false;
+            }
+        });
+        
+        const parentCollapseTriggered = parentFieldsValid && !state.juniorClub.registrationFlow.parentCollapsed;
+        
+        if (parentCollapseTriggered) {
+            state.juniorClub.registrationFlow.parentCollapsed = true;
+            state.juniorClub.registrationFlow.childrenExpanded = true; 
+        } else if (!parentFieldsValid) {
+            state.juniorClub.registrationFlow.parentCollapsed = false;
+        }
+
+        const canAddChild = parentFieldsValid && lastChildGroup && isChildFieldComplete(lastChildGroup);
+        
+        // --- START OF FIX ---
+        // This combined condition handles all states correctly.
+        // The button is active (visible and enabled) if there's at least one child AND all child forms are complete.
+        const canRemoveChild = childGroups.length > 0 && allChildrenComplete;
+        
+        removeChildBtn.style.display = canRemoveChild ? 'block' : 'none';
+        removeChildBtn.disabled = !canRemoveChild;
+        // --- END OF FIX ---
+
+        addChildBtn.style.display = canAddChild ? 'block' : 'none';
+        addChildBtn.disabled = !canAddChild;
+        
+        const isConfirmReady = parentFieldsValid && allChildrenComplete;
+        newParentConfirmBtn.disabled = !isConfirmReady;
+
+        if (isConfirmReady) {
+            newParentConfirmBtn.style.setProperty('background-color', 'var(--confirm-color)', 'important');
+            newParentConfirmBtn.style.setProperty('border-color', 'var(--confirm-color)', 'important');
+        } else {
+            newParentConfirmBtn.style.setProperty('background-color', 'var(--inactive-color)', 'important');
+            newParentConfirmBtn.style.setProperty('border-color', 'var(--inactive-color)', 'important');
+        }
+        
+        renderParentForm(); 
+    }
+
+    /**
+     * Renders the main Junior Club check-in list, dynamically switching between
+     * Parent Name and Child Name display based on state.juniorClub.checkInFilter.displayMode.
+     */
+    function renderJuniorClubCheckInList() {
+        juniorClubList.innerHTML = "";
+        
+        const displayMode = state.juniorClub.checkInFilter.displayMode;
+        
+        // --- START OF FIX ---
+        // This now correctly gets the list of active juniors from the junior club's state.
+        const checkedInPlayerNames = new Set(state.juniorClub.activeChildren.map(c => c.name));
+        // --- END OF FIX ---
+        
+        let finalListItems = [];
+        state.juniorClub.parents.forEach(parent => {
+            parent.registeredChildren.forEach(child => {
+                const childFullName = `${child.name} ${child.surname}`.trim();
+                const isCheckedIn = checkedInPlayerNames.has(childFullName);
+                
+                const age = calculateAge(child.birthDate);
+                const gender = child.gender || '?';
+                const ageDisplay = age !== null ? `${age}y` : 'N/A';
+                
+                const item = {
+                    parent: parent,
+                    childFullName: childFullName,
+                    childName: child.name,
+                    childSurname: child.surname,
+                    childDisplay: `${child.name.split(' ')[0]} (${ageDisplay} ${gender})`,
+                    canCheckIn: !isCheckedIn,
+                    sortKey: displayMode === 'parent' ? parent.name : child.name,
+                };
+                finalListItems.push(item);
+            });
+        });
+        
+        let renderedList = [];
+
+        if (displayMode === 'parent') {
+            // Find all parents who have at least one child available for check-in. This now works correctly.
+            const availableParents = state.juniorClub.parents.filter(parent => 
+                parent.registeredChildren.some(child => !checkedInPlayerNames.has(`${child.name} ${child.surname}`.trim()))
+            ).sort((a, b) => a.name.localeCompare(b.name));
+            
+            renderedList = availableParents.map(parent => {
+                // Find the first child who is NOT checked in to display their details
+                const firstAvailableChild = parent.registeredChildren.find(child => !checkedInPlayerNames.has(`${child.name} ${child.surname}`.trim())) || parent.registeredChildren[0];
+                
+                const age = calculateAge(firstAvailableChild.birthDate);
+                const gender = firstAvailableChild.gender || '?';
+                const ageDisplay = age !== null ? `${age}y` : 'N/A';
+                
+                // Count how many children are NOT checked in for this parent
+                const availableChildCount = parent.registeredChildren.filter(child => !checkedInPlayerNames.has(`${child.name} ${child.surname}`.trim())).length;
+                
+                return {
+                    parent: parent,
+                    primaryDisplay: `${parent.name} ${parent.surname}`,
+                    secondaryDisplay: `${firstAvailableChild.name.split(' ')[0]} (${ageDisplay} ${gender})`,
+                    childCount: availableChildCount,
+                    sortKey: parent.name,
+                    canCheckIn: true,
+                };
+            });
+            
+        } else { // displayMode === 'child'
+            // Filter to show only children who are NOT checked in. This also works correctly now.
+            renderedList = finalListItems
+                .filter(item => item.canCheckIn)
+                .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+                .map(item => ({
+                    parent: item.parent,
+                    primaryDisplay: `${item.childName} ${item.childSurname}`,
+                    secondaryDisplay: `Parent: ${item.parent.name} ${item.parent.surname}`,
+                    sortKey: item.sortKey,
+                    canCheckIn: true,
+                }));
+        }
+
+        if (renderedList.length === 0) { 
+            const li = document.createElement("li");
+            li.style.justifyContent = "center";
+            li.style.textAlign = "center";
+            li.style.color = "#6c757d";
+            li.textContent = "All junior players are currently checked in.";
+            juniorClubList.appendChild(li);
+        } else {
+            renderedList.forEach(item => {
+                const parent = item.parent;
+                const li = document.createElement("li");
+                
+                // This logic correctly determines if the parent has ANY child left to check in
+                const canCheckIn = parent.registeredChildren.some(child => !checkedInPlayerNames.has(`${child.name} ${child.surname}`.trim()));
+                
+                const childCountDisplay = (displayMode === 'parent' && item.childCount > 0)
+                    ? `${item.childCount} Child${item.childCount === 1 ? '' : 'ren'}`
+                    : '';
+                
+                // Set opacity to 0.5 if no children are available for check-in
+                const checkInIcon = canCheckIn
+                    ? `<span class="action-icon add" data-parent-id="${parent.id}">+</span>`
+                    : `<span class="action-icon" data-parent-id="${parent.id}" style="color: var(--neutral-color); opacity: 0.5;">+</span>`;
+                
+                const displayContainerStyle = "flex-grow: 1; font-weight: 500; display: flex; flex-direction: column;";
+
+                li.innerHTML = `
+                    <span style="${displayContainerStyle}">
+                        <span style="font-weight: 500;">${item.primaryDisplay}</span>
+                        <span style="font-size: 0.9em; color: #6c757d;">${item.secondaryDisplay}</span>
+                    </span>
+                    <span style="margin-right: 1rem; color: #6c757d; min-width: 70px; text-align: right;">${childCountDisplay}</span>
+                    <span class="action-icon edit" data-parent-id="${parent.id}" title="Edit Parent"><i class="mdi mdi-pencil"></i></span>
+                    ${checkInIcon}
+                `;
+                
+                li.dataset.parentId = parent.id;
+                li.dataset.playerName = item.primaryDisplay; // CRITICAL: Set for indexing
+                juniorClubList.appendChild(li);
+            });
+        }
+        
+        // CRITICAL: Setup the index
+        const indexList = renderedList.map(item => ({ name: item.primaryDisplay }));
+            
+        setupListWithIndex(indexList, juniorClubList, document.getElementById('junior-club-abc-index'));
+
+        juniorClubNameFilterGroup.querySelectorAll(`input[name="junior-club-name-filter"]`).forEach(radio => {
+            radio.checked = radio.value === displayMode;
+        });
+    }
+
+    // New wrapper function to update the entire modal display
+    function showJuniorClubModal() {
+        // Render the list with the current filter settings
+        renderJuniorClubCheckInList();
+        
+        juniorClubModal.classList.remove('hidden');
+    }
+
+    // Function to handle filter change
+    function handleJuniorClubNameFilterChange(e) {
+        state.juniorClub.checkInFilter.displayMode = e.target.value;
+        saveState();
+        renderJuniorClubCheckInList();
+    }
+
+    function showChildSelectionModal(parent) {
+        attendingChildrenList.innerHTML = "";
+        
+        childSelectionModal.dataset.parentId = parent.id;
+        document.getElementById('child-selection-title').textContent = `${parent.name} ${parent.surname}'s Children`;
+
+        // NEW: Compile a set of all currently checked-in junior players
+        const allCheckedInJuniorNames = new Set([
+            ...state.availablePlayers.filter(p => p.isJunior).map(p => p.name),
+            ...state.courts.flatMap(c => c.players).filter(p => p.isJunior).map(p => p.name),
+            // CRITICAL ADDITION: Include activeChildren from the junior club state
+            ...state.juniorClub.activeChildren.map(c => c.name) 
+        ]);
+
+        parent.registeredChildren.forEach(child => {
+            const li = document.createElement('li');
+            // FIX 1: Trim the reconstructed full name string for the checkbox value.
+            const childFullName = `${child.name} ${child.surname}`.trim();
+            li.innerHTML = `
+                <label style="flex-grow: 1; display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="attendingChild" value="${childFullName}" data-child-name="${child.name}" style="margin-right: 1rem;">
+                    <div style="flex-grow: 1;">
+                        <span style="font-weight: 500;">${child.name} ${child.surname}</span>
+                    </div>
+                </label>
+            `;
+            attendingChildrenList.appendChild(li);
+        });
+        
+        childSelectionConfirmBtn.disabled = true;
+        childSelectionConfirmBtn.textContent = 'Check In (0 Children)';
+        
+        juniorClubModal.classList.add('hidden');
+        childSelectionModal.classList.remove('hidden');
+    }
+
+    function registerNewParent() {
+        const parentName = formatCase(parentNameInput.value.trim());
+        const parentSurname = formatCase(parentSurnameInput.value.trim());
+        const parentPhone = parentPhoneInput.value.trim(); // NEW: Capturing phone number
+        const newParentId = parentName + parentSurname;
+        const currentMode = newParentModal.dataset.mode; // 'edit' or undefined (new)
+
+        // 1. Collect all child data
+        const children = [];
+        childrenContainer.querySelectorAll('.child-field-group').forEach(group => {
+            const childName = formatCase(group.querySelector('[name="childName"]').value.trim());
+            const childSurname = formatCase(group.querySelector('[name="childSurname"]').value.trim());
+            // NEW: Capturing Birth Date and Gender
+            const childBirthDate = group.querySelector('[name="childBirthDate"]').value; 
+            const childGender = group.querySelector('input[type="radio"]:checked') ? group.querySelector('input[type="radio"]:checked').value : '?';
+
+            if (childName && childSurname && childBirthDate && childGender) {
+                children.push({
+                    name: childName,
+                    surname: childSurname,
+                    gender: childGender, 
+                    birthDate: childBirthDate 
+                });
+            }
+        });
+
+        if (children.length === 0) return;
+
+        // 2. Check for duplicate Parent ID during NEW registration
+        if (currentMode !== 'edit' && state.juniorClub.parents.some(p => p.id === newParentId)) {
+            playCustomTTS("A parent with this name is already registered.");
+            return;
+        }
+
+        let parentToUpdate = null;
+        if (currentMode === 'edit') {
+            // In Edit mode, find the original parent entry
+            const originalId = newParentModal.dataset.originalParentId || newParentId;
+            parentToUpdate = state.juniorClub.parents.find(p => p.id === originalId);
+        }
+
+        // 3. Create or Update Parent Object
+        if (parentToUpdate) {
+            // --- EDIT MODE: Update existing parent ---
+            parentToUpdate.name = parentName;
+            parentToUpdate.surname = parentSurname;
+            parentToUpdate.phone = parentPhone; // NEW: Save phone number
+            parentToUpdate.id = newParentId; // Update ID if name changed
+            parentToUpdate.registeredChildren = children;
+            
+            playCustomTTS(`${parentName}'s profile has been successfully updated.`);
+        } else {
+            // --- NEW REGISTRATION MODE ---
+            parentToUpdate = {
+                id: newParentId,
+                name: parentName,
+                surname: parentSurname,
+                phone: parentPhone, // NEW: Save phone number
+                registeredChildren: children
+            };
+            state.juniorClub.parents.push(parentToUpdate);
+            playCustomTTS(`${parentName} successfully registered.`);
+        }
+
+        // 4. Clean up state and UI
+        state.juniorClub.parents.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Restore default modal state for next use
+        newParentModal.classList.add('hidden');
+        newParentModal.querySelector('h3').textContent = 'New Parent Registration';
+        newParentModal.dataset.mode = '';
+        newParentConfirmBtn.textContent = 'Confirm Registration';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        parentPhoneInput.value = ''; // NEW: Clear phone input
+        childrenContainer.innerHTML = ''; // Ensure container is empty
+        document.getElementById('parent-collapsed-display').innerHTML = '';
+        // CRITICAL FIX: Reset the flow state here as well to ensure renderParentForm starts clean next time.
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: false,
+            childrenExpanded: false,
+        };
+        // 5. If it was a NEW registration, proceed to check-in. If it was an EDIT, return to the main list.
+        if (currentMode === 'edit') {
+            showJuniorClubModal(); // Show the main list again
+        } else {
+            // --- MODIFIED: CALL showJuniorClubModal() to force list render ---
+            showChildSelectionModal(parentToUpdate); // Now forces a render of the parent list
+            // No call to showChildSelectionModal here.
+        }
+        
+        saveState();
+    }
+
+    function showRemoveChildSelectionModal() {
+        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
+        if (childGroups.length <= 1) return; // Should be disabled if only one remains
+
+        childrenForRemovalList.innerHTML = '';
+        removeChildSelectionModal.dataset.selectedGroups = '';
+
+        childGroups.forEach((group, index) => {
+            const groupId = group.dataset.groupId;
+            const childName = group.querySelector('[name="childName"]').value.trim();
+            const childSurname = group.querySelector('[name="childSurname"]').value.trim();
+            const displayName = childName || childSurname ? `${childName} ${childSurname}`.trim() : `Child ${index + 1} (Empty)`;
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <label style="flex-grow: 1; display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="childToRemove" value="${groupId}" style="margin-right: 1rem;">
+                    <div style="flex-grow: 1;">
+                        <span style="font-weight: 500;">${displayName}</span>
+                    </div>
+                </label>
+            `;
+            childrenForRemovalList.appendChild(li);
+        });
+
+        // Reset Confirm button state
+        removeChildSelectionConfirmBtn.disabled = true;
+        removeChildSelectionConfirmBtn.textContent = 'Remove Selected (0 Children)';
+        
+        newParentModal.classList.add('hidden');
+        removeChildSelectionModal.classList.remove('hidden');
+    }
+
+    function executeRemoveSingleChild() {
+        const groupId = cancelConfirmModal.dataset.childGroupId;
+        const groupToRemove = document.querySelector(`.child-field-group[data-group-id="${groupId}"]`);
+        if (groupToRemove) {
+            groupToRemove.remove();
+        }
+
+        // If that was the last child, add a new empty form to start over
+        if (childrenContainer.querySelectorAll('.child-field-group').length === 0) {
+            generateChildField();
+        }
+
+        cancelConfirmModal.classList.add("hidden");
+        newParentModal.classList.remove('hidden'); // Re-show the parent registration form
+        validateNewParentForm();
+        resetConfirmModal();
+    }
+
+    // --- NEW FUNCTION: Executes the removal of selected child fields ---
+    function executeRemoveChild() {
+        const selectedIds = Array.from(childrenForRemovalList.querySelectorAll('input[name="childToRemove"]:checked')).map(cb => cb.value);
+
+        if (selectedIds.length === 0) return;
+
+        selectedIds.forEach(id => {
+            const groupToRemove = document.querySelector(`.child-field-group[data-group-id="${id}"]`);
+            if (groupToRemove) {
+                groupToRemove.remove();
+            }
+        });
+        
+        // --- START OF FIX ---
+        // After removal, check if any child groups are left.
+        const remainingChildGroups = childrenContainer.querySelectorAll('.child-field-group').length;
+        if (remainingChildGroups === 0) {
+            // If no children are left, automatically add a new, empty child field.
+            generateChildField();
+        }
+        // --- END OF FIX ---
+
+        removeChildSelectionModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+        validateNewParentForm();
+    }
+    
+
+
+    // New Parent Modal: Handle the main Remove Child button click
+    document.getElementById('remove-child-btn-main').addEventListener('click', () => {
+        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
+        
+        if (childGroups.length > 1) {
+            // If more than one child exists, show the selection modal as before.
+            showRemoveChildSelectionModal();
+        } else if (childGroups.length === 1) {
+            // --- NEW LOGIC ---
+            // If exactly one child exists, show a direct confirmation prompt.
+            const childToRemove = childGroups[0];
+            const childName = childToRemove.querySelector('[name="childName"]').value.trim() || 'this child';
+            
+            cancelConfirmModal.querySelector("h3").textContent = "Confirm Removal";
+            cancelConfirmModal.querySelector("p").textContent = `Are you sure you want to remove ${childName}?`;
+            modalBtnYesConfirm.textContent = "Confirm";
+            modalBtnNo.textContent = "Close";
+            
+            // Set a new mode for our confirmation logic
+            cancelConfirmModal.dataset.mode = "removeSingleChild";
+            cancelConfirmModal.dataset.childGroupId = childToRemove.dataset.groupId;
+            
+            newParentModal.classList.add('hidden'); // Hide the parent form temporarily
+            cancelConfirmModal.classList.remove("hidden"); // Show the confirmation
+        }
+    });
+
+    // Remove Child Selection Modal Listeners
+    removeChildSelectionBackBtn.addEventListener('click', () => {
+        removeChildSelectionModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+    });
+
+    removeChildSelectionConfirmBtn.addEventListener('click', executeRemoveChild);
+
+    // Update Confirm button on selection change
+    childrenForRemovalList.addEventListener('change', () => {
+        const checkedCount = childrenForRemovalList.querySelectorAll('input[name="childToRemove"]:checked').length;
+        const isReady = checkedCount > 0;
+        
+        removeChildSelectionConfirmBtn.disabled = !isReady;
+        removeChildSelectionConfirmBtn.textContent = `Remove Selected (${checkedCount} Child${checkedCount === 1 ? '' : 'ren'})`;
+        
+        // --- START OF RESTRUCTURED CODE ---
+        if (isReady) {
+            // When ready, style as a white button with blue text and border
+            removeChildSelectionConfirmBtn.style.setProperty('background-color', 'white', 'important');
+            removeChildSelectionConfirmBtn.style.setProperty('color', 'var(--primary-blue)', 'important');
+            removeChildSelectionConfirmBtn.style.setProperty('border', '2px solid var(--primary-blue)', 'important');
+        } else {
+            // When disabled, revert to a neutral grey style
+            removeChildSelectionConfirmBtn.style.setProperty('background-color', 'var(--neutral-color)', 'important');
+            removeChildSelectionConfirmBtn.style.setProperty('color', 'white', 'important');
+            removeChildSelectionConfirmBtn.style.setProperty('border', '2px solid var(--neutral-color)', 'important');
+        }
+        // --- END OF RESTRUCTURED CODE ---
+    });
+
+
+    function handleChildSelectionConfirm() {
+        const parentId = childSelectionModal.dataset.parentId;
+        const parent = state.juniorClub.parents.find(p => p.id === parentId);
+        
+        if (!parent) return;
+
+        const attendingCheckboxes = attendingChildrenList.querySelectorAll('input[name="attendingChild"]:checked');
+        const attendingChildrenNames = Array.from(attendingCheckboxes).map(cb => cb.value);
+
+        if (attendingChildrenNames.length === 0) return; 
+
+        const attendingChildren = parent.registeredChildren
+            .filter(child => attendingChildrenNames.includes(`${child.name} ${child.surname}`.trim()))
+            .map(child => ({
+                name: `${child.name} ${child.surname}`.trim(), 
+                gender: child.gender,
+                guest: true,
+                isJunior: true, 
+                parentName: parent.name + ' ' + parent.surname
+            }));
+        
+        const allCheckedInNames = new Set([
+            ...state.availablePlayers.map(p => p.name),
+            ...state.courts.flatMap(c => c.players).map(p => p.name),
+            ...state.juniorClub.activeChildren.map(c => c.name),
+        ]);
+
+        const newChildren = attendingChildren.filter(c => !allCheckedInNames.has(c.name));
+        
+        if (newChildren.length === 0) {
+            playCustomTTS("All selected children are already checked in.");
+            childSelectionModal.classList.add('hidden');
+            showJuniorClubModal(); // Show the main junior list again
+            return;
+        }
+        
+        state.juniorClub.activeChildren.push(...newChildren);
+
+        const newHistoryEntry = {
+            id: Date.now(),
+            parentId: parent.id,
+            parentName: `${parent.name} ${parent.surname}`,
+            childNames: newChildren.map(c => c.name),
+            date: new Date().toISOString().split('T')[0],
+            isPaid: false, 
+        };
+        state.juniorClub.history.push(newHistoryEntry);
+        
+        // --- START OF CHANGE ---
+        // The following block that pushes children to the main availablePlayers list has been removed.
+        // --- END OF CHANGE ---
+
+        childSelectionModal.classList.add('hidden');
+        
+        const numCheckedIn = newChildren.length;
+        const childString = numCheckedIn === 1 ? 'child' : 'children';
+        playCustomTTS(`${numCheckedIn} ${childString} checked in for ${parent.name}.`);
+        
+        // Refresh the junior club list to show the updated check-in status
+        showJuniorClubModal(); 
+        saveState();
+    }
+
+    function formatChildNames(childNames) {
+        return childNames.join(', ');
+    }
+
+    function showJuniorClubStatsModal() {
+        juniorClubModal.classList.add('hidden');
+        juniorClubStatsModal.classList.remove('hidden');
+        
+        // Reset the 'details' button state
+        juniorClubStatsDetailsBtn.disabled = true;
+        juniorClubStatsDetailsBtn.style.backgroundColor = 'var(--inactive-color)';
+        
+        // Render the list based on the current filter settings
+        renderJuniorClubHistory();
+    }
+
+    function renderJuniorClubHistory() {
+        juniorClubHistoryList.innerHTML = '';
+        
+        const filter = state.juniorClub.statsFilter.paid;
+        
+        const filterGroup = document.getElementById('payment-filter-group');
+        if (filterGroup) {
+            filterGroup.querySelectorAll(`input[name="payment-filter"]`).forEach(radio => {
+                radio.checked = radio.value === filter;
+            });
+        }
+
+        const filteredHistory = state.juniorClub.history.filter(entry => {
+            if (filter === 'all') return true;
+            if (filter === 'paid') return entry.isPaid === true;
+            if (filter === 'unpaid') return entry.isPaid === false;
+            return true;
+        }).sort((a, b) => b.id - a.id);
+
+        // --- NEW LOGIC FOR ABC INDEXING ---
+        const indexList = filteredHistory.map(entry => ({ name: entry.parentName }));
+
+        if (filteredHistory.length === 0) {
+            document.getElementById('junior-club-history-abc-index').innerHTML = '';
+            juniorClubHistoryList.innerHTML = '<li class="waiting-message">No history matches the current filter.</li>';
+            return;
+        }
+
+        filteredHistory.forEach(entry => {
+            const li = document.createElement('li');
+            li.className = 'history-item';
+            li.dataset.entryId = entry.id;
+            // CRITICAL: Set for indexing
+            li.dataset.playerName = entry.parentName;
+
+            const paymentStatusText = entry.isPaid ? 'Paid' : 'Unpaid';
+            const paymentStatusClass = entry.isPaid ? 'paid' : 'unpaid';
+            
+            const childNamesStr = entry.childNames.join(', ');
+            const date = new Date(entry.id).toLocaleDateString('en-ZA');
+
+            // --- THIS IS THE NEW, CLEANER HTML STRUCTURE ---
+            li.innerHTML = `
+                <div style="display: flex; flex-direction: column; flex-grow: 1; min-width: 0;">
+                    <span style="font-weight: 500; color: var(--dark-text);">${entry.parentName}</span>
+                    <span style="font-weight: 400; color: var(--dark-text); font-size: 0.95em; padding-left: 1rem;">${childNamesStr}</span>
+                </div>
+                <div style="text-align: right; flex-shrink: 0; margin-left: 1rem;">
+                    <span class="payment-status ${paymentStatusClass}">${paymentStatusText}</span>
+                    <br>
+                    <span style="font-size: 0.85em; color: var(--neutral-color);">${date}</span>
+                </div>
+            `;
+            // --- END OF NEW STRUCTURE ---
+
+            juniorClubHistoryList.appendChild(li);
+        });
+
+        // CRITICAL: Setup the index
+        setupListWithIndex(indexList, juniorClubHistoryList, document.getElementById('junior-club-history-abc-index'));
+    }
+    
+    function updateDateDisplay(inputElement) {
+        const displayId = `date-display-${inputElement.id.split('-').pop()}`;
+        const displayElement = document.getElementById(displayId);
+        if (!displayElement) return;
+
+        const mask = "YYYY/MM/DD";
+        const cleanValue = inputElement.value.replace(/\D/g, ''); // Raw numbers (e.g., "202510")
+        let formattedValue = '';
+        let valueIndex = 0;
+
+        for (let i = 0; i < mask.length; i++) {
+            if (valueIndex >= cleanValue.length) {
+                // If out of numbers, show the rest of the mask as a faint placeholder
+                formattedValue += `<span class="date-placeholder">${mask.substring(i)}</span>`;
+                break;
+            }
+            
+            if (mask[i].match(/[YMD]/)) {
+                formattedValue += cleanValue[valueIndex];
+                valueIndex++;
+            } else {
+                // Automatically add the '/' separator
+                if (cleanValue.length > valueIndex) {
+                    formattedValue += mask[i];
+                } else {
+                    formattedValue += `<span class="date-placeholder">${mask.substring(i)}</span>`;
+                    break;
+                }
+            }
+        }
+        
+        displayElement.innerHTML = formattedValue;
+    }
+
+    function handleDateInput(currentFormattedValue, key) {
+        let rawNumbers = (currentFormattedValue || '').replace(/\D/g, '');
+
+        if (key === 'backspace') {
+            rawNumbers = rawNumbers.slice(0, -1);
+        } else if (key === 'clear') {
+            rawNumbers = '';
+        } else if (key.match(/[0-9]/) && rawNumbers.length < 8) {
+            rawNumbers += key;
+        }
+
+        let formatted = rawNumbers;
+        if (rawNumbers.length > 4) {
+            formatted = `${rawNumbers.slice(0, 4)}/${rawNumbers.slice(4)}`;
+        }
+        if (rawNumbers.length > 6) {
+            formatted = `${formatted.slice(0, 7)}/${rawNumbers.slice(7)}`;
+        }
+        return formatted;
+    }
+
+    function handleJuniorClubHistoryClick(e) {
+        const li = e.target.closest('.history-item');
+        if (!li) return;
+
+        // Deselect all others
+        juniorClubHistoryList.querySelectorAll('.history-item').forEach(item => {
+            item.style.backgroundColor = 'transparent';
+        });
+        
+        // Select the clicked one
+        li.style.backgroundColor = '#f1f1f1';
+        
+        // Store the selected entry ID
+        juniorClubStatsModal.dataset.selectedEntryId = li.dataset.entryId;
+        
+        // Enable button
+        juniorClubStatsDetailsBtn.disabled = false;
+        juniorClubStatsDetailsBtn.style.backgroundColor = 'var(--confirm-color)';
+        juniorClubStatsDetailsBtn.style.borderColor = 'var(--confirm-color)';
+    }
+
+    function renderParentForm() {
+        const { parentCollapsed, childrenExpanded } = state.juniorClub.registrationFlow;
+        
+        const parentFieldsEl = document.getElementById('parent-fields');
+        const parentCollapseEl = document.getElementById('parent-collapsed-display');
+        
+        if (parentCollapseEl) {
+            parentCollapseEl.classList.toggle('hidden', !parentCollapsed);
+        }
+
+        if (parentCollapsed) {
+            const name = parentNameInput.value.trim();
+            const surname = parentSurnameInput.value.trim();
+            const phone = parentPhoneInput.value.trim();
+            
+            parentCollapseEl.innerHTML = `
+                <span class="collapsed-title">Parent: ${name} ${surname}</span>
+                <span class="collapsed-detail">Phone: ${phone || 'N/A'}</span>
+                <i class="mdi mdi-pencil edit-icon"></i>
+            `;
+            
+            parentFieldsEl.style.display = 'none'; 
+            
+        } else {
+            parentFieldsEl.style.display = 'block'; 
+        }
+        
+        const childrenHeader = newParentModal.querySelector('h4');
+        const childrenContainerWrapper = document.getElementById('children-container-wrapper'); 
+        
+        childrenHeader.classList.toggle('hidden', !childrenExpanded);
+        childrenContainerWrapper.style.display = childrenExpanded ? 'block' : 'none';
+        
+        // The incorrect logic that was here has been removed.
+        
+        if (childrenExpanded) {
+            renderChildFields();
+        }
+
+        if (parentCollapseEl && !parentCollapseEl.dataset.listenerBound) {
+            parentCollapseEl.addEventListener('click', () => {
+                state.juniorClub.registrationFlow.parentCollapsed = false;
+                renderParentForm();
+            });
+            parentCollapseEl.dataset.listenerBound = true;
+        }
+
+        // validateNewParentForm() is no longer called here to prevent an infinite loop.
+        // It is the function that calls this one.
+    }
+
+    // NEW FUNCTION: Renders each individual child field group (called by renderParentForm)
+    function renderChildFields() {
+        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
+        childGroups.forEach((group, index) => {
+            const isComplete = group.dataset.complete === 'true';
+            const childName = group.querySelector('[name="childName"]').value.trim();
+            const childSurname = group.querySelector('[name="childSurname"]').value.trim();
+            const childDob = group.querySelector('[name="childBirthDate"]').value;
+            const childGender = group.querySelector(`input[name^="child-gender"]:checked`)?.value;
+            const childAge = calculateAge(childDob);
+
+            const collapsedDisplay = group.querySelector('.child-collapsed-display');
+            const expandedFields = group.querySelector('.child-expanded-fields');
+
+            if (collapsedDisplay) {
+                // Collapsed display is shown when complete
+                collapsedDisplay.classList.toggle('hidden', !isComplete);
+            }
+            if (expandedFields) {
+                // CRITICAL FIX: Explicitly set display property to guarantee hiding
+                if (isComplete) {
+                    expandedFields.style.display = 'none';
+                } else {
+                    expandedFields.style.display = 'block';
+                }
+            }
+            
+            if (isComplete && collapsedDisplay) {
+                const genderDisplay = childGender === 'M' ? 'Male' : 'Female';
+                const ageDisplay = childAge !== null ? `${childAge}y` : 'N/A';
+                
+                collapsedDisplay.innerHTML = `
+                    <span class="collapsed-title">${childName} ${childSurname}</span>
+                    <span class="collapsed-detail">${ageDisplay} (${genderDisplay})</span>
+                    <i class="mdi mdi-pencil edit-icon"></i>
+                `;
+            }
+            
+            // Add listener to the collapsed area to re-expand on click (only bind once)
+            // This listener must be rebound/checked here because renderChildFields is called frequently.
+            const editIcon = collapsedDisplay.querySelector('.edit-icon');
+            if (editIcon && !collapsedDisplay.dataset.listenerBound) {
+                 collapsedDisplay.addEventListener('click', (e) => {
+                    // Only re-expand if the click is on the collapsed area or the icon
+                    if (e.target.closest('.collapsed-area') || e.target.closest('.edit-icon')) {
+                        group.dataset.complete = 'false';
+                        renderChildFields();
+                    }
+                });
+                collapsedDisplay.dataset.listenerBound = true;
+            }
+        });
+
+        validateNewParentForm(); // Always revalidate buttons
+    }
+
+
+    // MODIFIED: Entry point for the New Parent Modal
+    function showNewParentModal() {
+        juniorClubModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+        
+        // Reset/Initialize the form flow state
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: false,
+            childrenExpanded: false, // Starts collapsed
+        };
+        
+        // --- AGGRESSIVE FIELD CLEARING ---
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        parentPhoneInput.value = ''; 
+        // Clear the collapsed display element's content as well
+        document.getElementById('parent-collapsed-display').innerHTML = '';
+        
+        // CRITICAL FIX: Ensure Parent Fields start visible, and Children start hidden
+        document.getElementById('parent-fields').style.display = 'block'; // Ensures expanded fields are visible
+        document.getElementById('children-container-wrapper').style.display = 'none'; // Ensures children start hidden
+        
+        // Add the first child field immediately
+        generateChildField(); 
+
+        renderParentForm(); // Start the rendering process
+    }
+
+    function handlePaymentFilterChange(e) {
+        state.juniorClub.statsFilter.paid = e.target.value;
+        renderJuniorClubHistory();
+        saveState();
+    }
+
+    function showJuniorClubDetailModal() {
+        const entryId = juniorClubStatsModal.dataset.selectedEntryId;
+        const entry = state.juniorClub.history.find(e => e.id == entryId);
+        
+        if (!entry) return;
+
+        document.getElementById('detail-parent-name').textContent = entry.parentName;
+        document.getElementById('detail-date').textContent = new Date(entry.id).toLocaleString('en-ZA');
+
+        document.getElementById('detail-children-list').innerHTML = entry.childNames.map(name => 
+            `<li><span>${name}</span></li>`
+        ).join('');
+        
+        updateDetailModalButton(entry);
+        
+        juniorClubStatsModal.classList.add('hidden');
+        juniorClubDetailModal.classList.remove('hidden');
+    }
+
+    function updateDetailModalButton(entry) {
+        const isPaid = entry.isPaid;
+        detailTogglePaidBtn.textContent = isPaid ? 'Mark as Unpaid' : 'Mark as Paid';
+        detailTogglePaidBtn.style.backgroundColor = isPaid ? 'var(--cancel-color)' : 'var(--confirm-color)';
+    }
+
+    function handleDetailTogglePaid() {
+        const entryId = juniorClubStatsModal.dataset.selectedEntryId;
+        const entry = state.juniorClub.history.find(e => e.id == entryId);
+        
+        if (!entry) return;
+        
+        // Toggle the status
+        entry.isPaid = !entry.isPaid;
+        
+        const isNowPaid = entry.isPaid;
+        const childrenNames = entry.childNames;
+        const parent = state.juniorClub.parents.find(p => p.id === entry.parentId);
+        
+        if (isNowPaid) {
+            // MARKED AS PAID -> CHECK OUT
+
+            // --- START FIX ---
+            // Also remove these children from the activeChildren list to prevent re-check-in issues
+            state.juniorClub.activeChildren = state.juniorClub.activeChildren.filter(child => !childrenNames.includes(child.name));
+            // --- END FIX ---
+
+            const checkedOutChildren = state.availablePlayers.filter(p => childrenNames.includes(p.name));
+            state.availablePlayers = state.availablePlayers.filter(p => !childrenNames.includes(p.name));
+            
+            if (checkedOutChildren.length > 0) {
+                playCustomTTS(`${childrenNames.join(' and ')} checked out due to payment.`);
+            } else {
+                playCustomTTS(`Payment marked for ${entry.parentName}'s children. They were not currently checked in.`);
+            }
+
+        } else {
+            // ... (rest of the function for marking as unpaid is correct)
+            // MARKED AS UNPAID -> CHECK BACK IN
+            if (parent) {
+                const checkedInPlayerNames = new Set([
+                    ...state.availablePlayers.map(p => p.name),
+                    ...state.courts.flatMap(c => c.players).map(p => p.name)
+                ]);
+                
+                const childrenToReCheckIn = [];
+                entry.childNames.forEach(childName => {
+                    if (!checkedInPlayerNames.has(childName)) {
+                        const childDetails = parent.registeredChildren.find(c => `${c.name} ${c.surname}` === childName);
+                        
+                        if (childDetails) {
+                            childrenToReCheckIn.push({
+                                name: childName,
+                                gender: childDetails.gender || '?',
+                                guest: true,
+                                isJunior: true,
+                                isPaused: false,
+                            });
+                        } else {
+                            childrenToReCheckIn.push({
+                                name: childName,
+                                gender: '?',
+                                guest: true,
+                                isJunior: true,
+                                isPaused: false,
+                            });
+                        }
+                    }
+                });
+                
+                state.availablePlayers.push(...childrenToReCheckIn);
+
+                if (childrenToReCheckIn.length > 0) {
+                    const names = childrenToReCheckIn.map(c => c.name).join(' and ');
+                    playCustomTTS(`${names} checked back in as ${entry.parentName}'s session is marked unpaid.`);
+                } else {
+                    playCustomTTS(`${entry.parentName}'s children are already checked in.`);
+                }
+            }
+        }
+        
+        updateDetailModalButton(entry);
+        playCustomTTS(`${entry.parentName}'s session on ${new Date(entry.id).toLocaleDateString('en-ZA')} marked as ${entry.isPaid ? 'paid' : 'unpaid'}.`);
+        saveState();
+        renderJuniorClubHistory();
+        updateGameModeBasedOnPlayerCount();
+        enforceDutyPosition();
+        render();
+        checkAndPlayAlert(false);
+    }
+
+    // --- END JUNIOR CLUB HISTORY & STATS FUNCTIONS ---
+
+
+
+     // --- INITIALIZATION ---
      // --- INITIALIZATION ---
     async function initializeApp() {
         try {
@@ -5065,14 +7091,21 @@ function playCustomTTS(message) {
             loadState(MASTER_MEMBER_LIST);
             state.clubMembers = [...MASTER_MEMBER_LIST].sort((a, b) => a.name.localeCompare(b.name));
             updateGameModeBasedOnPlayerCount();
+            autoAssignCourtModes();
             render();
+            
+            // CRITICAL FIX: Ensure animations are restored on page load if a selection is active.
+            setTimeout(ensureCourtSelectionAnimation, 50);
+
             updateNotificationIcons();
             applyFontSize();
-            applyDisplaySize(); // <-- ADD THIS LINE
+            applyDisplaySize();
             fetchWeather();
-
-            // Set initial light icon state
-            updateLightIcon(); // <--- ADD THIS LINE
+            updateLightIcon();
+            
+            if (!state.pongAnimationOffset) {
+                state.pongAnimationOffset = Date.now();
+            }
 
             // START 1-second timers for display updates
             setInterval(() => {
@@ -5151,6 +7184,7 @@ function playCustomTTS(message) {
         document.getElementById('returning-guest-modal').classList.add('hidden');
         checkInModal.classList.add('hidden');
         updateGameModeBasedOnPlayerCount();
+        autoAssignCourtModes();
         render();
         saveState();
         checkAndPlayAlert(false);
@@ -5239,6 +7273,233 @@ function playCustomTTS(message) {
         }
     });
 
+    // --- JUNIOR CLUB LISTENERS (Re-added to DOMContentLoaded) ---
+   juniorClubBtn.addEventListener('click', () => {
+        checkInModal.classList.add('hidden'); 
+        checkOutModal.classList.add('hidden');
+        showJuniorClubModal(); // Calls the new wrapper function
+    });
+    juniorClubCloseBtn.addEventListener('click', () => {
+        // Aggressively clear the sub-modal state before closing the main modal
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        parentPhoneInput.value = ''; 
+        document.getElementById('parent-collapsed-display').innerHTML = '';
+        
+        // Reset flow state before closing
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: false,
+            childrenExpanded: false,
+        };
+        
+        juniorClubModal.classList.add('hidden');
+    });
+
+
+    // New Parent Registration Flow (Corrected Cancel Listener)
+    newParentBtn.addEventListener('click', () => {
+        // showNewParentModal is called here, which handles all clearing and initial setup
+        showNewParentModal(); 
+    });
+
+    newParentCancelBtn.addEventListener('click', () => {
+        // --- CANCEL ACTION: Aggressively clear all fields and state ---
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        parentPhoneInput.value = ''; 
+        document.getElementById('parent-collapsed-display').innerHTML = '';
+        
+        // Reset flow state before closing
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: false,
+            childrenExpanded: false,
+        };
+
+        newParentModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden'); // Return to main junior club list
+    });
+    newParentConfirmBtn.addEventListener('click', registerNewParent);
+
+    rosterDetailCloseBtn.addEventListener('click', () => {
+        rosterDetailModal.classList.add('hidden');
+        juniorClubRosterModal.classList.remove('hidden'); // Return to the roster list
+    });
+
+    // --- NEW LISTENER: Click delegation for Roster Items ---
+    juniorClubRosterList.addEventListener('click', (e) => {
+        const itemEl = e.target.closest('.roster-item');
+        const sortBtn = e.target.closest('.roster-sort-btn');
+        
+        // Ignore clicks on the sort buttons
+        if (sortBtn) return;
+        if (!itemEl) return;
+        
+        const index = parseInt(itemEl.dataset.rosterIndex, 10);
+        const rosterData = juniorClubRosterList.rosterData; // Retrieve stored data
+        
+        if (rosterData && rosterData[index]) {
+            showRosterDetailModal(rosterData[index]);
+        }
+    });
+
+    // NEW LISTENER: Filter toggle
+    if (juniorClubNameFilterGroup) {
+        juniorClubNameFilterGroup.addEventListener('change', handleJuniorClubNameFilterChange);
+    }
+
+    // New Parent Registration Flow
+    newParentBtn.addEventListener('click', () => {
+        juniorClubModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        addChild();
+        validateNewParentForm();
+    });
+    newParentCancelBtn.addEventListener('click', () => {
+        newParentModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden');
+    });
+    newParentConfirmBtn.addEventListener('click', registerNewParent);
+
+    // Parent Name Fields
+    wireAlphaKeypadToInput(parentNameInput, validateNewParentForm);
+    wireAlphaKeypadToInput(parentSurnameInput, validateNewParentForm);
+    parentNameInput.addEventListener('input', validateNewParentForm); 
+    parentSurnameInput.addEventListener('input', () => {
+        // Update the data-autofill-surname attribute on all existing child fields
+        const newSurname = parentSurnameInput.value.trim();
+        childrenContainer.querySelectorAll('[name="childSurname"]').forEach(input => {
+            // Also update the hidden data attribute for the autofill logic
+            input.dataset.autofillSurname = newSurname; 
+            // Do NOT automatically fill existing child fields unless the user clicks the child name input again
+        });
+        validateNewParentForm();
+    });
+
+
+
+    // Child Fields
+    addChildBtn.addEventListener('click', addChild);
+    newParentModal.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action="match-surname"]')) {
+            handleMatchSurname(e);
+        } else if (e.target.closest('[data-action="remove-child"]')) {
+            removeChild(e);
+        }
+    });
+
+    juniorClubList.addEventListener('click', (e) => {
+        const checkInTarget = e.target.closest('.action-icon.add');
+        const editTarget = e.target.closest('.action-icon.edit');
+        
+        const listItem = e.target.closest('li'); 
+        if (!listItem) return;
+
+        // --- Logic for the 'Add' (+) button ---
+        if (checkInTarget) {
+            const parentId = checkInTarget.dataset.parentId;
+            const parent = state.juniorClub.parents.find(p => p.id === parentId);
+            
+            // Proceed only if the parent is found and the button is not disabled
+            if (parent && checkInTarget.style.opacity !== '0.5') {
+                const displayMode = state.juniorClub.checkInFilter.displayMode;
+                
+                // If in 'Child Name' view, check in the specific child directly
+                if (displayMode === 'child') {
+                    const childFullName = listItem.querySelector('span:first-child span:first-child').textContent.trim();
+                    const attendingChildren = parent.registeredChildren
+                        .filter(child => `${child.name} ${child.surname}`.trim() === childFullName)
+                        .map(child => ({
+                            name: `${child.name} ${child.surname}`.trim(), 
+                            gender: child.gender,
+                            guest: true,
+                            isJunior: true, 
+                            parentName: parent.name + ' ' + parent.surname
+                        }));
+                    
+                    if (attendingChildren.length > 0) {
+                        const newChildren = attendingChildren;
+                        state.juniorClub.activeChildren.push(...newChildren);
+
+                        const newHistoryEntry = {
+                            id: Date.now(),
+                            parentId: parent.id,
+                            parentName: `${parent.name} ${parent.surname}`,
+                            childNames: newChildren.map(c => c.name),
+                            date: new Date().toISOString().split('T')[0],
+                            isPaid: false, 
+                        };
+                        state.juniorClub.history.push(newHistoryEntry);
+                        
+                        playCustomTTS(`${newChildren.length} child checked in for ${parent.name}.`);
+                        saveState();
+                        renderJuniorClubCheckInList(); // Refresh the list
+                        return;
+                    }
+                }
+                
+                // If in 'Parent Name' view, show the child selection modal
+                showChildSelectionModal(parent);
+            }
+        } 
+        // --- Logic for the 'Edit' (✎) button ---
+        else if (editTarget) {
+            const parentId = editTarget.dataset.parentId;
+            const parentToEdit = state.juniorClub.parents.find(p => p.id === parentId);
+            if (parentToEdit) {
+                // This now correctly calls the function to open the edit modal
+                showEditParentModal(parentToEdit);
+            }
+        }
+    });
+
+    // Child Selection Modal
+    childSelectionBackBtn.addEventListener('click', () => {
+        childSelectionModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden');
+    });
+    childSelectionConfirmBtn.addEventListener('click', handleChildSelectionConfirm);
+
+    // Child Selection validation (updates button text/state)
+    attendingChildrenList.addEventListener('change', () => {
+        const checkedCount = attendingChildrenList.querySelectorAll('input[name="attendingChild"]:checked').length;
+        const isReady = checkedCount > 0;
+        
+        childSelectionConfirmBtn.disabled = !isReady;
+        // --- START OF CHANGE ---
+        const childString = checkedCount === 1 ? 'child' : 'children';
+        childSelectionConfirmBtn.textContent = `Check In (${checkedCount} ${childString})`;
+        // --- END OF CHANGE ---
+        childSelectionConfirmBtn.style.backgroundColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
+        childSelectionConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
+    });
+
+
+    // Event Listeners to insert at line 2011
+    // Junior Club History/Stats Listeners
+    // Event Listeners to insert at line 2011
+    // Junior Club History/Stats Listeners
+    juniorClubHistoryBtn.addEventListener('click', showJuniorClubStatsModal);
+    juniorClubStatsBackBtn.addEventListener('click', () => {
+        juniorClubStatsModal.classList.add('hidden');
+        showJuniorClubModal(); // <-- MODIFIED: Ensure list is re-rendered on return
+    });
+    juniorClubHistoryList.addEventListener('click', handleJuniorClubHistoryClick);
+    document.getElementById('payment-filter-group').addEventListener('change', handlePaymentFilterChange);
+    juniorClubStatsDetailsBtn.addEventListener('click', showJuniorClubDetailModal);
+
+    // Junior Club Detail Modal Listeners
+    detailCloseBtn.addEventListener('click', () => {
+        juniorClubDetailModal.classList.add('hidden');
+        showJuniorClubStatsModal(); // <-- MODIFIED: Ensure history is re-rendered on return
+    });
+    detailTogglePaidBtn.addEventListener('click', handleDetailTogglePaid);
+
+
     // ADDED WINDOW RESIZE LISTENER FOR AUTOMATIC EXPANSION
     window.addEventListener('resize', resetCollapseOnResize);
 
@@ -5307,8 +7568,13 @@ function playCustomTTS(message) {
         } else if (mode === "checkOutPlayer") {
             checkOutModal.classList.remove("hidden");
         } else if (mode === "addBallStock" || mode === "returnBallStock" || mode === "signOutBalls") {
-            ballManagementModal.classList.remove("hidden"); // Return to ball management
+            ballManagementModal.classList.remove("hidden");
+        } 
+        // --- START OF FIX ---
+        else if (mode === "removeSingleChild") {
+            newParentModal.classList.remove("hidden"); // This correctly returns to the registration form.
         }
+        // --- END OF FIX ---
 
         resetConfirmModal();
     });
@@ -5318,7 +7584,9 @@ function playCustomTTS(message) {
     modalBtnYesConfirm.addEventListener("click", () => {
         const mode = cancelConfirmModal.dataset.mode;
 
-        if (mode === "checkOutPlayer") {
+        if (mode === "removeSingleChild") {
+            executeRemoveSingleChild();
+        } else if (mode === "checkOutPlayer") {
             executePlayerCheckOut();
         } else if (mode === "checkInPlayer") {
             executePlayerCheckIn();
@@ -5332,16 +7600,16 @@ function playCustomTTS(message) {
             executePauseToggle();
         } else if (mode === "addBallStock") {
             executeAddBallStock();
-        } else if (mode === "returnBallStock") { // FIX: Added missing handler
+        } else if (mode === "returnBallStock") {
             executeReturnBallStock();
-        } else if (mode === "returnUsedBalls") { // <-- ADD THIS ELSE IF
+        } else if (mode === "returnUsedBalls") {
             executeUsedBallReturn();
         } else if (mode === "signOutBalls") {
             executeSignOutBalls();
         } else if (mode === "forceAnnouncement") {
             cancelConfirmModal.classList.add("hidden");
             checkAndPlayAlert(true);
-            resetConfirmModal(); // Reset here for actions without their own execute function
+            resetConfirmModal();
         } else if (mode === "forceAnnouncementNotEnoughPlayers") {
             const now = Date.now();
             const FIVE_MINUTES_MS = 5 * 60 * 1000;
@@ -5365,10 +7633,8 @@ function playCustomTTS(message) {
             playAlertSound(message);
 
             cancelConfirmModal.classList.add("hidden");
-            resetConfirmModal(); // Reset here for actions without their own execute function
+            resetConfirmModal();
         }
-        // FIX: The global resetConfirmModal() call was removed from here. 
-        // It is now correctly called inside each individual execute... function.
     });
     
     const scoreInputs = [winningScoreInput, losingScoreInput, winnerTiebreakInput, loserTiebreakInput];
@@ -5418,13 +7684,17 @@ function playCustomTTS(message) {
     adminCloseBtn.addEventListener('click', () => {
         adminSettingsModal.classList.add('hidden');
 
-        // This is now the ONLY place the timer is started.
+        // When closing the main admin panel, start the 2-minute session timer.
         if (adminSessionActive) {
+            if (adminSessionTimer) clearTimeout(adminSessionTimer); // Reset any existing timer
             adminSessionTimer = setTimeout(() => {
                 adminSessionActive = false;
                 adminSessionTimer = null;
+                // When the timer expires, also close any open court mode overlays.
+                state.courts.forEach(c => c.isModeOverlayActive = false);
+                render();
                 playAlertSound(null, null, 'Alert7.mp3');
-            }, 120000); // 2 minutes
+            }, 60000); // 1 minutes
         }
     });
 
@@ -5479,6 +7749,27 @@ function playCustomTTS(message) {
         reorderLogModal.classList.add('hidden');
         adminSettingsModal.classList.remove('hidden');
     });
+
+    // NEW: Parent Phone Input wired to the NUMERIC keypad
+    if (parentPhoneInput) {
+        wireScoreInputToKeypad(parentPhoneInput); // Correctly wires the numeric keypad
+        parentPhoneInput.addEventListener('input', validateNewParentForm);
+    }
+
+    // --- ROSTER MODAL LISTENERS ---
+    if (juniorClubRosterBtn) {
+        juniorClubRosterBtn.addEventListener('click', showJuniorClubRosterModal);
+    }
+    if (rosterCloseBtn) {
+        rosterCloseBtn.addEventListener('click', () => {
+            juniorClubRosterModal.classList.add('hidden');
+            juniorClubModal.classList.remove('hidden'); // Return to main junior club list
+        });
+    }
+    if (rosterTypeFilterGroup) {
+        rosterTypeFilterGroup.addEventListener('change', handleRosterTypeFilterChange);
+    }
+
 
 
     // --- WEATHER MODAL LISTENERS ---
@@ -5654,5 +7945,55 @@ function playCustomTTS(message) {
         updateGameModeBasedOnPlayerCount();
         saveState();
     });
+
+    // --- START OF NEW KEYBOARD BINDING LOGIC ---
+    document.addEventListener('keydown', (e) => {
+        // First, check if the numeric keypad is active
+        if (!customKeypadModal.classList.contains('hidden')) {
+            e.preventDefault(); // Prevent the key from typing anywhere else
+
+            let targetButton;
+            const key = e.key;
+
+            if (key >= '0' && key <= '9') {
+                targetButton = customKeypadModal.querySelector(`.keypad-btn[data-key="${key}"]`);
+            } else if (key === 'Backspace') {
+                targetButton = customKeypadModal.querySelector('.keypad-btn[data-key="backspace"]');
+            } else if (key === 'Enter') {
+                targetButton = document.getElementById('keypad-confirm-btn');
+            } else if (key.toLowerCase() === 'c') { // Allow 'c' for clear
+                targetButton = customKeypadModal.querySelector('.keypad-btn[data-key="clear"]');
+            }
+
+            // If a corresponding button was found, click it
+            if (targetButton && !targetButton.disabled) {
+                targetButton.click();
+            }
+        } 
+        // Otherwise, check if the alphabetic keypad is active
+        else if (!customAlphaKeypadModal.classList.contains('hidden')) {
+            e.preventDefault();
+
+            let targetButton;
+            const key = e.key;
+
+            if (key.length === 1 && key.match(/[a-zA-Z]/i)) {
+                // Find letter buttons (case-insensitive)
+                targetButton = customAlphaKeypadModal.querySelector(`.keypad-btn[data-key="${key.toUpperCase()}"]`);
+            } else if (key === ' ') {
+                targetButton = customAlphaKeypadModal.querySelector('.keypad-btn[data-key="space"]');
+            } else if (key === 'Backspace') {
+                targetButton = customAlphaKeypadModal.querySelector('.keypad-btn[data-key="backspace"]');
+            } else if (key === 'Enter') {
+                targetButton = document.getElementById('alpha-keypad-confirm-btn');
+            }
+
+            // If a corresponding button was found, click it
+            if (targetButton && !targetButton.disabled) {
+                targetButton.click();
+            }
+        }
+    });
+    // --- END OF NEW KEYBOARD BINDING LOGIC ---
 });
 

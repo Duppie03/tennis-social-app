@@ -12,9 +12,6 @@
         <img src="source/eldorainge-tennis-logo.png" alt="Club Logo" id="header-logo">
         <div class="header-buttons">
             <div id="weather-display"></div>
-            <button id="historyBtn" class="header-btn secondary">
-                <i class="mdi mdi-history"></i>
-            </button>
         </div>
     </header>
 
@@ -34,9 +31,17 @@
                 <div id="availablePlayersSection">
                     <div class="card-header">
                         <h3>Available Players</h3>
-                        <button id="players-toggle-btn" class="settings-btn summary-toggle-btn" data-card-type="players" title="Toggle Details">
-                            <i class="mdi mdi-chevron-up"></i>
-                        </button>
+                        <div class="header-controls">
+                            <button id="junior-club-btn" class="settings-btn" title="Junior Club">
+                                👪
+                            </button>
+                            <button id="historyBtn" class="settings-btn" title="Game History">
+                                📜
+                            </button>
+                            <button id="players-toggle-btn" class="settings-btn summary-toggle-btn" data-card-type="players" title="Toggle Details">
+                                <i class="mdi mdi-chevron-up"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="player-list-controls">
@@ -140,7 +145,9 @@
 
     <div id="reorder-log-modal" class="modal-overlay hidden">
         <div class="modal-content wide">
-            <h3>Queue Reorder History</h3>
+            <div class="modal-header-with-actions">
+                <h3>Queue Reorder History</h3>
+            </div>
             <p>Log of all administrative changes to the player queue.</p>
             <div id="reorder-history-list" class="history-list scrollable" style="max-height: 400px; padding: 0;">
             </div>
@@ -152,7 +159,9 @@
 
     <div id="reorder-players-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Reorder Available Players</h3>
+            <div class="modal-header-with-actions">
+                <h3>Reorder Available Players</h3>
+            </div>
             <p>Use the arrows to change the player queue order. The player at the top is first in line.</p>
             <ul id="reorder-players-list" class="modal-action-list scrollable">
             </ul>
@@ -165,7 +174,9 @@
 
     <div id="choose-teams-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Choose Teams</h3>
+            <div class="modal-header-with-actions">
+                <h3>Choose Teams</h3>
+            </div>
             <p>Select 2 players for Team 1.<br>The rest will be Team 2.</p>
             <div id="modal-player-list" class="modal-player-list"></div>
             <div class="modal-actions">
@@ -177,7 +188,9 @@
 
     <div id="cancel-confirm-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Confirm Action</h3>
+            <div class="modal-header-with-actions">
+                <h3>Confirm Action</h3>
+            </div>
             <p>Are you sure?</p>
             <div class="modal-actions">
                 <button id="modal-btn-no" class="action-btn">Go Back</button>
@@ -188,7 +201,9 @@
 
     <div id="guest-name-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Add New Player</h3>
+            <div class="modal-header-with-actions">
+                <h3>Add New Player</h3>
+            </div>
             <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
                 <label for="guest-name-input">First Name:</label>
                 <input type="text" id="guest-name-input" readonly placeholder="Tap to enter name">
@@ -202,10 +217,10 @@
                 <label>Gender:</label>
                 <div class="radio-group">
                     <label>
-                        <input type="radio" name="guest-gender" value="M" checked> Male
+                        <input type="radio" name="guest-gender" value="M"> M
                     </label>
                     <label>
-                        <input type="radio" name="guest-gender" value="F"> Female
+                        <input type="radio" name="guest-gender" value="F"> F
                     </label>
                 </div>
             </div>
@@ -230,15 +245,17 @@
 
     <div id="check-in-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Check In Player</h3>
-            <p>Select a member, choose a returning guest, or add a new player.</p>
+            <div class="modal-header-with-actions">
+                <h3>Check In Player</h3>
+            </div>
+            <p></p>
             <div class="list-container">
                 <div id="check-in-abc-index" class="abc-index"></div>
                 <ul id="check-in-list" class="modal-action-list scrollable"></ul>
             </div>
             <div id="check-in-actions" class="modal-actions">
                 <button id="returning-guest-btn" class="action-btn neutral">Returning Guest</button>
-                <button id="add-new-player-btn" class="action-btn">New<br>Guest</button>
+                <button id="add-new-player-btn" class="action-btn">Add New<br>Guest</button>
                 <button id="check-in-cancel-btn">Close</button>
             </div>
         </div>
@@ -246,7 +263,9 @@
 
     <div id="returning-guest-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Check In Returning Guest</h3>
+            <div class="modal-header-with-actions">
+                <h3></h3>
+            </div>
             <p>Select the '+' next to the guest to check them in.</p>
             <div class="list-container">
                 <div id="returning-guest-abc-index" class="abc-index"></div>
@@ -260,8 +279,10 @@
 
     <div id="check-out-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Check Out Player</h3>
-            <p>Select the 'X' next to the player to check out.</p>
+            <div class="modal-header-with-actions">
+                <h3>Check Out Player</h3>
+            </div>
+            <p></p>
             <div class="list-container">
                 <div id="check-out-abc-index" class="abc-index"></div>
                 <ul id="check-out-list" class="modal-action-list scrollable"></ul>
@@ -272,9 +293,25 @@
         </div>
     </div>
 
+    <div id="court-mode-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="court-mode-title">Set Court Mode</h3>
+            </div>
+            <p style="color: var(--neutral-color); margin-bottom: 1rem;">Select the intended purpose for this court.</p>
+            <ul id="court-mode-list" class="modal-action-list scrollable">
+            </ul>
+            <div class="modal-actions">
+                <button id="court-mode-close-btn" class="action-btn cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="end-game-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Enter Game Results</h3>
+            <div class="modal-header-with-actions">
+                <h3>Enter Game Results</h3>
+            </div>
             <p id="end-game-timestamp" style="font-size: 0.9rem; color: #6c757d; text-align: center; margin-top: -1rem; margin-bottom: 1.5rem;"></p>
             
             <div class="result-section">
@@ -321,7 +358,9 @@
 
     <div id="history-page" class="modal-overlay hidden">
         <div class="modal-content wide">
-            <h3>Game History</h3>
+            <div class="modal-header-with-actions">
+                <h3>Game History</h3>
+            </div>
             <div id="history-list" class="history-list scrollable">
             </div>
             <div class="modal-actions">
@@ -366,7 +405,9 @@
     
     <div id="manage-court-players-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Manage On-Court Players</h3>
+            <div class="modal-header-with-actions">
+                <h3>Manage On-Court Players</h3>
+            </div>
             <p id="manage-court-players-instructions">Select a court with an active game.</p>
             
             <ul id="court-list-for-management" class="modal-action-list scrollable">
@@ -427,6 +468,9 @@
 
     <div id="detailed-weather-modal" class="modal-overlay hidden">
         <div class="modal-content weather-modal wide">
+            <div class="modal-header-with-actions">
+                <h3>Detailed Weather</h3>
+            </div>
             <div id="detailed-weather-content">
                 <div class="weather-section">
                     <h4>Detailed Current Weather</h4>
@@ -468,7 +512,9 @@
 
     <div id="sign-out-member-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 id="sign-out-member-title">Select Member Signing Out</h3>
+            <div class="modal-header-with-actions">
+                <h3 id="sign-out-member-title">Select Member Signing Out</h3>
+            </div>
             <p id="sign-out-member-prompt" style="color: var(--neutral-color);">Please select the member responsible for this ball sign-out.</p>
             <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
                 <ul id="sign-out-member-list" class="modal-action-list scrollable">
@@ -537,7 +583,9 @@
 
     <div id="ball-history-modal" class="modal-overlay hidden">
         <div class="modal-content wide">
-            <h3>Ball Transaction History</h3>
+            <div class="modal-header-with-actions">
+                <h3>Ball Transaction History</h3>
+            </div>
             <p>A log of all ball stock additions, returns, and sign-outs.</p>
             <div id="ball-history-list" class="history-list scrollable">
                 </div>
@@ -549,7 +597,9 @@
 
     <div id="edit-styles-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>Edit Display Styles</h3>
+            <div class="modal-header-with-actions">
+                <h3>Edit Display Styles</h3>
+            </div>
             <div class="style-settings-panel">
                 <h4>Font Size</h4>
                 <div class="font-size-selector" id="font-size-selector">
@@ -574,6 +624,191 @@
         </div>
     </div>
 
+    <div id="junior-club-modal" class="modal-overlay hidden">
+        <div class="modal-content full-height">
+            <div class="modal-header-with-actions">
+                <h3>Junior Club Check In</h3>
+                <div class="modal-header-icons">
+                    <button id="junior-club-roster-btn" class="admin-icon-btn" title="View Full Roster">
+                        <i class="mdi mdi-format-list-bulleted"></i>
+                    </button>
+                    <button id="junior-club-history-btn" class="admin-icon-btn" title="View History & Payment">
+                        $
+                    </button>
+                </div>
+            </div>
+        <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
+            <div class="radio-group" id="junior-club-name-filter-group" style="display: flex; gap: 2rem;">
+                    <label> <input type="radio" name="junior-club-name-filter" value="parent" checked> Parent Name</label>
+                    <label> <input type="radio" name="junior-club-name-filter" value="child"> Child Name</label>
+                </div>
+            </div>
+            <div class="list-container" style="margin-top: -1.5rem;">
+                <div id="junior-club-abc-index" class="abc-index"></div>
+                <ul id="junior-club-list" class="modal-action-list scrollable"></ul>
+            </div>
+            <div class="modal-actions modal-grid-2x2">
+                <button id="new-parent-btn" class="action-btn confirm">New Parent</button>
+                <button id="junior-club-close-btn" class="action-btn cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="new-parent-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>New Parent Registration</h3>
+            </div>
+            
+            <div id="parent-collapsed-display" class="collapsed-area hidden"></div>
+            
+            <div id="parent-fields">
+                <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
+                    <label for="parent-name-input">Parent First Name:</label>
+                    <input type="text" id="parent-name-input" readonly placeholder="Tap to enter name" style="width: 100%;">
+                </div>
+                <div class="score-input-area" style="flex-direction: column; align-items: stretch; margin-top: 1rem;">
+                    <label for="parent-surname-input">Parent Surname:</label>
+                    <input type="text" id="parent-surname-input" readonly placeholder="Tap to enter surname" style="width: 100%;">
+                </div>
+                <div class="score-input-area" style="flex-direction: column; align-items: stretch; margin-top: 1rem;">
+                    <label for="parent-phone-input">Parent Phone (Mandatory):</label>
+                    <input type="tel" id="parent-phone-input" readonly placeholder="Tap to enter number" style="width: 100%;">
+                </div>
+            </div>
+
+            <div id="children-container-wrapper">
+                <h4 style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Children Details</h4>
+                <div id="children-container" style="max-height: 40vh; overflow-y: auto;">
+                    </div>
+            </div>
+
+            <div class="modal-actions modal-grid-2x2">
+                <button id="add-child-btn" class="action-btn confirm">
+                    Add Child
+                </button>
+                <button id="remove-child-btn-main" class="action-btn remove-child-bordered-btn">
+                    Remove Child
+                </button>
+                <button id="new-parent-cancel-btn" class="action-btn cancel">Close</button>
+                <button id="new-parent-confirm-btn" class="action-btn confirm" disabled>Confirm</button>
+            </div>
+            </div>
+    </div>
+
+    <div id="child-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="child-selection-title">Select Attending Children</h3>
+            </div>
+            <p id="child-selection-prompt">Please select the children who are present today.</p>
+            <ul id="attending-children-list" class="modal-action-list scrollable">
+                </ul>
+            <div class="modal-actions">
+                <button id="child-selection-back-btn" class="action-btn neutral">Back</button>
+                <button id="child-selection-confirm-btn" class="action-btn" disabled>Check In (0 Children)</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="remove-child-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="remove-child-selection-title">Remove Registered Children</h3>
+            </div>
+            <p id="remove-child-selection-prompt">Please select the children you wish to remove from this parent's profile.</p>
+            <ul id="children-for-removal-list" class="modal-action-list scrollable">
+                </ul>
+            <div class="modal-actions">
+                <button id="remove-child-selection-back-btn" class="action-btn neutral">Back</button>
+                <button id="remove-child-selection-confirm-btn" class="action-btn cancel" disabled>Remove Selected (0 Children)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="junior-club-stats-modal" class="modal-overlay hidden">
+        <div class="modal-content wide full-height">
+            <div class="modal-header-with-actions">
+                <h3>Junior Club Payment History</h3>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
+                <div class="radio-group" id="payment-filter-group" style="display: flex; gap: 2rem;">
+                    <label> <input type="radio" name="payment-filter" value="all" checked> All</label>
+                    <label> <input type="radio" name="payment-filter" value="paid"> Paid</label>
+                    <label> <input type="radio" name="payment-filter" value="unpaid"> Unpaid</label>
+                </div>
+            </div>
+            <div class="list-container" style="margin-top: -1.5rem;">
+                <div id="junior-club-history-abc-index" class="abc-index"></div>
+                <ul id="junior-club-history-list" class="history-list scrollable" style="padding: 0;">
+                    </ul>
+            </div>
+            <div class="modal-actions">
+                <button id="junior-club-stats-back-btn" class="action-btn neutral">Back to Check In</button>
+                <button id="junior-club-stats-details-btn" class="action-btn" disabled>View Details</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="junior-club-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="detail-parent-name">Parent Name</h3>
+            </div>
+            <p id="detail-date" style="font-size: 0.9em; color: var(--neutral-color); margin-bottom: 1rem;"></p>
+            
+            <h4 style="margin-bottom: 0.5rem;">Attended Children:</h4>
+            <ul id="detail-children-list" class="modal-action-list">
+                </ul>
+            
+            <div class="modal-actions" style="margin-top: 1.5rem;">
+                <button id="detail-close-btn" class="action-btn cancel">Close</button>
+                <button id="detail-toggle-paid-btn" class="action-btn">Mark as Paid</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="junior-club-roster-modal" class="modal-overlay hidden">
+        <div class="modal-content wide full-height">
+            
+            <div class="modal-header-with-actions">
+                <h3>Junior Club Roster</h3>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
+                <div class="radio-group" id="roster-type-filter-group" style="display: flex; gap: 2rem;">
+                    <label> <input type="radio" name="roster-type-filter" value="all" checked> All</label>
+                    <label> <input type="radio" name="roster-type-filter" value="parents"> Parents Only</label>
+                    <label> <input type="radio" name="roster-type-filter" value="children"> Children Only</label>
+                </div>
+            </div>
+
+            <div class="list-container">
+                <div id="junior-club-roster-abc-index" class="abc-index"></div>
+                <ul id="junior-club-roster-list" class="modal-action-list scrollable"></ul>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="roster-close-btn" class="action-btn cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="roster-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="roster-detail-title"></h3>
+            </div>
+            <div id="roster-detail-content" style="max-height: 40vh; overflow-y: auto;">
+                </div>
+            <div class="modal-actions">
+                <button 
+                    id="roster-detail-close-btn" 
+                    class="action-btn cancel" 
+                >Close</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
