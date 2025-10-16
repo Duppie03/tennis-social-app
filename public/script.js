@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    const ADMIN_PIN_BASE = "0308"; // <-- ADD THIS NEW LINE
     let MASTER_MEMBER_LIST = []; // Will be populated from the CSV file
 
     // --- NEW HELPER FUNCTION TO PARSE CSV DATA ---
@@ -107,6 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
             autoAssignModes: true // <-- ADD THIS NEW LINE
         },
 
+    // NEW MATCH SETTINGS BLOCK
+        matchSettings: {
+            matchMode: '1set',    // '1set', '3set', 'fast'
+            fastPlayGames: 4,     // 4, 6, or 8
+            autoMatchModes: true  // Auto-assign match modes
+        },
+
         mobileControls: {
             isSummaryExpanded: true,
             isPlayersExpanded: true,
@@ -193,6 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 'clubhouse': { id: 'clubhouse', label: 'Clubhouse Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.100' }
             }
         },
+
+        manualEntry: {
+            players: [], // Holds names of players selected for manual entry
+        },       
+
         // NEW BALL MANAGEMENT STATE (ADD THIS BLOCK - Updated to CANS)
         ballManagement: {
             stock: 0, // Total number of CANS
@@ -264,6 +277,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // CRITICAL FIX: Add the missing gender filter element reference
     const rosterGenderFilterGroup = document.getElementById('roster-gender-filter-group');
+
+
+    // NEW ELEMENTS FOR MANUAL GAME ENTRY
+    const manualEntryModal = document.getElementById('manual-entry-modal');
+    const manualPlayerList = document.getElementById('manual-player-list');
+    const manualEntryConfirmBtn = document.getElementById('manual-entry-confirm-btn');
+    const manualEntryCancelBtn = document.getElementById('manual-entry-cancel-btn');
+    const addOutsidePlayerBtn = document.getElementById('add-outside-player-btn');
+    const outsidePlayerModal = document.getElementById('outside-player-modal');
+    const outsidePlayerList = document.getElementById('outside-player-list');
+    const outsidePlayerBackBtn = document.getElementById('outside-player-back-btn');
+    // ADD THESE TWO LINES
+    const manualSelectedPlayersContainer = document.getElementById('manual-selected-players');
+    const outsideSelectedPlayersContainer = document.getElementById('outside-selected-players');
+    const outsidePlayerConfirmBtn = document.getElementById('outside-player-confirm-btn');
+    
 
     // --- NEW ELEMENTS FOR ROSTER DETAIL MODAL ---
     const rosterDetailModal = document.getElementById('roster-detail-modal');
@@ -373,7 +402,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const noSpeechBtn = document.getElementById('no-speech-btn');
     let alertStatusDisplay; 
 
-
+// NEW COURT MODE KEYPAD ELEMENTS
+    const courtModeKeypadModal = document.getElementById('court-mode-keypad-modal');
+    const courtModeKeypadDisplay = document.getElementById('court-mode-keypad-display');
+    const courtModeKeypadButtons = courtModeKeypadModal.querySelectorAll('.keypad-btn');
+    const courtModeKeypadConfirmBtn = document.getElementById('court-mode-keypad-confirm-btn');
+    const courtModeKeypadCancelBtn = document.getElementById('court-mode-keypad-cancel-btn');
+    let courtModeAction = null; // To store the action after PIN entry
 
     // NEW ELEMENTS: Admin Court Player Management (REFACTORED)
     const manageCourtPlayersBtn = document.getElementById('manage-court-players-btn');
@@ -463,11 +498,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.uiSettings = { fontSizeMultiplier: 1.0 };
             }
 
-            if (!state.courtSettings) {
+if (!state.courtSettings) {
                 state.courtSettings = {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
                 };
             }
+            
+            // Ensure matchSettings exists and has defaults
+            if (!state.matchSettings) {
+                state.matchSettings = {
+                    matchMode: '1set',
+                    fastPlayGames: 4
+                };
+            } // <-- THIS CLOSING BRACE WAS MISSING
 
             // Load new Junior Club Check-In filter state
             if (!state.juniorClub.checkInFilter) {
@@ -1705,323 +1748,329 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculatePlayerPlaytime() { const stats = calculatePlayerStats(); const now = Date.now(); state.courts.forEach(court => { if (court.status === 'in_progress' && court.gameStartTime) { const elapsed = Date.now() - court.gameStartTime; court.players.forEach(player => { const name = player.name; stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 }; stats[name].totalDurationMs += elapsed; }); } }); return stats; }
 
     function createCourtCard(court) {
-            const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
-            const playersSelected = state.selection.players.length;
-            const selectionComplete = playersSelected === requiredPlayers;
+        const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
+        const playersSelected = state.selection.players.length;
+        const selectionComplete = playersSelected === requiredPlayers;
 
-            const isCollapsed = court.isCollapsed;
-            const isModeOverlayActive = court.isModeOverlayActive === true;
-            const courtMode = court.courtMode || 'doubles';
-            const bodyClass = isCollapsed ? 'is-collapsed' : '';
-            const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
+        const isCollapsed = court.isCollapsed;
+        const isModeOverlayActive = court.isModeOverlayActive === true;
+        const courtMode = court.courtMode || 'doubles';
+        const bodyClass = isCollapsed ? 'is-collapsed' : '';
+        const iconClass = isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up';
 
-            // --- CORE LOGIC FOR RESERVED / SELECTABLE STATES ---
-            let isReservedSelectable = false;
-            let isGreenBallSelectable = false;
+        // --- CORE LOGIC FOR RESERVED / SELECTABLE STATES ---
+        let isReservedSelectable = false;
+        let isGreenBallSelectable = false;
 
-            // Selection logic only runs if enough players are selected to potentially start *a game* (2 players).
-            if (court.status === 'available' && playersSelected >= 2) {
+        // Selection logic only runs if enough players are selected to potentially start *a game* (2 players).
+        if (court.status === 'available' && playersSelected >= 2) {
 
-                // CRITERIA FOR RED BALL (Reserved/Exclusionary)
-                if (courtMode === 'league' && selectionComplete) {
-                    isReservedSelectable = true;
-                }
-                // Singles court reserved if 4 players selected (incompatible with singles court)
-                else if (courtMode === 'singles' && playersSelected === 4) {
-                    isReservedSelectable = true;
-                }
-                // NEW CRITERIA: Block Doubles/League courts when Singles is selected (requiredPlayers = 2)
-                else if (requiredPlayers === 2 && (courtMode === 'doubles' || courtMode === 'league')) {
-                    isReservedSelectable = true;
-                }
+            // CRITERIA FOR RED BALL (Reserved/Exclusionary)
+            if (courtMode === 'league' && selectionComplete) {
+                isReservedSelectable = true;
+            }
+            // Singles court reserved if 4 players selected (incompatible with singles court)
+            else if (courtMode === 'singles' && playersSelected === 4) {
+                isReservedSelectable = true;
+            }
+            // NEW CRITERIA: Block Doubles/League courts when Singles is selected (requiredPlayers = 2)
+            else if (requiredPlayers === 2 && (courtMode === 'doubles' || courtMode === 'league')) {
+                isReservedSelectable = true;
+            }
 
-                // CRITERIA FOR GREEN BALL (Selectable for Play)
-                // FIX: Only allow selection if 'selectionComplete' is true, and then check compatibility.
-                if (!isReservedSelectable && selectionComplete) {
-                    if (requiredPlayers === 2) {
-                        // User selected 2 players (Singles Mode)
-                        if (courtMode === 'singles' || courtMode === 'rookie') {
-                            isGreenBallSelectable = true;
-                        }
-                    } else if (requiredPlayers === 4) {
-                        // User selected 4 players (Doubles Mode)
-                        if (courtMode === 'doubles' || courtMode === 'rookie') {
-                            isGreenBallSelectable = true;
-                        }
+            // CRITERIA FOR GREEN BALL (Selectable for Play)
+            // FIX: Only allow selection if 'selectionComplete' is true, and then check compatibility.
+            if (!isReservedSelectable && selectionComplete) {
+                if (requiredPlayers === 2) {
+                    // User selected 2 players (Singles Mode)
+                    if (courtMode === 'singles' || courtMode === 'rookie') {
+                        isGreenBallSelectable = true;
+                    }
+                } else if (requiredPlayers === 4) {
+                    // User selected 4 players (Doubles Mode)
+                    if (courtMode === 'doubles' || courtMode === 'rookie') {
+                        isGreenBallSelectable = true;
                     }
                 }
             }
+        }
 
-            // Final check for the 'selectable' class on the card (applies to both colors)
-            const isSelectable = isGreenBallSelectable || isReservedSelectable;
+        // Final check for the 'selectable' class on the card (applies to both colors)
+        const isSelectable = isGreenBallSelectable || isReservedSelectable;
 
-            // FIX: Only apply the 'selectable' class if the selection is active AND at least 2 players are selected.
-            // This prevents any shading effect from activating when only 1 player is selected.
-            const selectionMinimumMet = playersSelected >= 2;
-            const finalIsSelectable = selectionMinimumMet && isSelectable;
+        // FIX: Only apply the 'selectable' class if the selection is active AND at least 2 players are selected.
+        // This prevents any shading effect from activating when only 1 player is selected.
+        const selectionMinimumMet = playersSelected >= 2;
+        const finalIsSelectable = selectionMinimumMet && isSelectable;
 
-            // Class to mark the card itself as reserved only
-            const reservedClass = isReservedSelectable && !isGreenBallSelectable ? 'is-reserved-only' : '';
+        // Class to mark the card itself as reserved only
+        const reservedClass = isReservedSelectable && !isGreenBallSelectable ? 'is-reserved-only' : '';
 
-            const isSelected = court.id === state.selection.courtId;
+        const isSelected = court.id === state.selection.courtId;
 
-            // --- UPDATED STATUS TEXT AND CLASS LOGIC ---
-            let statusText;
-            let isLeagueReserved = false;
-            let isRookieMode = courtMode === 'rookie'; // Flag for Rookie mode
+        // --- UPDATED STATUS TEXT AND CLASS LOGIC ---
+        let statusText;
+        let isLeagueReserved = false;
+        let isRookieMode = courtMode === 'rookie'; // Flag for Rookie mode
 
-            if (isSelected) {
-                statusText = 'SELECTED';
-            } else if (court.status === 'available' && courtMode === 'league') {
-                statusText = 'League';
-                isLeagueReserved = true;
-            } else if (court.status === 'available' && isRookieMode) { // Status text for available Rookie court
-                statusText = 'Rookie';
+        if (isSelected) {
+            statusText = 'SELECTED';
+        } else if (court.status === 'available' && courtMode === 'league') {
+            statusText = 'League';
+            isLeagueReserved = true;
+        } else if (court.status === 'available' && isRookieMode) { // Status text for available Rookie court
+            statusText = 'Rookie';
+        } else {
+            statusText = court.status.replace(/_/g, ' ');
+        }
+
+        const courtCard = document.createElement('div');
+
+        // --- START OF FIX ---
+        // Only apply special mode classes if the court is available.
+        // If a game is in progress, no special mode class should be added.
+        let modeClass = '';
+        if (court.status === 'available') {
+            if (isLeagueReserved) {
+                modeClass = 'is-league-reserved';
+            } else if (isRookieMode) {
+                modeClass = 'is-rookie-mode';
+            }
+        }
+        // --- END OF FIX ---
+
+        courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${finalIsSelectable ? 'selectable' : ''} ${bodyClass} ${reservedClass} ${modeClass}`;
+        
+        courtCard.dataset.courtId = court.id;
+        if (isModeOverlayActive) {
+            courtCard.dataset.modeOverlayActive = 'true';
+        }
+
+        let cancelBtnHTML = '';
+        let editBtnHTML = '';
+
+        if (court.status !== 'available' && !isSelected) {
+            cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
+        }
+
+        if (court.status === 'in_progress') {
+            editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+        }
+
+        const moreOptionsBtnHTML = `
+            <button class="more-options-btn on-court bottom-left-btn" title="More Options" data-action="more-options" data-court-id="${court.id}">
+                <i class="mdi mdi-dots-horizontal"></i>
+            </button>
+        `;
+
+        const modeOverlayHTML = `
+            <div class="mode-selection-overlay" data-court-id="${court.id}">
+                <button class="mode-btn-overlay doubles-mode" data-action="set-court-mode" data-mode="doubles">Doubles</button>
+                <button class="mode-btn-overlay singles-mode" data-action="set-court-mode" data-mode="singles">Singles</button>
+                <button class="mode-btn-overlay beginner-mode" data-action="set-court-mode" data-mode="rookie">Rookie</button>
+                <button class="mode-btn-overlay league-mode" data-action="set-court-mode" data-mode="league">League</button>
+            </div>
+        `;
+
+        // --- ANIMATION DELAY LOGIC (Dynamic Offset for Continuous Play) ---
+        const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E']; // Assuming this is the order
+        const courtIndex = COURT_HIERARCHY.indexOf(court.id);
+        const staticStaggerMs = courtIndex >= 0 ? courtIndex * 500 : 0;
+
+        // Base animation duration is 4s (4000ms). Double for Rookie mode.
+        let animationDurationMs = 4000;
+        if (courtMode === 'rookie') {
+            animationDurationMs = 8000; // DOUBLE DURATION FOR ROOKIE MODE
+        }
+
+        // Calculate how far into the cycle we should be
+        const elapsedTime = Date.now() - state.pongAnimationOffset;
+        const currentOffsetMs = (elapsedTime + staticStaggerMs) % animationDurationMs;
+
+        // Use a negative delay to force the animation to start at the correct mid-cycle point
+        const delayStyle = `animation-delay: -${(currentOffsetMs / 1000).toFixed(3)}s;`;
+
+        // --- Singles Pong Animation HTML Structure ---
+        const pongAnimationSinglesHTML = `
+            <div class="pong-animation-container" data-mode="singles">
+                <div class="pong-paddle top-paddle" style="${delayStyle}"></div>
+                <div class="pong-paddle bottom-paddle" style="${delayStyle}"></div>
+                <div class="pong-ball" style="${delayStyle}"></div>
+            </div>
+        `;
+
+        // --- Doubles Pong Animation HTML Structure (Applying unique vertical keyframes) ---
+        const pongAnimationDoublesHTML = `
+            <div class="pong-animation-container" data-mode="doubles">
+                <div class="pong-paddle double dl top-paddle" style="animation-name: pong-move-tl; ${delayStyle}"></div>
+                <div class="pong-paddle double dr top-paddle" style="animation-name: pong-move-tr; ${delayStyle}"></div>
+                <div class="pong-paddle double dl bottom-paddle" style="animation-name: pong-move-bl; ${delayStyle}"></div>
+                <div class="pong-paddle double dr bottom-paddle" style="animation-name: pong-move-br; ${delayStyle}"></div>
+                <div class="pong-ball" style="${delayStyle}"></div>
+            </div>
+        `;
+
+        // --- Red Ball Animation HTML Structure (Only the Ball for in_progress) ---
+        const pongAnimationRedBallHTML = `
+            <div class="pong-animation-container" data-mode="in_progress">
+                <div class="pong-ball red-ball-in-progress" style="${delayStyle}"></div>
+            </div>
+        `;
+
+        let bodyTimerHTML = '';
+        if (court.status === 'in_progress' || court.status === 'game_pending') {
+            bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
+        }
+
+        const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
+
+        let playerSpotsHTML = '';
+        let coreReserveTextHTML = '';
+        let animationHTML = '';
+
+        // Logic for player names (when status is NOT available)
+        if (court.status !== 'available') {
+            if (court.gameMode === 'singles') {
+                playerSpotsHTML = `
+                    <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
+                    <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
+                `;
             } else {
-                statusText = court.status.replace(/_/g, ' ');
-            }
-
-            const courtCard = document.createElement('div');
-
-            // --- START OF FIX ---
-            // Only apply special mode classes if the court is available.
-            // If a game is in progress, no special mode class should be added.
-            let modeClass = '';
-            if (court.status === 'available') {
-                if (isLeagueReserved) {
-                    modeClass = 'is-league-reserved';
-                } else if (isRookieMode) {
-                    modeClass = 'is-rookie-mode';
-                }
-            }
-            // --- END OF FIX ---
-
-            courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${finalIsSelectable ? 'selectable' : ''} ${bodyClass} ${reservedClass} ${modeClass}`;
-            
-            courtCard.dataset.courtId = court.id;
-            if (isModeOverlayActive) {
-                courtCard.dataset.modeOverlayActive = 'true';
-            }
-
-            let cancelBtnHTML = '';
-            let editBtnHTML = '';
-
-            if (court.status !== 'available' && !isSelected) {
-                cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
-            }
-
-            if (court.status === 'in_progress') {
-                editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
-            }
-
-            const moreOptionsBtnHTML = `
-                <button class="more-options-btn on-court bottom-left-btn" title="More Options" data-action="more-options" data-court-id="${court.id}">
-                    <i class="mdi mdi-dots-horizontal"></i>
-                </button>
-            `;
-
-            const modeOverlayHTML = `
-                <div class="mode-selection-overlay" data-court-id="${court.id}">
-                    <button class="mode-btn-overlay doubles-mode" data-action="set-court-mode" data-mode="doubles">Doubles</button>
-                    <button class="mode-btn-overlay singles-mode" data-action="set-court-mode" data-mode="singles">Singles</button>
-                    <button class="mode-btn-overlay beginner-mode" data-action="set-court-mode" data-mode="rookie">Rookie</button>
-                    <button class="mode-btn-overlay league-mode" data-action="set-court-mode" data-mode="league">League</button>
-                </div>
-            `;
-
-            // --- ANIMATION DELAY LOGIC (Dynamic Offset for Continuous Play) ---
-            const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E']; // Assuming this is the order
-            const courtIndex = COURT_HIERARCHY.indexOf(court.id);
-            const staticStaggerMs = courtIndex >= 0 ? courtIndex * 500 : 0;
-
-            // Base animation duration is 4s (4000ms). Double for Rookie mode.
-            let animationDurationMs = 4000;
-            if (courtMode === 'rookie') {
-                animationDurationMs = 8000; // DOUBLE DURATION FOR ROOKIE MODE
-            }
-
-            // Calculate how far into the cycle we should be
-            const elapsedTime = Date.now() - state.pongAnimationOffset;
-            const currentOffsetMs = (elapsedTime + staticStaggerMs) % animationDurationMs;
-
-            // Use a negative delay to force the animation to start at the correct mid-cycle point
-            const delayStyle = `animation-delay: -${(currentOffsetMs / 1000).toFixed(3)}s;`;
-
-            // --- Singles Pong Animation HTML Structure ---
-            const pongAnimationSinglesHTML = `
-                <div class="pong-animation-container" data-mode="singles">
-                    <div class="pong-paddle top-paddle" style="${delayStyle}"></div>
-                    <div class="pong-paddle bottom-paddle" style="${delayStyle}"></div>
-                    <div class="pong-ball" style="${delayStyle}"></div>
-                </div>
-            `;
-
-            // --- Doubles Pong Animation HTML Structure (Applying unique vertical keyframes) ---
-            const pongAnimationDoublesHTML = `
-                <div class="pong-animation-container" data-mode="doubles">
-                    <div class="pong-paddle double dl top-paddle" style="animation-name: pong-move-tl; ${delayStyle}"></div>
-                    <div class="pong-paddle double dr top-paddle" style="animation-name: pong-move-tr; ${delayStyle}"></div>
-                    <div class="pong-paddle double dl bottom-paddle" style="animation-name: pong-move-bl; ${delayStyle}"></div>
-                    <div class="pong-paddle double dr bottom-paddle" style="animation-name: pong-move-br; ${delayStyle}"></div>
-                    <div class="pong-ball" style="${delayStyle}"></div>
-                </div>
-            `;
-
-            // --- Red Ball Animation HTML Structure (Only the Ball for in_progress) ---
-            const pongAnimationRedBallHTML = `
-                <div class="pong-animation-container" data-mode="in_progress">
-                    <div class="pong-ball red-ball-in-progress" style="${delayStyle}"></div>
-                </div>
-            `;
-
-            let bodyTimerHTML = '';
-            if (court.status === 'in_progress' || court.status === 'game_pending') {
-                bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
-            }
-
-            const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
-
-            let playerSpotsHTML = '';
-            let coreReserveTextHTML = '';
-            let animationHTML = '';
-
-            // Logic for player names (when status is NOT available)
-            if (court.status !== 'available') {
-                if (court.gameMode === 'singles') {
+                // Doubles/Rookie/League
+                if (court.teamsSet === false) {
+                    // Teams not set: Show player names from the general player list
                     playerSpotsHTML = `
-                        <div class="player-spot single-player top-row"><span>${formatName(court.teams.team1[0])}</span></div>
-                        <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
+                        <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
+                        <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
+                        <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
+                        <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
                     `;
                 } else {
-                    // Doubles/Rookie/League
-                    if (court.teamsSet === false) {
-                        // Teams not set: Show player names from the general player list
-                        playerSpotsHTML = `
-                            <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
-                            <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
-                            <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.players[2])}</span></div>
-                            <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
-                        `;
-                    } else {
-                        // Teams ARE set: Show player names from the teams list
-                        playerSpotsHTML = `
-                            <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
-                            <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
-                            <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
-                            <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
-                        `;
-                    }
-                }
-
-                // Generate the "Set Teams" button if teams are NOT set and status is not 'available'
-                if (court.teamsSet === false) {
-                    coreReserveTextHTML = `<div class="teams-not-set" data-action="choose-teams">Set Teams</div>`;
-                }
-
-                // Add the red ball animation alongside the player spots for in_progress
-                if (court.status === 'in_progress') {
-                    animationHTML = pongAnimationRedBallHTML;
+                    // Teams ARE set: Show player names from the teams list
+                    playerSpotsHTML = `
+                        <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
+                        <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
+                        <div class="player-spot bottom-row" data-player-pos="bottom-left"><span>${formatName(court.teams.team2[0])}</span></div>
+                        <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
+                    `;
                 }
             }
 
-            let overlayHTML = '';
-
-            if (isSelected) {
-                const readyClass = selectionComplete ? 'is-ready' : '';
-                overlayHTML = `
-                    <div class="confirmation-overlay">
-                        <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
-                        <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
-                    </div>
-                `;
-            } else if (finalIsSelectable) {
-
-                const ballClass = isReservedSelectable ? 'reserved-ball' : '';
-                const isEligibleForSelection = isGreenBallSelectable ? '' : 'data-reserved-only="true"';
-
-                // Disable the button if it's the reserved (red) ball OR if it's the permanent league reserved court
-                const disabledAttr = isReservedSelectable || isLeagueReserved ? 'disabled' : '';
-
-                // Text content of the button is empty if it's a reserved ball
-                const buttonText = isReservedSelectable || isLeagueReserved ? '' : `SELECT<br>COURT ${court.id}`;
-
-                overlayHTML = `
-                    <div class="court-selection-overlay">
-                        <button class="court-confirm-btn select-court ${ballClass}" data-action="select-court-action" ${isEligibleForSelection} ${disabledAttr}>${buttonText}</button>
-                    </div>
-                `;
-            }
-            else if (court.status === 'selecting_teams') {
-                overlayHTML = `
-                    <div class="team-selection-overlay">
-                        <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
-                        <button class="court-confirm-btn choose" data-action="choose-teams">Choose Teams</button>
-                        <button class="court-confirm-btn choose-later" data-action="choose-later">Choose Later</button>
-                    </div>
-                `;
-            } else if (court.status === 'game_pending') {
-                overlayHTML = `
-                    <div class="game-action-overlay">
-                        <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
-                    </div>
-                `;
-            } else if (court.status === 'in_progress') {
-                const ballClass = court.isNewGame ? 'animate-in' : 'visible';
-                overlayHTML = `
-                    <div class="game-action-overlay">
-                        <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
-                    </div>
-                `;
+            // Generate the "Set Teams" button if teams are NOT set and status is not 'available'
+            if (court.teamsSet === false) {
+                coreReserveTextHTML = `<div class="teams-not-set" data-action="choose-teams">Set Teams</div>`;
             }
 
-            let reserveTextHTML = coreReserveTextHTML;
-
-            // FINAL LOGIC: Overwrite the team status text if the court is AVAILABLE (Reserved For X).
-            if (court.status === 'available') {
-                // Remove the 'Reserved For X' text as visual cues are now used.
-                reserveTextHTML = '';
-
-                // 🟢 ANIMATION LOGIC: Show appropriate animation based on court mode
-                if (courtMode === 'league') {
-                    // If permanently reserved for League, add the static reserved icon
-                    playerSpotsHTML = `<div class="league-reserved-icon-container"></div>`;
-                } else if (courtMode === 'singles') {
-                    playerSpotsHTML = pongAnimationSinglesHTML;
-                } else if (courtMode === 'doubles' || courtMode === 'rookie') { // Doubles and Rookie get the Doubles animation
-                    playerSpotsHTML = pongAnimationDoublesHTML;
-                } else {
-                    // For other AVAILABLE modes (e.g., if one was added), player spots are empty
-                    playerSpotsHTML = '';
-                }
+            // Add the red ball animation alongside the player spots for in_progress
+            if (court.status === 'in_progress') {
+                animationHTML = pongAnimationRedBallHTML;
             }
-
-            courtCard.innerHTML = `
-                <div class="card-header header-status-${court.status}">
-                    <h3>Court ${court.id}</h3>
-                    <div class="header-controls">
-                        <span class="status-tag">${statusText}</span>
-                        <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
-                            <i class="mdi ${iconClass}"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="court-inner">
-                        ${bodyTimerHTML}
-                        <div class="center-service-line"></div>
-                        ${playerSpotsHTML}
-                        ${animationHTML}
-                        ${overlayHTML}
-                        ${reserveTextHTML}
-                        ${modeOverlayHTML}
-                    </div>
-                    ${cancelBtnHTML}
-                    ${editBtnHTML}
-                    ${moreOptionsBtnHTML}
-                </div>`;
-
-            return courtCard;
         }
+
+        let overlayHTML = '';
+
+        if (isSelected) {
+            const readyClass = selectionComplete ? 'is-ready' : '';
+            overlayHTML = `
+                <div class="confirmation-overlay">
+                    <button class="court-confirm-btn cancel" data-action="cancel-selection">Cancel</button>
+                    <button class="court-confirm-btn confirm ${readyClass}" data-action="confirm-selection">Confirm</button>
+                </div>
+            `;
+        } else if (finalIsSelectable) {
+
+            const ballClass = isReservedSelectable ? 'reserved-ball' : '';
+            const isEligibleForSelection = isGreenBallSelectable ? '' : 'data-reserved-only="true"';
+
+            // Disable the button if it's the reserved (red) ball OR if it's the permanent league reserved court
+            const disabledAttr = isReservedSelectable || isLeagueReserved ? 'disabled' : '';
+
+            // Text content of the button is empty if it's a reserved ball
+            const buttonText = isReservedSelectable || isLeagueReserved ? '' : `SELECT<br>COURT ${court.id}`;
+
+            overlayHTML = `
+                <div class="court-selection-overlay">
+                    <button class="court-confirm-btn select-court ${ballClass}" data-action="select-court-action" ${isEligibleForSelection} ${disabledAttr}>${buttonText}</button>
+                </div>
+            `;
+        }
+        else if (court.status === 'selecting_teams') {
+            overlayHTML = `
+                <div class="team-selection-overlay">
+                    <button class="court-confirm-btn randomize" data-action="randomize-teams">Randomize Teams</button>
+                    <button class="court-confirm-btn choose" data-action="choose-teams">Choose Teams</button>
+                    <button class="court-confirm-btn choose-later" data-action="choose-later">Choose Later</button>
+                </div>
+            `;
+        } else if (court.status === 'game_pending') {
+            overlayHTML = `
+                <div class="game-action-overlay">
+                    <button class="court-confirm-btn select-court" data-action="start-game">START MATCH</button>
+                </div>
+            `;
+        } else if (court.status === 'in_progress') {
+            const ballClass = court.isNewGame ? 'animate-in' : 'visible';
+            overlayHTML = `
+                <div class="game-action-overlay">
+                    <button class="court-confirm-btn end-game-ball ${ballClass}" data-action="end-game">END<br>MATCH</button>
+                </div>
+            `;
+        }
+
+        let reserveTextHTML = coreReserveTextHTML;
+        let matchModeDisplayHTML = ''; // <-- ADD THIS LINE
+
+        if (state.matchSettings.matchMode === 'fast') {
+            matchModeDisplayHTML = `<div class="match-mode-display">Fast Play</div>`;
+        }
+
+        // FINAL LOGIC: Overwrite the team status text if the court is AVAILABLE (Reserved For X).
+        if (court.status === 'available') {
+            // Remove the 'Reserved For X' text as visual cues are now used.
+            reserveTextHTML = '';
+
+            // 🟢 ANIMATION LOGIC: Show appropriate animation based on court mode
+            if (courtMode === 'league') {
+                // If permanently reserved for League, add the static reserved icon
+                playerSpotsHTML = `<div class="league-reserved-icon-container"></div>`;
+            } else if (courtMode === 'singles') {
+                playerSpotsHTML = pongAnimationSinglesHTML;
+            } else if (courtMode === 'doubles' || courtMode === 'rookie') { // Doubles and Rookie get the Doubles animation
+                playerSpotsHTML = pongAnimationDoublesHTML;
+            } else {
+                // For other AVAILABLE modes (e.g., if one was added), player spots are empty
+                playerSpotsHTML = '';
+            }
+        }
+
+        courtCard.innerHTML = `
+            <div class="card-header header-status-${court.status}">
+                <h3>Court ${court.id}</h3>
+                <div class="header-controls">
+                    <span class="status-tag">${statusText}</span>
+                    <button class="settings-btn summary-toggle-btn" data-court-id="${court.id}" data-card-type="court" title="Toggle Details">
+                        <i class="mdi ${iconClass}"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="court-inner">
+                    ${bodyTimerHTML}
+                    <div class="center-service-line"></div>
+                    ${playerSpotsHTML}
+                    ${animationHTML}
+                    ${overlayHTML}
+                    ${reserveTextHTML}
+                    ${matchModeDisplayHTML}
+                    ${modeOverlayHTML}
+                </div>
+                ${cancelBtnHTML}
+                ${editBtnHTML}
+                ${moreOptionsBtnHTML}
+            </div>`;
+
+        return courtCard;
+    }
 
     // NEW FUNCTION: Calculate the players with the highest stats overall
     function calculateStarPlayers() {
@@ -2550,30 +2599,60 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // This function needs to be added to public/script.js (around line 1400, near other handlers)
+// REPLACE this function
     function handleModeOptionsClick(courtId) {
-        // If an admin session is not active, trigger the login process.
-        if (!adminSessionActive) {
-            // Store the action to be performed after a successful login.
-            keypadConfig.afterSuccess = () => handleModeOptionsClick(courtId);
-            handleAdminLogin();
-            return; // Stop execution until login is successful
+        // If an admin session is already active, just perform the action.
+        if (adminSessionActive) {
+            const court = state.courts.find(c => c.id === courtId);
+            if (court) {
+                court.isModeOverlayActive = !court.isModeOverlayActive;
+                if (court.isModeOverlayActive) {
+                    state.courts.forEach(c => {
+                        if (c.id !== courtId) c.isModeOverlayActive = false;
+                    });
+                }
+                render();
+                saveState();
+            }
+            return;
         }
 
-        // If the session is active, proceed with the original logic.
-        const court = state.courts.find(c => c.id === courtId);
-        if (court) {
-            court.isModeOverlayActive = !court.isModeOverlayActive;
-            if (court.isModeOverlayActive) {
-                state.courts.forEach(c => {
-                    if (c.id !== courtId) c.isModeOverlayActive = false;
-                });
+        // Otherwise, store the action and show the dedicated court mode keypad.
+        courtModeAction = () => {
+            const court = state.courts.find(c => c.id === courtId);
+            if (court) {
+                court.isModeOverlayActive = !court.isModeOverlayActive;
+                 if (court.isModeOverlayActive) {
+                    state.courts.forEach(c => {
+                        if (c.id !== courtId) c.isModeOverlayActive = false;
+                    });
+                }
+                render();
+                saveState();
             }
-            render();
-            saveState();
-        }
+        };
+        showCourtModeKeypad();
     }
 
+
+    function handleMatchModeChange(e) {
+        const newMode = e.target.value;
+        state.matchSettings.matchMode = newMode;
+        saveState();
+
+        // Toggle visibility of the Fast Play Games selector in the admin modal
+        const fastPlaySelector = document.querySelector('.fast-play-games-selector');
+        if (fastPlaySelector) {
+            fastPlaySelector.style.display = newMode === 'fast' ? '' : 'none';
+        }
+
+        render(); // <-- ADD THIS LINE to refresh the UI
+    }
+
+    function handleFastPlayGamesChange(e) {
+        state.matchSettings.fastPlayGames = parseInt(e.target.value, 10);
+        saveState();
+    }
 
 
     // NEW FUNCTION: Sets the court mode and closes the mode overlay
@@ -2818,7 +2897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 //    }
 
     function handleSort(key) { if (state.statsFilter.sortKey === key) { state.statsFilter.sortOrder = state.statsFilter.sortOrder === 'asc' ? 'desc' : 'asc'; } else { state.statsFilter.sortKey = key; state.statsFilter.sortOrder = key === 'name' ? 'asc' : 'desc'; } renderHistory(); saveState(); }
-    function renderHistory(){
+    function renderHistory() {
         const stats = calculatePlayerStats();
         const allKnownPlayers = getAllKnownPlayers();
         
@@ -2832,83 +2911,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 const playerObj = allKnownPlayers.find(p => p.name === name);
                 if (!playerObj) return true;
                 if (state.statsFilter.gender === 'all') return true;
-                return playerObj.gender === 'M' || playerObj.gender === 'F';
+                return playerObj.gender === state.statsFilter.gender;
             });
 
             playersWithStats.sort((a, b) => {
                 const statA = stats[a];
                 const statB = stats[b];
-                let compareValue;
+                let compareValue = 0;
                 if (state.statsFilter.sortKey === 'name') {
                     compareValue = a.localeCompare(b);
-                } else if (state.statsFilter.sortKey === 'totalDurationMs') {
-                    compareValue = statA.totalDurationMs - statB.totalDurationMs;
-                } else if (state.statsFilter.sortKey === 'winPercentage') {
-                    const aWP = statA.played > 0 ? statA.won / statA.played : 0;
-                    const bWP = statB.played > 0 ? statB.won / statB.played : 0;
-                    compareValue = aWP - bWP;
+                } else {
+                    compareValue = (statB[state.statsFilter.sortKey] || 0) - (statA[state.statsFilter.sortKey] || 0);
                 }
-                return state.statsFilter.sortOrder === 'asc' ? compareValue : -compareValue;
+                return state.statsFilter.sortOrder === 'asc' ? -compareValue : compareValue;
             });
 
-            // --- MODIFIED VARIABLE ---
             const genderFilterHTML = `
                 <div class="gender-selector" style="justify-content: center; margin-bottom: 1rem;">
                     <div class="radio-group">
                         <label> <input type="radio" name="stats-gender-filter" value="all" ${state.statsFilter.gender === 'all' ? 'checked' : ''}> All </label>
-                        <label> <input type="radio" name="stats-gender-filter" value="M" ${state.statsFilter.gender === 'M' ? 'checked' : ''}> Male </label>
-                        <label> <input type="radio" name="stats-gender-filter" value="F" ${state.statsFilter.gender === 'F' ? 'checked' : ''}> Female </label>
+                        <label> <input type="radio" name="stats-gender-filter" value="M" ${state.statsFilter.gender === 'M' ? 'checked' : ''}> Men </label>
+                        <label> <input type="radio" name="stats-gender-filter" value="F" ${state.statsFilter.gender === 'F' ? 'checked' : ''}> Women </label>
                     </div>
-                </div>
-            `;
+                </div>`;
             
             if (playersWithStats.length === 0) {
-                historyList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No completed games with stats to display.</p>';
+                historyList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No stats available for the selected filter.</p>';
             } else {
-                const getSortIcon = (key) => {
-                    if (state.statsFilter.sortKey !== key) return '';
-                    return state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽';
-                };
-
-                let tableHTML = `
-                    <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
-                        <div class="history-details" style="margin-bottom: 0;">
-                            <button class="action-btn sort-btn" data-sort-key="name" style="flex: 1; min-width: 0; padding: 0.5rem; background: none; color: var(--dark-text); border: none; text-align: left;">Player Name${getSortIcon('name')}</button>
-                            <span style="display: flex; gap: 2rem; flex-shrink: 0;">
-                                <button class="action-btn sort-btn" data-sort-key="totalDurationMs" style="min-width: 90px; padding: 0.5rem; background: none; color: var(--dark-text); border: none;">Time Played${getSortIcon('totalDurationMs')}</button>
-                                <button class="action-btn sort-btn" data-sort-key="winPercentage" style="min-width: 140px; padding: 0.5rem; background: none; color: var(--dark-text); border: none; text-align: right;">Score (W/P)${getSortIcon('winPercentage')}</button>
-                            </span>
-                        </div>
-                    </div>
-                `;
-
-                playersWithStats.forEach(name => {
+                const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+                const tableHeader = `
+                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
+                        <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Player${getSortIcon('name')}</button>
+                        <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
+                        <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won${getSortIcon('won')}</button>
+                        <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                    </div>`;
+                
+                const playerRows = playersWithStats.map(name => {
                     const playerStats = stats[name];
-                    const playerObj = allKnownPlayers.find(p => p.name === name);
-                    const genderDisplay = playerObj ? playerObj.gender : '?';
-                    tableHTML += `
-                        <div class="history-teams" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding: 0.8rem 1rem; color: var(--dark-text);">
-                            <span style="flex-grow: 1;">${name} <span style="font-style: italic; color: #aaa;">(${genderDisplay})</span></span>
-                            <span style="display: flex; gap: 2rem; font-weight: 500; flex-shrink: 0;">
-                                <span style="min-width: 90px; text-align: right;">${formatDuration(playerStats.totalDurationMs)}</span>
-                                <span style="min-width: 140px; text-align: right;">${playerStats.won}/${playerStats.played} (${formatWinPercentage(playerStats.played, playerStats.won)})</span>
-                            </span>
-                        </div>
-                    `;
-                });
-                historyList.innerHTML = `<div style="padding: 0.5rem 0;">${genderFilterHTML}${tableHTML}</div>`;
+                    return `
+                        <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
+                            <span>${name}</span>
+                            <span>${playerStats.played}</span>
+                            <span>${playerStats.won} (${formatWinPercentage(playerStats.played, playerStats.won)})</span>
+                            <span>${formatDuration(playerStats.totalDurationMs)}</span>
+                        </div>`;
+                }).join('');
+                historyList.innerHTML = genderFilterHTML + tableHeader + playerRows;
             }
 
             document.querySelectorAll('input[name="stats-gender-filter"]').forEach(radio => radio.addEventListener('change', handleStatsFilterChange));
             document.querySelectorAll('.sort-btn').forEach(btn => btn.addEventListener('click', handleSortClick));
 
-        } else { // --- GAME HISTORY VIEW (CORRECTED) ---
+        } else { // Game History View
             if (state.gameHistory.length === 0) {
                 historyList.innerHTML = '<p style="text-align: center; color: #6c757d;">No games have been completed yet.</p>';
             } else {
-                let headerHTML = `
+                const headerHTML = `
                     <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
-                        <div class="history-details" style="margin-bottom: 0;">
+                        <div class="history-details">
                             <span class="game-time-cell">Time</span>
                             <span>Game / Duration</span>
                             <span class="score-cell">Score</span>
@@ -2918,31 +2979,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let gamesHTML = [...state.gameHistory].reverse().map(game => {
                     const endTime = new Date(game.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    
+                    const team1Players = game.teams.team1.join(' & ');
+                    const team2Players = game.teams.team2.join(' & ');
+                    let team1Class = '';
+                    let team2Class = '';
+                    let tiebreakDisplay = '';
                     const isResultSkipped = game.winner === 'skipped';
-                    const isScoreSkipped = game.score === null && !isResultSkipped;
-                    const isTeam1Winner = game.winner === "team1";
-                    
-                    let scoreDisplay;
-                    if (isResultSkipped) {
-                        scoreDisplay = 'Result Skipped';
-                    } else if (isScoreSkipped) {
-                        scoreDisplay = 'Scores Skipped';
-                    } else {
-                        scoreDisplay = `${game.score.team1} - ${game.score.team2}`;
-                        if (game.score.tiebreak1 !== null) {
-                            scoreDisplay += ` (${game.score.tiebreak1}-${game.score.tiebreak2})`;
-                        }
+
+                    if (!isResultSkipped && game.winner) {
+                        if (game.winner === "team1") { team1Class = 'winner'; team2Class = 'loser'; } 
+                        else { team2Class = 'winner'; team1Class = 'loser'; }
                     }
 
-                    const team1Players = game.teams.team1.join(" & ");
-                    const team2Players = game.teams.team2.join(" & ");
-                    
-                    const team1Class = isResultSkipped ? '' : (isTeam1Winner ? 'winner' : 'loser');
-                    const team2Class = isResultSkipped ? '' : (isTeam1Winner ? 'loser' : 'winner');
+                    if (game.score && game.score.tiebreak1 !== null) {
+                        const winnerTiebreak = game.winner === 'team1' ? game.score.tiebreak1 : game.score.tiebreak2;
+                        const loserTiebreak = game.winner === 'team1' ? game.score.tiebreak2 : game.score.tiebreak1;
+                        tiebreakDisplay = ` (${winnerTiebreak}-${loserTiebreak})`;
+                    }
 
+                    const scoreDisplay = isResultSkipped ? 'Result Skipped' : 
+                        (game.score ? `${game.score.team1} - ${game.score.team2}${tiebreakDisplay}` : 'Score Not Entered');
+                    
                     return `
-                        <div class="history-item">
+                        <div class="history-item" data-game-id="${game.id}"> 
                             <div class="history-details">
                                 <span class="game-time-cell">${endTime}</span>
                                 <span>Court ${game.court} - ${game.duration}</span>
@@ -3118,105 +3177,130 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 }
-    function handleConfirmSelection(){
-        const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
-        const requiredPlayers = gameMode === "doubles" ? 4 : 2;
-        if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
-        const court = state.courts.find(c => c.id === courtId);
-        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
-        
-        // --- Stores a snapshot of the entire queue before modification ---
-        court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
 
-        court.players = [...selectedPlayerObjects];
-        court.gameMode = gameMode;
-        if (gameMode === 'doubles') {
-            court.status = "selecting_teams";
-            court.teams.team1 = [];
-            court.teams.team2 = [];
-        } else {
-            court.teams.team1 = [selectedPlayerObjects[0]];
-            court.teams.team2 = [selectedPlayerObjects[1]];
-            court.status = "game_pending";
-            court.autoStartTimeTarget = Date.now() + 60000;
-            court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
-        }
-        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
-        state.selection = {gameMode: state.selection.gameMode, players: [], courtId: null};
-        updateGameModeBasedOnPlayerCount();
-        enforceDutyPosition();
-        autoAssignCourtModes();
-        render();
-        saveState();
+function handleConfirmSelection(){
+    const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
+    const requiredPlayers = gameMode === "doubles" ? 4 : 2;
+    if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
+    const court = state.courts.find(c => c.id === courtId);
+    const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+
+    court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
+
+    court.players = [...selectedPlayerObjects];
+    court.gameMode = gameMode;
+
+    // --- NEW LOGIC: Snapshot the match settings for this game ---
+    court.matchMode = state.matchSettings.matchMode;
+    court.fastPlayGames = state.matchSettings.fastPlayGames;
+    // --- END NEW LOGIC ---
+
+    if (gameMode === 'doubles') {
+        court.status = "selecting_teams";
+        court.teams.team1 = [];
+        court.teams.team2 = [];
+    } else {
+        court.teams.team1 = [selectedPlayerObjects[0]];
+        court.teams.team2 = [selectedPlayerObjects[1]];
+        court.status = "game_pending";
+        court.autoStartTimeTarget = Date.now() + 60000;
+        court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
     }
+    state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+    state.selection = {gameMode: state.selection.gameMode, players: [], courtId: null};
+    updateGameModeBasedOnPlayerCount();
+    enforceDutyPosition();
+    autoAssignCourtModes();
+    render();
+    saveState();
+}
+
     function handleChooseLater(courtId){ const court = state.courts.find(c => c.id === courtId); court.status = "game_pending"; court.teamsSet = false; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
     function handleRandomizeTeams(courtId){ const court = state.courts.find(c => c.id === courtId); let players = [...court.players].sort(() => 0.5 - Math.random()); court.teams.team1 = [players[0], players[1]]; court.teams.team2 = [players[2], players[3]]; court.status = "game_pending"; court.teamsSet = true; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
-    function handleModalConfirm(){ 
-        const courtId = chooseTeamsModal.dataset.courtId; 
-        const court = state.courts.find(c => c.id === courtId); 
-        const openedFrom = chooseTeamsModal.dataset.openedFrom; // Get context
-        
-        const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player); 
-        if (team1Names.length === 2) { 
-            const team1Players = team1Names.map(name => getPlayerByName(name)); 
-            const team2Players = court.players.filter(player => !team1Names.includes(player.name)); 
-            court.teams.team1 = team1Players; 
-            court.teams.team2 = team2Players; 
-            court.teamsSet = true; // Mark teams as set
-            chooseTeamsModal.classList.add("hidden"); 
-            delete chooseTeamsModal.dataset.openedFrom; // Clean up context
+    function handleModalConfirm() {
+        const courtId = chooseTeamsModal.dataset.courtId;
+        const openedFrom = chooseTeamsModal.dataset.openedFrom;
+        const team1Names = Array.from(modalPlayerList.querySelectorAll(".selected")).map(el => el.dataset.player);
 
-            if (openedFrom === 'endgame') {
-                // If opened from end game flow, re-call handleEndGame to show results modal
-                handleEndGame(courtId);
-            } else {
-                // Otherwise, proceed with normal game setup
-                court.status = "game_pending"; 
-                court.autoStartTimeTarget = Date.now() + 60000; 
-                court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); 
+        if (team1Names.length !== 2) {
+            alert("Please select exactly 2 players for Team 1.");
+            return;
+        }
+
+        const allPlayerNames = JSON.parse(chooseTeamsModal.dataset.playerNames || '[]');
+        const allPlayerObjects = allPlayerNames.map(name => getPlayerByName(name));
+        const team1Players = team1Names.map(name => getPlayerByName(name));
+        const team2Players = allPlayerObjects.filter(player => !team1Names.includes(player.name));
+
+        chooseTeamsModal.classList.add("hidden");
+        delete chooseTeamsModal.dataset.openedFrom;
+        delete chooseTeamsModal.dataset.playerNames;
+        delete chooseTeamsModal.dataset.courtId;
+
+        if (openedFrom === 'manual') {
+            const manualGameData = {
+                players: allPlayerObjects,
+                gameMode: 'doubles',
+                teamsSet: true, // Mark teams as set
+                teams: { team1: team1Players, team2: team2Players }
+            };
+            // Re-call handleEndGame with the completed data to show the results modal
+            handleEndGame(null, null, manualGameData);
+        } else {
+            const court = state.courts.find(c => c.id === courtId);
+            if (court) {
+                court.teams.team1 = team1Players;
+                court.teams.team2 = team2Players;
+                court.teamsSet = true;
+
+                if (openedFrom === 'endgame') {
+                    handleEndGame(courtId); // Re-enter to show results modal
+                } else { // Normal live game
+                    court.status = "game_pending";
+                    court.autoStartTimeTarget = Date.now() + 60000;
+                    court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+                }
+                render();
+                saveState();
             }
-            render(); 
-            saveState(); 
-        } else { 
-            alert("Please select exactly 2 players for Team 1."); 
-        } 
+        }
     }
-    function handleChooseTeams(courtId, openedFrom = 'setup'){
+    function handleChooseTeams(courtId, openedFrom = 'setup', players = null) {
         chooseTeamsModal.classList.remove("hidden");
-        chooseTeamsModal.dataset.openedFrom = openedFrom; // Set context for cancel/confirm logic
+        chooseTeamsModal.dataset.openedFrom = openedFrom;
 
-        // Clear and reset the modal list for a fresh population
         modalPlayerList.innerHTML = "";
         modalPlayerList.classList.remove('two-row-grid');
 
         document.getElementById('modal-confirm-teams-btn').textContent = "Confirm";
         document.getElementById('modal-cancel-btn').textContent = "Close";
 
-        const court = state.courts.find(c => c.id === courtId);
+        const court = courtId ? state.courts.find(c => c.id === courtId) : null;
+        const playersToDisplay = players || (court ? court.players : []);
 
-        // This is the corrected logic block
-        if (court && court.players && court.players.length > 0) {
-            // Conditionally apply the special grid style only for 4 players
-            if (court.players.length === 4) {
+        if (playersToDisplay.length > 0) {
+            if (playersToDisplay.length === 4) {
                 modalPlayerList.classList.add('two-row-grid');
             }
 
-            // This loop now runs for any number of players
-            court.players.forEach(player => {
+            playersToDisplay.forEach(player => {
                 const div = document.createElement("div");
                 div.className = "modal-player";
                 div.textContent = player.name;
                 div.dataset.player = player.name;
                 modalPlayerList.appendChild(div);
             });
-            chooseTeamsModal.dataset.courtId = courtId;
+            
+            // Store reference to the players being configured
+            chooseTeamsModal.dataset.playerNames = JSON.stringify(playersToDisplay.map(p => p.name));
+            if (courtId) {
+                chooseTeamsModal.dataset.courtId = courtId;
+            }
         }
 
-        // Reset confirmation button state
         modalConfirmBtn.disabled = true;
         modalConfirmBtn.classList.remove('modal-confirm-ready');
 
-        // Add event listener to handle visual readiness
         modalPlayerList.addEventListener('click', () => {
             const selectedCount = modalPlayerList.querySelectorAll(".selected").length;
             if (selectedCount === 2) {
@@ -3231,126 +3315,310 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
 
     function handleStartGame(courtId){
-    const court = state.courts.find(c => c.id === courtId);
-    if (!court) return;
+        const court = state.courts.find(c => c.id === courtId);
+        if (!court) return;
 
-    const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
-    const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
+        const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+        const startButton = courtCardEl ? courtCardEl.querySelector('[data-action="start-game"]') : null;
 
-    if (startButton) {
-        startButton.classList.add('start-game-hop');
+        if (startButton) {
+            startButton.classList.add('start-game-hop');
+        }
+
+        setTimeout(() => {
+            if(court.autoStartTimer) {
+                clearTimeout(court.autoStartTimer);
+                court.autoStartTimer = null;
+            }
+            court.status = "in_progress";
+            court.gameStartTime = Date.now();
+            court.autoStartTimeTarget = null;
+            court.isNewGame = true; 
+
+            const team1Names = getPlayerNames(court.teams.team1);
+            const team2Names = getPlayerNames(court.teams.team2);
+            let announcementMessage;
+            
+            const formatTeamNames = (names) => {
+                if (names.length === 1) return names[0];
+                if (names.length === 2) return `${names[0]} and ${names[1]}`;
+                return names.slice(0, -1).join(', ') + ` and ${names.slice(-1)[0]}`;
+            };
+            
+            const formattedCourtId = formatCourtIdForTTS(court.id);
+            
+            // --- NEW ANNOUNCEMENT LOGIC ---
+            let matchModeAnnouncement = '';
+            if (court.matchMode === 'fast') {
+                matchModeAnnouncement = `... a Fast Play match, first to ${court.fastPlayGames} games`;
+            } else if (court.matchMode === '3set') {
+                matchModeAnnouncement = '... a 3 set match';
+            }
+            // --- END NEW LOGIC ---
+
+            if (court.gameMode === 'singles') {
+                announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ...are on Court ${formattedCourtId}${matchModeAnnouncement}... Lekker Speel!`;
+            } else { // Doubles
+                if (court.teamsSet === false) {
+                    const playerNames = getPlayerNames(court.players);
+                    const namesList = formatTeamNames(playerNames);
+                    announcementMessage = `It's ${namesList}, on Court ${formattedCourtId}${matchModeAnnouncement}... Lekker Speel!`;
+                } else {
+                    const team1String = formatTeamNames(team1Names);
+                    const team2String = formatTeamNames(team2Names);
+                    announcementMessage = `It's team ${team1String}, versus team ${team2String} ...on Court ${formattedCourtId}${matchModeAnnouncement}... Lekker Speel!`;
+                }
+            }
+            
+            playAlertSound(announcementMessage, null);
+
+            render(); 
+            court.isNewGame = false;
+            saveState();
+            resetAlertSchedule();
+            checkAndPlayAlert(false);
+        }, 2000);
     }
 
-    setTimeout(() => {
-        if(court.autoStartTimer) {
-            clearTimeout(court.autoStartTimer);
-            court.autoStartTimer = null;
+// ADD THIS NEW FUNCTION
+    function renderManualSelectedPlayers(container) {
+        container.innerHTML = '';
+        const { players } = state.manualEntry;
+
+        if (players.length === 0) {
+            container.innerHTML = '<p style="color: var(--neutral-color); margin: 0; text-align: center; width: 100%;">No players selected yet.</p>';
+        } else {
+            players.forEach(playerName => {
+                const chip = document.createElement('div');
+                chip.className = 'selected-player-chip';
+                chip.textContent = playerName.split(' ')[0]; // This is the fix for first names
+                chip.dataset.playerName = playerName;
+                chip.title = 'Click to remove';
+                container.appendChild(chip);
+            });
         }
-        court.status = "in_progress";
-        court.gameStartTime = Date.now();
-        court.autoStartTimeTarget = null;
-        court.isNewGame = true; 
+    }
 
-        // --- UPDATED ANNOUNCEMENT LOGIC ---
-        const team1Names = getPlayerNames(court.teams.team1);
-        const team2Names = getPlayerNames(court.teams.team2);
-        let announcementMessage;
-        
-        const formatTeamNames = (names) => {
-            if (names.length === 1) return names[0];
-            if (names.length === 2) return `${names[0]} and ${names[1]}`;
-            return names.slice(0, -1).join(', ') + ` and ${names.slice(-1)[0]}`;
-        };
-        
-        // Use the new helper function here
-        const formattedCourtId = formatCourtIdForTTS(court.id);
+    // ADD THIS NEW FUNCTION
+    function handleRemoveManualPlayer(playerName) {
+        state.manualEntry.players = state.manualEntry.players.filter(p => p !== playerName);
 
-        if (court.gameMode === 'singles') {
-            announcementMessage = `${team1Names[0]}, and ${team2Names[0]} ...are on Court ${formattedCourtId}... Lekker Speel!`;
-        } else if (court.gameMode === 'doubles') {
-            if (court.teamsSet === false) {
-                const playerNames = getPlayerNames(court.players);
-                const namesList = formatTeamNames(playerNames);
-                announcementMessage = `It's ${namesList}, on Court ${formattedCourtId}... Lekker Speel!`;
+        // Check which modal is currently visible to refresh the correct view
+        if (!manualEntryModal.classList.contains('hidden')) {
+            showManualPlayerSelectionModal();
+        } else if (!outsidePlayerModal.classList.contains('hidden')) {
+            showOutsidePlayerModal();
+        }
+    }
+
+    // ADD THIS NEW FUNCTION
+    function openManualPlayerSelectionModal() {
+        state.manualEntry.players = []; // Clear state ONLY when opening fresh.
+        showManualPlayerSelectionModal(); // Now call the render function.
+    }
+
+// REPLACE this function
+    function showManualPlayerSelectionModal() {
+        historyPage.classList.add('hidden');
+        manualEntryModal.classList.remove('hidden');
+        
+        renderManualSelectedPlayers(manualSelectedPlayersContainer);
+
+        const playersOnCourt = state.courts.flatMap(c => c.players);
+        const allPlayersAtClub = [...state.availablePlayers, ...playersOnCourt];
+        
+        const uniquePlayers = Array.from(new Map(allPlayersAtClub.map(p => [p.name, p])).values())
+            .filter(p => !state.manualEntry.players.includes(p.name))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        manualPlayerList.innerHTML = '';
+        if (uniquePlayers.length === 0) {
+            manualPlayerList.innerHTML = '<li class="waiting-message">All checked-in players have been selected.</li>';
+        } else {
+            uniquePlayers.forEach(player => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span style="flex-grow: 1;">${player.name}</span>
+                    <span class="action-icon add" data-player-name="${player.name}">+</span>
+                `;
+                li.dataset.playerName = player.name;
+                manualPlayerList.appendChild(li);
+            });
+        }
+        
+        setupListWithIndex(uniquePlayers, manualPlayerList, document.getElementById('manual-player-abc-index'));
+        
+        const count = state.manualEntry.players.length;
+        const isValid = count === 2 || count === 4;
+        manualEntryConfirmBtn.disabled = !isValid;
+        manualEntryConfirmBtn.style.backgroundColor = isValid ? 'var(--confirm-color)' : 'var(--inactive-color)';
+    }
+
+// REPLACE this function
+    function handleManualPlayerClick(e) {
+        const addIcon = e.target.closest('.action-icon.add');
+        if (addIcon) {
+            const playerName = addIcon.dataset.playerName;
+            if (state.manualEntry.players.length < 4) {
+                state.manualEntry.players.push(playerName);
+                showManualPlayerSelectionModal(); // This is the fix
             } else {
-                const team1String = formatTeamNames(team1Names);
-                const team2String = formatTeamNames(team2Names);
-                announcementMessage = `It's team ${team1String}, versus team ${team2String} ...on Court ${formattedCourtId}... Lekker Speel!`;
+                playCustomTTS("You can select a maximum of 4 players.");
             }
         }
+    }
+
+// REPLACE this function
+    function showOutsidePlayerModal() {
+        manualEntryModal.classList.add('hidden');
+        outsidePlayerModal.classList.remove('hidden');
+
+        renderManualSelectedPlayers(outsideSelectedPlayersContainer);
+
+        const playersOnCourt = state.courts.flatMap(c => c.players.map(p => p.name));
+        const availablePlayerNames = state.availablePlayers.map(p => p.name);
+        const checkedInNames = new Set([...playersOnCourt, ...availablePlayerNames]);
+
+        const outsideMembers = MASTER_MEMBER_LIST.filter(m => !checkedInNames.has(m.name));
+        const returningGuests = state.guestHistory.filter(g => !checkedInNames.has(g.name));
         
-        playAlertSound(announcementMessage, null);
-        // --- END UPDATED LOGIC ---
+        const allOutsidePlayers = [...outsideMembers, ...returningGuests]
+            .filter(p => !state.manualEntry.players.includes(p.name))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        
+        outsidePlayerList.innerHTML = '';
+        if (allOutsidePlayers.length === 0) {
+            outsidePlayerList.innerHTML = '<li class="waiting-message">All other players have been selected.</li>';
+        } else {
+            allOutsidePlayers.forEach(player => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span style="flex-grow: 1;">${player.name}</span>
+                    <span class="action-icon add" data-player-name="${player.name}">+</span>
+                `;
+                li.dataset.playerName = player.name;
+                outsidePlayerList.appendChild(li);
+            });
+        }
+        setupListWithIndex(allOutsidePlayers, outsidePlayerList, document.getElementById('outside-player-abc-index'));
 
-        render(); 
-        court.isNewGame = false;
-        saveState();
-        resetAlertSchedule();
-        checkAndPlayAlert(false);
-    }, 2000);
-}
+        // Logic for the new confirm button
+        const count = state.manualEntry.players.length;
+        const isValid = count === 2 || count === 4;
+        outsidePlayerConfirmBtn.disabled = !isValid;
+        outsidePlayerConfirmBtn.style.backgroundColor = isValid ? 'var(--confirm-color)' : 'var(--inactive-color)';
+    }
 
-    function handleEndGame(courtId){
-        const court = state.courts.find(c => c.id === courtId);
-        if(!court) return;
+// REPLACE this function
+    function handleOutsidePlayerClick(e) {
+        const addIcon = e.target.closest('.action-icon.add');
+        if (addIcon) {
+            const playerName = addIcon.dataset.playerName;
+            if (state.manualEntry.players.length < 4) {
+                state.manualEntry.players.push(playerName);
+                showOutsidePlayerModal(); // Re-render this view
+            } else {
+                playCustomTTS("You have already selected the maximum of 4 players.");
+            }
+        }
+    }
 
-        if (court.teamsSet === false) {
-            handleChooseTeams(courtId, 'endgame'); // Pass 'endgame' context
-            return;
+    // ADD THIS NEW FUNCTION
+    function handleConfirmManualPlayers() {
+        const { players } = state.manualEntry;
+        if (players.length !== 2 && players.length !== 4) return;
+        
+        const playerObjects = players.map(name => getPlayerByName(name));
+        const gameMode = players.length === 2 ? 'singles' : 'doubles';
+        
+        // Create a temporary object to mimic a court for the endGame flow
+        const manualGameData = {
+            players: playerObjects,
+            gameMode: gameMode,
+            teamsSet: false,
+            teams: { team1: [], team2: [] }
+        };
+
+        if (gameMode === 'singles') {
+            manualGameData.teamsSet = true;
+            manualGameData.teams.team1 = [playerObjects[0]];
+            manualGameData.teams.team2 = [playerObjects[1]];
+        }
+        
+        manualEntryModal.classList.add('hidden');
+        handleEndGame(null, null, manualGameData); // Pass the manual data object
+    }
+
+// REPLACE this function
+// REPLACE this function
+    function handleEndGame(courtId, editGameId = null, manualEntryData = null) {
+        resetEndGameModal(); // Ensure a clean slate
+
+        if (manualEntryData) {
+            // This is the new logic block for manual entries
+            if (manualEntryData.teamsSet) {
+                // If teams are already defined (e.g., from handleConfirmManualPlayers for singles), display them for score entry
+                endGameModal.dataset.manualEntry = JSON.stringify(manualEntryData.players.map(p => p.name));
+                endGameTimestamp.textContent = `Manual Entry - ${new Date().toLocaleString('en-ZA')}`;
+                const team1Names = getPlayerNames(manualEntryData.teams.team1).join(" & ");
+                const team2Names = getPlayerNames(manualEntryData.teams.team2).join(" & ");
+                endGameTeams.innerHTML = `
+                    <div class="team-selection" data-team="team1"><div><strong>Team 1:</strong> <span>${team1Names}</span></div></div>
+                    <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
+                `;
+            } else {
+                // If teams are not set (e.g., 4 players selected for doubles), go to team selection
+                handleChooseTeams(null, 'manual', manualEntryData.players);
+                return; // Stop here and wait for team selection
+            }
+        }
+        else if (editGameId) {
+            const gameToEdit = state.gameHistory.find(g => g.id == editGameId);
+            if (!gameToEdit) return;
+
+            endGameModal.dataset.editGameId = editGameId;
+            endGameTimestamp.textContent = `Editing Game from: ${new Date(gameToEdit.endTime).toLocaleString()}`;
+            const team1Names = gameToEdit.teams.team1.join(" & ");
+            const team2Names = gameToEdit.teams.team2.join(" & ");
+            
+            // Always present a clean slate for team selection when editing
+            endGameTeams.innerHTML = `
+                <div class="team-selection" data-team="team1"><div><strong>Team 1:</strong> <span>${team1Names}</span></div></div>
+                <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
+            `;
+        }
+        else if (courtId) {
+            const court = state.courts.find(c => c.id === courtId);
+            if (!court) return;
+            if (court.teamsSet === false) {
+                handleChooseTeams(courtId, 'endgame');
+                return;
+            }
+            endGameModal.dataset.courtId = courtId;
+            const now = new Date();
+            endGameTimestamp.textContent = `Completed: ${now.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            const team1Names = getPlayerNames(court.teams.team1).join(" & ");
+            const team2Names = getPlayerNames(court.teams.team2).join(" & ");
+            endGameTeams.innerHTML = `
+                <div class="team-selection" data-team="team1"><div><strong>Team 1:</strong> <span>${team1Names}</span></div></div>
+                <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
+            `;
         }
 
-        endGameModal.dataset.courtId = courtId;
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const formattedDate = now.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
-        endGameTimestamp.textContent = `Completed: ${formattedDate} at ${formattedTime}`;
-
-        const team1Names = getPlayerNames(court.teams.team1).join(" & ");
-        const team2Names = getPlayerNames(court.teams.team2).join(" & ");
-        endGameTeams.innerHTML = `
-            <div class="team-selection" data-team="team1">
-                <div><strong>Team 1:</strong> ${team1Names}</div>
-            </div>
-            <div class="team-selection" data-team="team2">
-                <div><strong>Team 2:</strong> ${team2Names}</div>
-            </div>
-        `;
-        
-        // Reset and hide sections
-        scoreSection.classList.add('hidden');
-        tieBreakerArea.classList.add('hidden');
-        winningScoreInput.value = '';
-        losingScoreInput.value = '';
-        winnerTiebreakInput.value = '';
-        loserTiebreakInput.value = '';
-        endGameModal.removeAttribute('data-winner');
-        
-        // --- MODIFIED LOGIC ---
         const skipBtn = document.getElementById('end-game-skip-btn');
-        
-        // Initial state: Button skips the entire result
-        skipBtn.textContent = 'Skip Result';
-        skipBtn.dataset.action = 'skip-result';
-
-        endGameTeams.querySelectorAll('.team-selection').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const selectedTeam = e.currentTarget.dataset.team;
-                endGameModal.dataset.winner = selectedTeam;
-
-                endGameTeams.querySelectorAll('.team-selection').forEach(teamEl => {
-                    teamEl.classList.toggle('winner', teamEl.dataset.team === selectedTeam);
-                    teamEl.classList.toggle('loser', teamEl.dataset.team !== selectedTeam);
-                });
-                
-                // When winner is selected, button's function changes
-                scoreSection.classList.remove('hidden');
-                skipBtn.textContent = 'Skip Scores';
-                skipBtn.dataset.action = 'skip-scores';
-                validateEndGameForm();
+        endGameTeams.querySelectorAll('.team-selection').forEach(el => el.addEventListener('click', (e) => {
+            const selectedTeam = e.currentTarget.dataset.team;
+            endGameModal.dataset.winner = selectedTeam;
+            endGameTeams.querySelectorAll('.team-selection').forEach(teamEl => {
+                teamEl.classList.toggle('winner', teamEl.dataset.team === selectedTeam);
+                teamEl.classList.toggle('loser', teamEl.dataset.team !== selectedTeam);
             });
-        });
-
-        validateEndGameForm();
+            scoreSection.classList.remove('hidden');
+            skipBtn.textContent = 'Skip Scores';
+            skipBtn.dataset.action = 'skip-scores';
+            validateEndGameForm();
+        }));
+        
         endGameModal.classList.remove("hidden");
     }
 
@@ -3460,63 +3728,163 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function confirmEndGame(){
-        const courtId = endGameModal.dataset.courtId;
-        const court = state.courts.find(c => c.id === courtId);
-        const winnerValue = endGameModal.dataset.winner;
-        const finalWinningScore = parseInt(winningScoreInput.value, 10);
-        const finalLosingScore = parseInt(losingScoreInput.value, 10);
-        let score1, score2, tiebreak1 = null, tiebreak2 = null;
-        if (winnerValue === 'team1') {
-            score1 = finalWinningScore;
-            score2 = finalLosingScore;
-        } else {
-            score1 = finalLosingScore;
-            score2 = finalWinningScore;
-        }
-        if (!tieBreakerArea.classList.contains('hidden')) {
-            const finalWinnerTiebreak = parseInt(winnerTiebreakInput.value, 10);
-            const finalLoserTiebreak = parseInt(loserTiebreakInput.value, 10);
-            if (winnerValue === 'team1') {
-                tiebreak1 = finalWinnerTiebreak;
-                tiebreak2 = finalLoserTiebreak;
-            } else {
-                tiebreak1 = finalLoserTiebreak;
-                tiebreak2 = finalWinnerTiebreak;
-            }
-        }
-        const team1Names = getPlayerNames(court.teams.team1);
-        const team2Names = getPlayerNames(court.teams.team2);
-        const newGame = {
-            id: Date.now(), court: court.id, startTime: court.gameStartTime, endTime: Date.now(),
-            duration: document.getElementById(`timer-${court.id}`).textContent,
-            teams: { team1: team1Names, team2: team2Names },
-            score: { team1: score1, team2: score2, tiebreak1: tiebreak1, tiebreak2: tiebreak2 },
-            winner: winnerValue
-        };
-        state.gameHistory.push(newGame);
-
-        const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
-        const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
-
-        // THIS IS THE FIX: All players, including guests, are now returned to the queue.
-        const playersToRequeue = [...winningPlayers, ...losingPlayers];
-        state.availablePlayers.push(...playersToRequeue); 
-
-        court.becameAvailableAt = Date.now();
-
-        const nextAvailableCourtId = findNextAvailableCourtId();
-        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
-
-        const openCourtMessage = nextAvailableCourtId 
-            ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
-            : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
-
-        playAlertSound(openCourtMessage);
-
-        resetCourtAfterGame(courtId);
+// ADD THIS NEW FUNCTION
+    function resetEndGameModal() {
         endGameModal.classList.add("hidden");
-        checkAndPlayAlert(false);
+        // Clear all data attributes
+        delete endGameModal.dataset.courtId;
+        delete endGameModal.dataset.editGameId;
+        delete endGameModal.dataset.winner;
+        
+        // Clear dynamic content
+        endGameTeams.innerHTML = '';
+        
+        // Hide optional sections
+        scoreSection.classList.add('hidden');
+        tieBreakerArea.classList.add('hidden');
+        
+        // Clear input values
+        winningScoreInput.value = '';
+        losingScoreInput.value = '';
+        winnerTiebreakInput.value = '';
+        loserTiebreakInput.value = '';
+        
+        // Reset the confirm button to its default disabled/orange state
+        endGameConfirmBtn.disabled = true;
+        endGameConfirmBtn.style.backgroundColor = 'var(--inactive-color)';
+        endGameConfirmBtn.style.borderColor = 'var(--inactive-color)';
+
+        // Reset the skip button's text and action
+        const skipBtn = document.getElementById('end-game-skip-btn');
+        skipBtn.textContent = 'Skip Result';
+        skipBtn.dataset.action = 'skip-result';
+    }
+
+// REPLACE this function
+    function confirmEndGame() {
+        const editGameId = endGameModal.dataset.editGameId;
+        const manualPlayerNamesJSON = endGameModal.dataset.manualEntry;
+
+        if (manualPlayerNamesJSON) {
+            const playerNames = JSON.parse(manualPlayerNamesJSON);
+            const playerObjects = playerNames.map(name => getPlayerByName(name));
+            const gameMode = playerObjects.length === 2 ? 'singles' : 'doubles';
+            const winnerValue = endGameModal.dataset.winner;
+            const finalWinningScore = parseInt(winningScoreInput.value, 10);
+            const finalLosingScore = parseInt(losingScoreInput.value, 10);
+            let score1, score2, tiebreak1 = null, tiebreak2 = null;
+
+            const team1Players = Array.from(document.querySelectorAll('#end-game-teams .team-selection[data-team="team1"] span')).map(span => span.textContent.trim().split(' & ')).flat();
+            const team2Players = Array.from(document.querySelectorAll('#end-game-teams .team-selection[data-team="team2"] span')).map(span => span.textContent.trim().split(' & ')).flat();
+            
+            if (winnerValue === 'team1') { score1 = finalWinningScore; score2 = finalLosingScore; }
+            else { score1 = finalLosingScore; score2 = finalWinningScore; }
+            if (!tieBreakerArea.classList.contains('hidden')) {
+                const finalWinnerTiebreak = parseInt(winnerTiebreakInput.value, 10);
+                const finalLoserTiebreak = parseInt(loserTiebreakInput.value, 10);
+                if (winnerValue === 'team1') { tiebreak1 = finalWinnerTiebreak; tiebreak2 = finalLoserTiebreak; }
+                else { tiebreak1 = finalLoserTiebreak; tiebreak2 = finalWinnerTiebreak; }
+            }
+            
+            const newGame = {
+                id: Date.now(), court: 'Manual', startTime: Date.now(), endTime: Date.now(), duration: '00h00m',
+                teams: { team1: team1Players, team2: team2Players },
+                score: { team1: score1, team2: score2, tiebreak1: tiebreak1, tiebreak2: tiebreak2 },
+                winner: winnerValue
+            };
+            state.gameHistory.push(newGame);
+            
+            resetEndGameModal();
+            playCustomTTS("Manual game result has been saved to history.");
+            saveState();
+            renderHistory();
+            historyPage.classList.remove("hidden");
+            return;
+        }
+        else if (editGameId) {
+            const gameToUpdate = state.gameHistory.find(g => g.id == editGameId);
+            if (!gameToUpdate) return;
+
+            // --- THIS IS THE FIX ---
+            // If the score was skipped previously, the score object will be null.
+            // This line creates an empty score object if it doesn't exist.
+            if (!gameToUpdate.score) {
+                gameToUpdate.score = {};
+            }
+            // --- END OF FIX ---
+
+            gameToUpdate.winner = endGameModal.dataset.winner;
+            const finalWinningScore = parseInt(winningScoreInput.value, 10);
+            const finalLosingScore = parseInt(losingScoreInput.value, 10);
+
+            if (gameToUpdate.winner === 'team1') {
+                gameToUpdate.score.team1 = finalWinningScore;
+                gameToUpdate.score.team2 = finalLosingScore;
+            } else {
+                gameToUpdate.score.team1 = finalLosingScore;
+                gameToUpdate.score.team2 = finalWinningScore;
+            }
+
+            if (!tieBreakerArea.classList.contains('hidden')) {
+                const finalWinnerTiebreak = parseInt(winnerTiebreakInput.value, 10);
+                const finalLoserTiebreak = parseInt(loserTiebreakInput.value, 10);
+                if (gameToUpdate.winner === 'team1') {
+                    gameToUpdate.score.tiebreak1 = finalWinnerTiebreak;
+                    gameToUpdate.score.tiebreak2 = finalLoserTiebreak;
+                } else {
+                    gameToUpdate.score.tiebreak1 = finalLoserTiebreak;
+                    gameToUpdate.score.tiebreak2 = finalWinnerTiebreak;
+                }
+            } else {
+                gameToUpdate.score.tiebreak1 = null;
+                gameToUpdate.score.tiebreak2 = null;
+            }
+            resetEndGameModal();
+            playCustomTTS("Game history has been updated.");
+            saveState();
+            renderHistory();
+            historyPage.classList.remove("hidden");
+            return;
+        }
+        else {
+            const courtId = endGameModal.dataset.courtId;
+            const court = state.courts.find(c => c.id === courtId);
+            if (!court) return;
+            const winnerValue = endGameModal.dataset.winner;
+            const finalWinningScore = parseInt(winningScoreInput.value, 10);
+            const finalLosingScore = parseInt(losingScoreInput.value, 10);
+            let score1, score2, tiebreak1 = null, tiebreak2 = null;
+            if (winnerValue === 'team1') { score1 = finalWinningScore; score2 = finalLosingScore; }
+            else { score1 = finalLosingScore; score2 = finalWinningScore; }
+            if (!tieBreakerArea.classList.contains('hidden')) {
+                const finalWinnerTiebreak = parseInt(winnerTiebreakInput.value, 10);
+                const finalLoserTiebreak = parseInt(loserTiebreakInput.value, 10);
+                if (winnerValue === 'team1') { tiebreak1 = finalWinnerTiebreak; tiebreak2 = finalLoserTiebreak; }
+                else { tiebreak1 = finalLoserTiebreak; tiebreak2 = finalWinnerTiebreak; }
+            }
+            const team1Names = getPlayerNames(court.teams.team1);
+            const team2Names = getPlayerNames(court.teams.team2);
+            const newGame = {
+                id: Date.now(), court: court.id, startTime: court.gameStartTime, endTime: Date.now(),
+                duration: document.getElementById(`timer-${court.id}`).textContent,
+                teams: { team1: team1Names, team2: team2Names },
+                score: { team1: score1, team2: score2, tiebreak1: tiebreak1, tiebreak2: tiebreak2 },
+                winner: winnerValue
+            };
+            state.gameHistory.push(newGame);
+            const playersToRequeue = [...court.players];
+            state.availablePlayers.push(...playersToRequeue);
+            court.becameAvailableAt = Date.now();
+            const nextAvailableCourtId = findNextAvailableCourtId();
+            const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
+            const openCourtMessage = nextAvailableCourtId
+                ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
+                : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
+            playAlertSound(openCourtMessage);
+            resetCourtAfterGame(courtId);
+            resetEndGameModal();
+            checkAndPlayAlert(false);
+        }
     }
 
     function confirmSkipResult() {
@@ -3629,6 +3997,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!scoresValid) {
             endGameConfirmBtn.disabled = true;
+            endGameConfirmBtn.style.backgroundColor = 'var(--inactive-color)';
+            endGameConfirmBtn.style.borderColor = 'var(--inactive-color)';
             return;
         }
         let tiebreakValid = true;
@@ -3640,8 +4010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const numTbWinner = parseInt(tbWinnerVal, 10);
                 const numTbLoser = parseInt(tbLoserVal, 10);
-                // THIS IS THE FIX: Correctly validates all valid tie-break scores.
-                tiebreakValid = (numTbWinner >= 7 && (numTbWinner - numTbLoser) >= 2);
+                tiebreakValid = (numTbWinner >= 7 && (numTbWinner - numTbLoser) >= 2) || (numTbLoser >= 7 && (numTbLoser - numTbWinner) >= 2);
             }
         }
         const isReady = winnerSelected && scoresValid && tiebreakValid;
@@ -3967,14 +4336,14 @@ function playCustomTTS(message) {
         quoteTextEl.dataset.initialized = 'true';
     }
 
-    // NEW FUNCTION: Calculate rolling admin passcode
+// REPLACE this function
     function getAdminPasscode() {
-        // Calculate the day of the month as DD
         const today = new Date();
         const dayOfMonth = String(today.getDate()).padStart(2, '0');
-        return `0308${dayOfMonth}`;
+        return `${ADMIN_PIN_BASE}${dayOfMonth}`;
     }
 
+// REPLACE this function
     function handleAdminLogin() {
         if (adminSessionActive) {
             // If session is active, PAUSE the timer by clearing it.
@@ -3986,36 +4355,31 @@ function playCustomTTS(message) {
             return;
         }
 
-        // If no session is active, prompt for the PIN
-        showKeypad(null, { mode: 'admin', maxLength: 6, title: 'Enter Admin Passcode (0308DD)' });
+        // If no session is active, prompt for the PIN using the original admin keypad
+        showKeypad(null, { mode: 'admin', maxLength: 6, title: 'Enter Admin Passcode' });
     }
 
+// REPLACE this function
     function checkAdminPasscode() {
         const enteredCode = keypadDisplay.dataset.hiddenValue;
         const expectedCode = getAdminPasscode();
 
         if (enteredCode === expectedCode) {
-            const afterSuccessCallback = keypadConfig.afterSuccess; // Store the callback locally
-            hideKeypad(); // This now safely clears the global keypadConfig
+            hideKeypad();
             adminSessionActive = true;
+            
+            // Start the shared admin session timer
+            if (adminSessionTimer) clearTimeout(adminSessionTimer);
+            adminSessionTimer = setTimeout(() => {
+                adminSessionActive = false;
+                adminSessionTimer = null;
+                state.courts.forEach(c => c.isModeOverlayActive = false);
+                render();
+                playAlertSound(null, null, 'Alert7.mp3');
+            }, 60000); // 1 minute
 
-            if (afterSuccessCallback) {
-                afterSuccessCallback(); // Execute the stored callback
-
-                // Start the session timer
-                if (adminSessionTimer) clearTimeout(adminSessionTimer);
-                adminSessionTimer = setTimeout(() => {
-                    adminSessionActive = false;
-                    adminSessionTimer = null;
-                    // When the timer expires, close any open mode overlays.
-                    state.courts.forEach(c => c.isModeOverlayActive = false);
-                    render();
-                    playAlertSound(null, null, 'Alert7.mp3');
-                }, 60000); // 1 minute
-            } else {
-                // If no specific action was pending, just open the main admin modal.
-                showAdminModal();
-            }
+            // The only action after this is to show the main admin modal
+            showAdminModal();
 
         } else {
             // If the PIN is incorrect, shake the keypad.
@@ -4029,6 +4393,59 @@ function playCustomTTS(message) {
                 }
                 if(activeInput) activeInput.value = '';
                 keypadConfirmBtn.disabled = true;
+            }, 820);
+        }
+    }
+
+// ADD THIS NEW FUNCTION
+    function showCourtModeKeypad() {
+        courtModeKeypadDisplay.textContent = '';
+        delete courtModeKeypadDisplay.dataset.hiddenValue;
+        courtModeKeypadConfirmBtn.disabled = true;
+        courtModeKeypadModal.classList.remove('hidden');
+    }
+
+    // ADD THIS NEW FUNCTION
+    function hideCourtModeKeypad() {
+        courtModeKeypadModal.classList.add('hidden');
+        courtModeAction = null; // Clear the stored action
+    }
+
+    // ADD THIS NEW FUNCTION
+    function checkCourtModePasscode() {
+        const enteredCode = courtModeKeypadDisplay.dataset.hiddenValue;
+        const expectedCode = getAdminPasscode();
+
+        if (enteredCode === expectedCode) {
+            hideCourtModeKeypad();
+            adminSessionActive = true;
+
+            // Start the shared admin session timer
+            if (adminSessionTimer) clearTimeout(adminSessionTimer);
+            adminSessionTimer = setTimeout(() => {
+                adminSessionActive = false;
+                adminSessionTimer = null;
+                state.courts.forEach(c => c.isModeOverlayActive = false);
+                render();
+                playAlertSound(null, null, 'Alert7.mp3');
+            }, 60000); // 1 minute
+
+            // Execute the stored court mode action
+            if (courtModeAction) {
+                courtModeAction();
+            }
+
+        } else {
+            // If the PIN is incorrect, shake the keypad and clear it
+            const keypadContent = courtModeKeypadModal.querySelector('.keypad-content');
+            keypadContent.classList.add('shake');
+            setTimeout(() => {
+                keypadContent.classList.remove('shake');
+                courtModeKeypadDisplay.textContent = '';
+                if (courtModeKeypadDisplay.dataset.hiddenValue) {
+                    courtModeKeypadDisplay.dataset.hiddenValue = '';
+                }
+                courtModeKeypadConfirmBtn.disabled = true;
             }, 820);
         }
     }
@@ -4130,6 +4547,42 @@ function playCustomTTS(message) {
         `;
         courtAvailabilityList.appendChild(autoAssignToggleLi);
         // --- END NEW ---
+        
+        // NEW: Match Mode Settings
+        const matchModeSettingsHtml = `
+            <li class="court-availability-item match-mode-header" style="justify-content: flex-start; margin-top: 1rem; border-bottom: none;">
+                <h4 style="margin: 0; color: var(--dark-text);">Match Mode Settings</h4>
+            </li>
+            <li class="court-availability-item" style="display: block; border-bottom: none; padding-top: 0.5rem;">
+                <div id="match-mode-selector" class="match-mode-selector">
+                    <label>
+                        <input type="radio" name="match-mode" value="1set" ${state.matchSettings.matchMode === '1set' ? 'checked' : ''}> 1 Set
+                    </label>
+                    <label>
+                        <input type="radio" name="match-mode" value="3set" ${state.matchSettings.matchMode === '3set' ? 'checked' : ''}> 3 Sets
+                    </label>
+                    <label>
+                        <input type="radio" name="match-mode" value="fast" ${state.matchSettings.matchMode === 'fast' ? 'checked' : ''}> Fast Play
+                    </label>
+                </div>
+            </li>
+            <li class="court-availability-item fast-play-games-selector" style="border-bottom: 1px solid #f0f0f0; ${state.matchSettings.matchMode !== 'fast' ? 'display: none;' : ''}">
+                <label>Fast Play Games (First to):</label>
+                <div class="radio-group" style="padding: 0.25rem 0.5rem;">
+                    <label>
+                        <input type="radio" name="fast-play-games" value="4" ${state.matchSettings.fastPlayGames === 4 ? 'checked' : ''}> 4 Games
+                    </label>
+                    <label>
+                        <input type="radio" name="fast-play-games" value="6" ${state.matchSettings.fastPlayGames === 6 ? 'checked' : ''}> 6 Games
+                    </label>
+                    <label>
+                        <input type="radio" name="fast-play-games" value="8" ${state.matchSettings.fastPlayGames === 8 ? 'checked' : ''}> 8 Games
+                    </label>
+                </div>
+            </li>
+        `;
+        courtAvailabilityList.insertAdjacentHTML('beforeend', matchModeSettingsHtml);
+        // END NEW: Match Mode Settings
 
         state.courts.forEach(court => {
             const li = document.createElement('li');
@@ -4172,6 +4625,16 @@ function playCustomTTS(message) {
         courtAvailabilityList.querySelectorAll('.light-toggle-btn').forEach(button => {
             button.addEventListener('click', handleLightToggleChange);
         });
+
+        // NEW: Match Mode Listeners
+        document.querySelectorAll('input[name="match-mode"]').forEach(radio => {
+            radio.addEventListener('change', handleMatchModeChange);
+        });
+
+        document.querySelectorAll('input[name="fast-play-games"]').forEach(radio => {
+            radio.addEventListener('change', handleFastPlayGamesChange);
+        });
+        // END NEW: Match Mode Listeners
 
         updateLightIcon();
         adminSettingsModal.classList.remove('hidden');
@@ -4787,17 +5250,14 @@ function playCustomTTS(message) {
         let displayValue;
         const mode = keypadConfig.mode;
 
-        // --- START OF FIX ---
         if (mode === 'date') {
             handleDateInput(activeInput, key);
             if (e.target.id === 'keypad-confirm-btn') {
                 hideKeypad();
             }
-            return; // Stop further execution for date mode
+            return;
         }
-        // --- END OF FIX ---
 
-        // On confirm, decide what action to take based on the mode
         if (e.target.id === 'keypad-confirm-btn') {
             if (e.target.disabled) return;
 
@@ -4829,10 +5289,8 @@ function playCustomTTS(message) {
             return;
         }
 
-        // Determine the current value based on the mode
         displayValue = (mode === 'admin' || mode === 'reset') ? (keypadDisplay.dataset.hiddenValue || '') : keypadDisplay.textContent;
 
-        // Process the key press
         if (key === 'backspace') {
             displayValue = displayValue.slice(0, -1);
         } else if (key === 'clear') {
@@ -4844,7 +5302,6 @@ function playCustomTTS(message) {
             displayValue += key;
         }
 
-        // Update the display and any linked input value
         if (mode === 'admin' || mode === 'reset') {
             keypadDisplay.dataset.hiddenValue = displayValue;
             keypadDisplay.textContent = '*'.repeat(displayValue.length);
@@ -4852,10 +5309,10 @@ function playCustomTTS(message) {
             keypadDisplay.textContent = displayValue;
             if (activeInput && !activeInput.classList.contains('reorder-position')) {
                 activeInput.value = displayValue;
+                activeInput.dispatchEvent(new Event('input')); // This is the fix
             }
         }
 
-        // Enable or disable the 'Done' button
         keypadConfirmBtn.disabled = displayValue.length === 0;
     }
 
@@ -5533,7 +5990,7 @@ function playCustomTTS(message) {
         checkAndPlayAlert(false);
     }
 
-     // --- ADDED FUNCTION ---
+// REPLACE this function
     function handleSkipButtonClick() {
         const skipBtn = document.getElementById('end-game-skip-btn');
         const action = skipBtn.dataset.action;
@@ -5563,11 +6020,9 @@ function playCustomTTS(message) {
             newGame.winner = winnerValue;
             const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
             const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
-            // THIS IS THE FIX: All players are returned.
             playersToRequeue = [...winningPlayers, ...losingPlayers];
 
         } else { // This handles 'skip-result'
-            // THIS IS THE FIX: All players are returned.
             playersToRequeue = [...court.players];
         }
 
@@ -5583,7 +6038,7 @@ function playCustomTTS(message) {
         playAlertSound(openCourtMessage);
 
         resetCourtAfterGame(court.id);
-        endGameModal.classList.add("hidden");
+        resetEndGameModal(); // <-- THIS IS THE FIX
         checkAndPlayAlert(false);
     }
 
@@ -7536,18 +7991,24 @@ function playCustomTTS(message) {
         }
     });
 
+// REPLACE this event listener
     endGameCancelBtn.addEventListener("click", () => {
         const courtId = endGameModal.dataset.courtId;
+        const editGameId = endGameModal.dataset.editGameId;
+
+        if (editGameId) {
+            // If we were editing, close the end game modal and re-open the history page
+            delete endGameModal.dataset.editGameId;
+            endGameModal.classList.add("hidden");
+            historyPage.classList.remove("hidden"); // <-- THIS IS THE FIX
+            return;
+        }
+
         if (courtId) {
             const courtCardEl = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
             const button = courtCardEl ? courtCardEl.querySelector('.end-game-ball') : null;
             if (button) {
-                // This is the fix: Reset the button's state and re-animate it
-                
-                // 1. Remove any existing animation classes to reset the button
                 button.classList.remove('hide-anim', 'animate-in');
-                
-                // 2. Use a tiny delay to force the browser to re-apply the animation
                 setTimeout(() => {
                     button.classList.add('animate-in');
                 }, 50);
@@ -7555,6 +8016,7 @@ function playCustomTTS(message) {
         }
         endGameModal.classList.add("hidden");
     });
+
     endGameConfirmBtn.addEventListener("click",confirmEndGame);
     
     // MODIFIED: No button now handles closing and restoring the correct modal
@@ -7581,11 +8043,17 @@ function playCustomTTS(message) {
     
     // MODIFIED: Yes button now handles check-in/out and the force announcement
     // MODIFIED: Yes button now handles check-in/out and the force announcement
-    modalBtnYesConfirm.addEventListener("click", () => {
+modalBtnYesConfirm.addEventListener("click", () => {
         const mode = cancelConfirmModal.dataset.mode;
 
         if (mode === "removeSingleChild") {
             executeRemoveSingleChild();
+        } else if (mode === "confirmEditGame") {
+            const gameId = cancelConfirmModal.dataset.gameId;
+            cancelConfirmModal.classList.add("hidden");
+            resetConfirmModal();
+            historyPage.classList.add("hidden"); // <-- THIS IS THE FIX
+            handleEndGame(null, gameId); 
         } else if (mode === "checkOutPlayer") {
             executePlayerCheckOut();
         } else if (mode === "checkInPlayer") {
@@ -7645,6 +8113,41 @@ function playCustomTTS(message) {
             validateEndGameForm();
         });
     });
+
+
+// REPLACE this event listener
+    courtModeKeypadButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            const key = e.target.dataset.key;
+            let displayValue = courtModeKeypadDisplay.dataset.hiddenValue || '';
+
+            if (e.target.id === 'court-mode-keypad-confirm-btn') {
+                if (e.target.disabled) return;
+                checkCourtModePasscode();
+                return;
+            }
+
+            if (key === 'backspace') {
+                displayValue = displayValue.slice(0, -1);
+            } else if (key === 'clear') {
+                displayValue = '';
+            } else if (/[0-9]/.test(key)) {
+                if (displayValue.length >= 6) return; // Max length for PIN
+                displayValue += key;
+            }
+
+            courtModeKeypadDisplay.dataset.hiddenValue = displayValue;
+            courtModeKeypadDisplay.textContent = '*'.repeat(displayValue.length);
+
+            // --- THIS IS THE FIX ---
+            // The button is only enabled when exactly 6 digits are entered.
+            const isReady = displayValue.length === 6;
+            courtModeKeypadConfirmBtn.disabled = !isReady;
+            // --- END OF FIX ---
+        });
+    });
+
+    courtModeKeypadCancelBtn.addEventListener('click', hideCourtModeKeypad);
 
     keypadButtons.forEach(button => { button.addEventListener('click', handleKeypadClick); });
     keypadCancelBtn.addEventListener('click', hideKeypad);
@@ -7802,6 +8305,23 @@ function playCustomTTS(message) {
     }
 
 
+// EVENT LISTENER FOR GAME HISTORY
+    historyList.addEventListener('click', (e) => {
+        const historyItem = e.target.closest('.history-item');
+        if (!historyItem || !historyItem.dataset.gameId) return;
+
+        const gameId = historyItem.dataset.gameId;
+
+        // Show a confirmation modal before starting the edit
+        cancelConfirmModal.querySelector("h3").textContent = "Edit Game Results";
+        cancelConfirmModal.querySelector("p").textContent = "Are you sure you want to edit the results for this game?";
+        modalBtnYesConfirm.textContent = "Yes, Edit";
+        modalBtnNo.textContent = "Cancel";
+        cancelConfirmModal.dataset.mode = "confirmEditGame";
+        cancelConfirmModal.dataset.gameId = gameId;
+        cancelConfirmModal.classList.remove("hidden");
+    });
+
     // EVENT LISTENERS FOR SOUND SELECTION
     selectSoundBtn.addEventListener('click', handleSoundSelectionModal);
     soundSelectionList.addEventListener('change', handleSoundSelection);
@@ -7894,6 +8414,45 @@ function playCustomTTS(message) {
     signOutMemberCancelBtn.addEventListener('click', () => {
         signOutMemberModal.classList.add('hidden');
         ballManagementModal.classList.remove('hidden');
+    });
+
+    // EVENT LISTENERS FOR MANUAL GAME ENTRY (Consolidated and Corrected)
+    document.getElementById('manual-entry-btn').addEventListener('click', openManualPlayerSelectionModal);
+
+    manualPlayerList.addEventListener('click', handleManualPlayerClick);
+
+    manualEntryCancelBtn.addEventListener('click', () => {
+        manualEntryModal.classList.add('hidden');
+        historyPage.classList.remove('hidden'); // Return to history
+    });
+
+    manualEntryConfirmBtn.addEventListener('click', handleConfirmManualPlayers);
+
+    addOutsidePlayerBtn.addEventListener('click', showOutsidePlayerModal);
+
+    outsidePlayerList.addEventListener('click', handleOutsidePlayerClick);
+
+    outsidePlayerConfirmBtn.addEventListener('click', handleConfirmManualPlayers);
+
+    outsidePlayerBackBtn.addEventListener('click', () => {
+        outsidePlayerModal.classList.add('hidden');
+        showManualPlayerSelectionModal(); // Go back and re-render the main selection modal
+    });
+
+    // Listener for removing a player from the "Selected" area in the main modal
+    manualSelectedPlayersContainer.addEventListener('click', (e) => {
+        const chip = e.target.closest('.selected-player-chip');
+        if (chip) {
+            handleRemoveManualPlayer(chip.dataset.playerName);
+        }
+    });
+
+    // Listener for removing a player from the "Selected" area in the outside player modal
+    outsideSelectedPlayersContainer.addEventListener('click', (e) => {
+        const chip = e.target.closest('.selected-player-chip');
+        if (chip) {
+            handleRemoveManualPlayer(chip.dataset.playerName);
+        }
     });
 
     // EVENT LISTENERS FOR ADMIN COURT MANAGEMENT

@@ -248,15 +248,15 @@
             <div class="modal-header-with-actions">
                 <h3>Check In Player</h3>
             </div>
-            <p></p>
+            <p>Select a member, choose a returning or new guest,.</p>
             <div class="list-container">
                 <div id="check-in-abc-index" class="abc-index"></div>
                 <ul id="check-in-list" class="modal-action-list scrollable"></ul>
             </div>
             <div id="check-in-actions" class="modal-actions">
-                <button id="returning-guest-btn" class="action-btn neutral">Returning Guest</button>
-                <button id="add-new-player-btn" class="action-btn">Add New<br>Guest</button>
                 <button id="check-in-cancel-btn">Close</button>
+                <button id="returning-guest-btn" class="action-btn neutral">Guest</button>
+                <button id="add-new-player-btn" class="action-btn">New Guest</button>
             </div>
         </div>
     </div>
@@ -264,7 +264,7 @@
     <div id="returning-guest-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
-                <h3></h3>
+                <h3>Check In Returning Guest</h3>
             </div>
             <p>Select the '+' next to the guest to check them in.</p>
             <div class="list-container">
@@ -282,7 +282,7 @@
             <div class="modal-header-with-actions">
                 <h3>Check Out Player</h3>
             </div>
-            <p></p>
+            <p>Select the 'X' next to the player to check out.</p>
             <div class="list-container">
                 <div id="check-out-abc-index" class="abc-index"></div>
                 <ul id="check-out-list" class="modal-action-list scrollable"></ul>
@@ -364,8 +364,9 @@
             <div id="history-list" class="history-list scrollable">
             </div>
             <div class="modal-actions">
-                <button id="history-toggle-view" class="action-btn">Show Player Stats</button>
                 <button id="history-close-btn">Close</button>
+                <button id="manual-entry-btn" class="action-btn neutral">Add Manual<br>Result</button>
+                <button id="history-toggle-view" class="action-btn">Show Player<br>Statistics</button>
             </div>
         </div>
     </div>
@@ -391,6 +392,31 @@
 
                 <button class="keypad-btn wide-half cancel hidden" id="keypad-cancel-btn">Cancel</button>
                 <button id="keypad-confirm-btn" class="keypad-btn wide-full confirm">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="court-mode-keypad-modal" class="modal-overlay hidden">
+        <div class="keypad-content">
+            <div id="court-mode-keypad-display"></div>
+            <div class="keypad-grid">
+                <button class="keypad-btn" data-key="1">1</button>
+                <button class="keypad-btn" data-key="2">2</button>
+                <button class="keypad-btn" data-key="3">3</button>
+                <button class="keypad-btn action" data-key="backspace">⌫</button>
+                
+                <button class="keypad-btn" data-key="4">4</button>
+                <button class="keypad-btn" data-key="5">5</button>
+                <button class="keypad-btn" data-key="6">6</button>
+                <button class="keypad-btn action secondary" data-key="clear">C</button>
+                
+                <button class="keypad-btn" data-key="7">7</button>
+                <button class="keypad-btn" data-key="8">8</button>
+                <button class="keypad-btn" data-key="9">9</button>
+                <button class="keypad-btn" data-key="0">0</button>
+
+                <button class="keypad-btn wide-half cancel" id="court-mode-keypad-cancel-btn">Cancel</button>
+                <button id="court-mode-keypad-confirm-btn" class="keypad-btn wide-half confirm">Done</button>
             </div>
         </div>
     </div>
@@ -648,8 +674,8 @@
                 <ul id="junior-club-list" class="modal-action-list scrollable"></ul>
             </div>
             <div class="modal-actions modal-grid-2x2">
-                <button id="new-parent-btn" class="action-btn confirm">New Parent</button>
                 <button id="junior-club-close-btn" class="action-btn cancel">Close</button>
+                <button id="new-parent-btn" class="action-btn confirm">New Parent</button>
             </div>
         </div>
     </div>
@@ -809,6 +835,43 @@
         </div>
     </div>
     
+<div id="manual-entry-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Select Checked In Players</h3>
+            </div>
+            <p>Select 2 (Singles) or 4 (Doubles) players who participated in the match.</p>
+            <div id="manual-selected-players" class="manual-selected-container"></div>
+            <div class="list-container">
+                <div id="manual-player-abc-index" class="abc-index"></div>
+                <ul id="manual-player-list" class="modal-action-list scrollable"></ul>
+            </div>
+            <div class="modal-actions">
+                <button id="manual-entry-cancel-btn" class="action-btn cancel">Close</button>
+                <button id="add-outside-player-btn" class="action-btn">Checked Out</button>
+                <button id="manual-entry-confirm-btn" class="action-btn" disabled>Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="outside-player-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header-with-actions">
+                    <h3>Select Checked Out Players</h3>
+                </div>
+                <p>Select a player who has already checked out or is a returning guest.</p>
+                <div id="outside-selected-players" class="manual-selected-container"></div>
+                <div class="list-container">
+                    <div id="outside-player-abc-index" class="abc-index"></div>
+                    <ul id="outside-player-list" class="modal-action-list scrollable"></ul>
+                </div>
+                <div class="modal-actions">
+                    <button id="outside-player-back-btn" class="action-btn cancel">Back</button>
+                    <button id="outside-player-confirm-btn" class="action-btn" disabled>Confirm</button>
+                </div>
+            </div>
+        </div>
+
     <script src="script.js"></script>
 </body>
 </html>

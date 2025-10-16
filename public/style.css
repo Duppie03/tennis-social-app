@@ -611,9 +611,8 @@ header h1 { margin: 0; }
     display: flex;
     justify-content: center;
     gap: 1rem;
-    margin-top: 1.5rem;
+    margin-top: auto; /* This is the key change */
     padding-top: 0.5rem;
-    /* ADD THIS LINE */
     margin-bottom: 0.5rem;
 }
 
@@ -1367,6 +1366,8 @@ header h1 { margin: 0; }
     margin-left: -1.0rem; /* Add negative margin to pull it closer */
 }
 
+
+
 /* --- STYLE TWEAK: Add Gap Between Header Icons --- */
 #junior-club-btn {
     margin-right: 0.8rem; /* Adjust this value for a larger or smaller gap */
@@ -1728,8 +1729,16 @@ header h1 { margin: 0; }
 }
 
 
-#end-game-modal .modal-actions button {
-    flex-basis: 150px;
+#end-game-modal .modal-actions button,
+#history-page .modal-actions button,
+#manual-entry-modal .modal-actions button {
+    flex: 1;
+}
+
+#add-outside-player-btn {
+    background-color: var(--primary-blue) !important;
+    border-color: var(--primary-blue) !important;
+    color: white !important;
 }
 
 .modal-actions button,
@@ -1781,6 +1790,14 @@ header h1 { margin: 0; }
     color: white;
     border: 1px solid var(--cancel-color);
 }
+
+.modal-actions .action-btn.cancel {
+    background-color: var(--cancel-color) !important;
+    border-color: var(--cancel-color) !important;
+    color: white !important;
+}
+
+
 #modal-cancel-btn:hover,
 #guest-cancel-btn:hover,
 #check-in-cancel-btn:hover,
@@ -1807,9 +1824,30 @@ header h1 { margin: 0; }
     background-color: var(--primary-blue) !important;
     border-color: var(--primary-blue) !important;
     color: white !important;
-    flex: initial;
 }
 #history-toggle-view:hover { background-color: #0056b3 !important; }
+
+.history-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer; /* Add this line to change the cursor */
+    transition: background-color 0.2s; /* Optional: adds a smooth hover effect */
+}
+
+/* Optional: Add this rule for a background color change on hover */
+.history-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Add this new rule or adjust existing #end-game-timestamp rule */
+#end-game-timestamp {
+    font-size: 0.9rem;
+    color: #6c757d;
+    text-align: left; /* Changed from center to left */
+    margin-top: -0.5rem; /* Adjusted from -1rem */
+    margin-bottom: 1.5rem; /* Retained or adjusted as needed */
+    padding-left: 1.5rem; /* Add padding to align with modal content */
+}
 
 .header-controls {
     display: flex;
@@ -1869,6 +1907,38 @@ header h1 { margin: 0; }
     pointer-events: none;
 }
 
+
+/* =================================
+    Manual Entry Selected Players (NEW)
+    ================================= */
+.manual-selected-container {
+    padding: 0.5rem 0;
+    margin-bottom: 1rem;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 50px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.selected-player-chip {
+    background-color: var(--primary-blue);
+    color: white;
+    padding: 0.5rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.selected-player-chip:hover {
+    background-color: var(--cancel-color);
+}
 
 /* And change it to this */
 .modal-action-list.scrollable {
@@ -2018,20 +2088,34 @@ header h1 { margin: 0; }
 }
 .history-details {
     display: grid;
-    grid-template-columns: 150px 1fr 80px; 
+    /* 80px for Time, 1fr for Game/Duration, 60px for Score */
+    grid-template-columns: 80px 1fr 60px; 
     align-items: center;
-    font-weight: bold;
+    font-weight: bold; /* Ensures the header text is bold */
     margin-bottom: 0.5rem;
     font-size: calc(1rem * var(--font-size-multiplier));
+    width: 100%; 
+    box-sizing: border-box; 
 }
+/* REPLACE alignment rules for cells (around line 1625) */
 .history-details .game-time-cell {
+    /* Right-align time */
+    text-align: left; 
+    padding-right: 0.5rem;
     font-size: calc(0.85rem * var(--font-size-multiplier));
     color: var(--neutral-color);
-    font-weight: normal;
+    font-weight: normal; /* Keep the data value normal weight */
 }
 .history-details .score-cell {
-    text-align: right;
+    /* Center-align score */
+    text-align: center;
 }
+/* Ensure the middle column (Game/Duration) remains left-aligned (default for span, but good to be explicit) */
+/* Ensure the middle column (Game/Duration) remains left-aligned */
+.history-details > span:nth-child(2) {
+    text-align: center;
+}
+
 .history-teams {
     font-size: calc(0.9rem * var(--font-size-multiplier));
     color: var(--neutral-color);
@@ -2150,21 +2234,8 @@ header h1 { margin: 0; }
     box-sizing: border-box;
 }
 
-#keypad-display, #alpha-keypad-display {
-    font-size: calc(2.5rem * var(--font-size-multiplier));
-    font-weight: 500;
-    padding: 0.5rem 0.5rem 1rem;
-    text-align: right;
-    margin-bottom: 0.5rem;
-    border-bottom: 2px solid var(--border-color);
-    min-height: 50px;
-    position: relative;
-}
-#keypad-display[data-mode="admin"] {
-    font-family: 'Verdana', sans-serif; 
-    letter-spacing: 5px; 
-    text-align: center;
-}
+
+
 #keypad-display:not([data-mode="admin"])[data-placeholder]::before {
     content: attr(data-placeholder);
     position: absolute;
@@ -2182,6 +2253,75 @@ header h1 { margin: 0; }
     grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
 }
+
+/* =================================
+    Court Mode Keypad Styles (NEW)
+    ================================= */
+#court-mode-keypad-modal {
+    align-items: center;
+    z-index: 1002; /* Ensure it appears above other modals */
+}
+
+/* Combined styles for ALL keypad displays */
+#keypad-display, #alpha-keypad-display, #court-mode-keypad-display {
+    font-size: calc(2.5rem * var(--font-size-multiplier));
+    font-weight: 500;
+    padding: 0; /* Padding is now handled by flexbox alignment */
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+    position: relative;
+    box-sizing: border-box;
+
+    /* === FIX FOR CONSISTENT HEIGHT === */
+    height: 70px;            /* Set a fixed height to prevent resizing */
+    display: flex;           /* Enable flexbox for alignment */
+    align-items: center;     /* Vertically center the text */
+    justify-content: center; /* Horizontally center the text by default */
+}
+
+/* Specific style for PIN input fields */
+#keypad-display[data-mode="admin"],
+#keypad-display[data-mode="reset"],
+#court-mode-keypad-display {
+    font-family: 'Verdana', sans-serif;
+    letter-spacing: 5px;
+}
+
+/* Fallback alignment for the standard numeric keypad (scores, etc.) */
+#keypad-display:not([data-mode]) {
+    justify-content: flex-end; /* Align numbers to the right */
+    padding-right: 1rem;
+}
+
+#court-mode-keypad-display[data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ccc;
+    font-size: calc(1.5rem * var(--font-size-multiplier));
+    font-weight: 400;
+    letter-spacing: normal; /* Reset spacing for placeholder text */
+}
+
+/* Shake animation for incorrect PIN */
+#court-mode-keypad-modal .keypad-content.shake {
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Styles for the Done button */
+#court-mode-keypad-confirm-btn:not(:disabled) {
+    background-color: var(--confirm-color);
+}
+#court-mode-keypad-confirm-btn:not(:disabled):hover {
+    background-color: var(--confirm-hover-color);
+}
+
+
+
+
 @keyframes shake {
     10%, 90% { transform: translate3d(-1px, 0, 0); }
     20%, 80% { transform: translate3d(2px, 0, 0); }
@@ -2898,6 +3038,124 @@ input:checked + .slider:before {
 
 /* For very narrow phones in portrait (e.g., < 500px) */
 @media (max-width: 500px) {
+    /* --- START OF CONSOLIDATED 3-BUTTON WRAP FIX (Inside @media (max-width: 500px)) --- */
+
+    /* Target all relevant 3-button modals to enable flex-wrapping */
+    #end-game-modal .modal-actions,
+    #history-page .modal-actions,
+    #manual-entry-modal .modal-actions {
+        flex-wrap: wrap; 
+        gap: 0; /* Remove internal gap, use margins instead */
+    }
+
+    /* 1. Define the width and order for the top row action buttons */
+    #history-page #manual-entry-btn, 
+    #history-page #history-toggle-view,
+    #manual-entry-modal #add-outside-player-btn,
+    #manual-entry-modal #manual-entry-confirm-btn, 
+    #end-game-modal #end-game-skip-btn, 
+    #end-game-modal #end-game-confirm-btn 
+    {
+        /* Calculate 50% width minus half the margin for a perfect fit */
+        width: calc(50% - 0.25rem); 
+        flex: 0 0 auto !important; /* Disable flex-grow to allow wrapping */
+        margin-bottom: 0.5rem; /* Space below the top row of buttons */
+        margin-top: 0 !important; /* Ensure margin top is zero */
+    }
+
+    /* 2. Add margin between the two side-by-side action buttons on the left */
+    #history-page #manual-entry-btn, 
+    #manual-entry-modal #add-outside-player-btn, 
+    #end-game-modal #end-game-skip-btn {
+        margin-right: 0.5rem; 
+    }
+
+    /* 3. Force the Cancel/Close button to the last row, full width */
+    #history-page #history-close-btn,
+    #manual-entry-modal #manual-entry-cancel-btn,
+    #end-game-modal #end-game-cancel-btn {
+        width: 100%;
+        order: 3; /* Forces it to the last visual position */
+        margin-top: 0.5rem; /* Space from the buttons above */
+        margin-bottom: 0 !important;
+        margin-right: 0 !important;
+    }
+    /* --- END OF CONSOLIDATED 3-BUTTON WRAP FIX --- */
+
+
+    /* ADD this new block INSIDE the @media (max-width: 500px) section */
+    .history-list .history-details {
+        /* Redefine grid for mobile: Time column disappears (80px column removed) */
+        grid-template-columns: 1fr 60px !important; 
+    }
+
+    /* Hide the 'Time' header cell */
+    .history-list .history-item.roster-header .game-time-cell {
+        display: none !important;
+    }
+
+    /* Hide the time data cell in the list items */
+    .history-list .history-item:not(.roster-header) .game-time-cell {
+        display: none !important;
+    }
+
+    /* --- Override for Check-In Modal (3-Button Grid) --- */
+    #check-in-actions {
+        /* Overwrite the 3-column grid to be 2x2 */
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: auto auto !important;
+        gap: 0.5rem !important; /* Adjust gap */
+    }
+
+    /* Assign position for the 3 Check-In buttons */
+    #check-in-actions #returning-guest-btn {
+        grid-column: 1 / 2; 
+        grid-row: 1 / 2;
+    }
+    #check-in-actions #add-new-player-btn {
+        grid-column: 2 / 3;
+        grid-row: 1 / 2;
+    }
+    #check-in-actions #check-in-cancel-btn {
+        grid-column: 1 / 3; /* Spans both columns */
+        grid-row: 2 / 3;
+    }
+
+    /* --- FIX: Game History Modal (3-Button Forced 2x2 Grid) --- */
+    #history-page .modal-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: auto auto !important;
+        gap: 0.5rem !important;
+    }
+
+    #history-page .modal-actions button {
+        /* Reset flex properties and ensure they span correctly */
+        flex: initial !important;
+        width: 100% !important;
+        margin: 0 !important;
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    /* Force the "Close" button to the bottom row, spanning both columns */
+    #history-page #history-close-btn {
+        grid-column: 1 / 3 !important;
+        grid-row: 2 / 3 !important;
+    }
+
+    /* Position the action buttons on the top row */
+    #history-page #manual-entry-btn {
+        grid-column: 1 / 2 !important;
+        grid-row: 1 / 2 !important;
+    }
+
+    #history-page #history-toggle-view {
+        grid-column: 2 / 3 !important;
+        grid-row: 1 / 2 !important;
+    }
+
+
     .court-grid {
         grid-template-columns: 1fr;
     }
@@ -4025,6 +4283,21 @@ input:checked + .slider:before {
     justify-content: center;
 }
 
+.action-btn,
+.modal-actions button {
+    /* This is the key change: sets a minimum height that fits two lines */
+    min-height: 2em; 
+    
+    /* These properties will vertically center the text inside the button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Adjust padding for a balanced look with the new height */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
 .more-options-btn.on-court:hover {
     background-color: var(--primary-green); /* Distinct neutral hover color */
 }
@@ -4373,4 +4646,109 @@ input:checked + .slider:before {
 /* --- ROOKIE SELECT BALL OVERRIDE --- */
 .court-card.is-rookie-mode .court-confirm-btn.select-court:not(.reserved-ball) {
     background-image: url('source/tennis-ball-orange.png') !important;
+}
+
+/* ===================================================
+    Admin Match Mode Styles (NEW & REVISED)
+   =================================================== */
+
+/* Styles for the main '1 Set', '3 Sets', 'Fast Play' selector */
+.match-mode-selector {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    justify-content: space-around;
+}
+
+/* General label styling for both selectors */
+.match-mode-selector label,
+.fast-play-games-selector .radio-group label {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: calc(1rem * var(--font-size-multiplier));
+    white-space: nowrap;
+}
+
+/* General input styling for both selectors */
+.match-mode-selector input,
+.fast-play-games-selector input {
+    margin-right: 0.5rem;
+}
+
+/* Container for the "Fast Play Games" section */
+.fast-play-games-selector {
+    display: flex;
+    flex-direction: column; /* Stack label and radio group vertically */
+    align-items: stretch;   /* Make children full width */
+    padding: 0.8rem 1rem;
+    margin-top: 0.5rem;
+}
+
+/* Label for "Fast Play Games (First to):" */
+.fast-play-games-selector > label:first-of-type {
+    margin-bottom: 0.5rem; /* Space below the label */
+    text-align: left;
+    font-weight: 500;
+}
+
+/* Radio button group for 4, 6, 8 games */
+.fast-play-games-selector .radio-group {
+    display: flex;
+    width: 100%; /* Make the group full width */
+    box-sizing: border-box;
+    gap: 1rem;
+    padding: 0.25rem 0.5rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    justify-content: space-around; /* Distribute buttons evenly */
+}
+
+/* ===================================================
+    MOBILE MODAL SCROLLING FIX (NEW)
+   =================================================== */
+
+/* Apply this fix within the existing mobile media query */
+@media (max-width: 900px) {
+    /* Make the entire content area of these modals scrollable if it overflows */
+    #admin-settings-modal .modal-content,
+    #ball-management-modal .modal-content {
+        overflow-y: auto;
+        /* Give a bit more room on mobile screens */
+        max-height: 85vh; 
+    }
+
+    /* Prevent the inner panels from shrinking unexpectedly on some devices */
+    #admin-settings-modal .admin-settings-panel,
+    #ball-management-modal .admin-settings-panel {
+        flex-shrink: 0;
+    }
+}
+
+/* =================================
+    Match Mode Display (NEW)
+   ================================= */
+
+.match-mode-display {
+    position: absolute;
+    bottom: 5px; /* Positioned at the bottom of the court card's inner body */
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    font-size: calc(0.9em * var(--font-size-multiplier));
+    text-shadow: 1px 1px 2px black;
+    z-index: 6; /* Higher z-index to appear above overlays */
+    cursor: default; /* Make it non-clickable */
+    pointer-events: none; /* Allows clicks to pass through to elements behind it */
+}
+
+/* When 'Set Teams' is present, it claims the bottom spot. This rule pushes
+   the 'Match Mode' text up by adjusting its 'bottom' property. */
+.teams-not-set + .match-mode-display {
+    bottom: 25px; /* Adjust this value if you need more or less space */
 }
