@@ -1304,26 +1304,31 @@ header h1 { margin: 0; }
 
 .player-spot > span {
     position: absolute;
-    left: 5px;
-    right: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transform: translate(-50%, -50%);
+    width: 50%;
     color: white;
     font-weight: bold;
-    font-size: calc(0.85em * var(--font-size-multiplier));
+    font-size: calc(1.1em * var(--font-size-multiplier));
     text-align: center;
     line-height: 1.2;
+    text-transform: uppercase;
 }
 
 .player-spot.top-row > span {
-    top: 0;
-    bottom: 38%;
+    top: 31%;
 }
 
 .player-spot.bottom-row > span {
-    top: 38%;
-    bottom: 0;
+    top: 69%;
+}
+
+/* New Horizontal Positioning */
+.player-spot[data-player-pos$="-left"] > span {
+    left: 60%;
+}
+
+.player-spot[data-player-pos$="-right"] > span {
+    left: 40%;
 }
 
 
@@ -1730,15 +1735,68 @@ header h1 { margin: 0; }
 
 
 #end-game-modal .modal-actions button,
-#history-page .modal-actions button,
 #manual-entry-modal .modal-actions button {
     flex: 1;
+}
+
+#history-page .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    grid-template-rows: auto auto;    /* Two rows */
+    gap: 0.5rem;
+}
+
+/* --- Button Placement --- */
+#history-page #history-toggle-teams-btn {
+    grid-column: 1 / 2; /* Top-left */
+    grid-row: 1 / 2;
+}
+
+#history-page #history-toggle-view {
+    grid-column: 2 / 3; /* Top-right */
+    grid-row: 1 / 2;
+}
+
+#history-page #history-close-btn {
+    grid-column: 1 / 2; /* Bottom-left */
+    grid-row: 2 / 3;
+}
+
+#history-page #manual-entry-btn {
+    grid-column: 2 / 3; /* Bottom-right */
+    grid-row: 2 / 3;
 }
 
 #add-outside-player-btn {
     background-color: var(--primary-blue) !important;
     border-color: var(--primary-blue) !important;
     color: white !important;
+}
+
+.stats-grid-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.stats-grid-row > * {
+    padding: 0;
+    margin: 0;
+}
+
+.stats-grid-row > *:nth-child(1) {
+    text-align: left;
+}
+.stats-grid-row > *:nth-child(2),
+.stats-grid-row > *:nth-child(3),
+.stats-grid-row > *:nth-child(4) {
+    text-align: center;
+}
+
+.history-item[style*="background-color: #f8f9fa;"] .stats-grid-row {
+    padding-right: 17px; /* This compensates for a standard scrollbar width */
+    box-sizing: border-box;
 }
 
 .modal-actions button,
@@ -3049,8 +3107,6 @@ input:checked + .slider:before {
     }
 
     /* 1. Define the width and order for the top row action buttons */
-    #history-page #manual-entry-btn, 
-    #history-page #history-toggle-view,
     #manual-entry-modal #add-outside-player-btn,
     #manual-entry-modal #manual-entry-confirm-btn, 
     #end-game-modal #end-game-skip-btn, 
@@ -3064,14 +3120,12 @@ input:checked + .slider:before {
     }
 
     /* 2. Add margin between the two side-by-side action buttons on the left */
-    #history-page #manual-entry-btn, 
     #manual-entry-modal #add-outside-player-btn, 
     #end-game-modal #end-game-skip-btn {
         margin-right: 0.5rem; 
     }
 
     /* 3. Force the Cancel/Close button to the last row, full width */
-    #history-page #history-close-btn,
     #manual-entry-modal #manual-entry-cancel-btn,
     #end-game-modal #end-game-cancel-btn {
         width: 100%;
@@ -3081,6 +3135,68 @@ input:checked + .slider:before {
         margin-right: 0 !important;
     }
     /* --- END OF CONSOLIDATED 3-BUTTON WRAP FIX --- */
+
+    #history-page .modal-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important; /* Two equal columns */
+        grid-template-rows: auto auto !important;   /* Two rows */
+        gap: 0.5rem !important;
+    }
+
+    #history-page .modal-actions button {
+        /* Reset properties to ensure they fit the new grid */
+        flex: initial !important;
+        width: 100% !important;
+        margin: 0 !important;
+        grid-column: auto; /* Allow grid to place them */
+        grid-row: auto;
+    }
+
+    /* --- Button Placement for Mobile --- */
+    #history-page #history-toggle-teams-btn {
+        grid-column: 1 / 2 !important;
+        grid-row: 1 / 2 !important;
+    }
+
+    #history-page #history-toggle-view {
+        grid-column: 2 / 3 !important;
+        grid-row: 1 / 2 !important;
+    }
+
+    #history-page #history-close-btn {
+        grid-column: 1 / 2 !important;
+        grid-row: 2 / 3 !important;
+    }
+
+    #history-page #manual-entry-btn {
+        grid-column: 2 / 3 !important;
+        grid-row: 2 / 3 !important;
+    }
+
+.stats-grid-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr; /* Defines the column proportions */
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+}
+
+/* Default alignment for all cells is now center */
+.stats-grid-row > * {
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+
+/* Override only the first column to be left-aligned */
+.stats-grid-row > *:nth-child(1) {
+    text-align: left;
+}
+    .stats-grid-row > *:nth-child(2),
+    .stats-grid-row > *:nth-child(3),
+    .stats-grid-row > *:nth-child(4) {
+        text-align: center;
+    }
 
 
     /* ADD this new block INSIDE the @media (max-width: 500px) section */
@@ -3300,19 +3416,7 @@ input:checked + .slider:before {
     margin: 2px 0; /* Reset margin to standard li */
 }
 
-.teams-not-set {
-    position: absolute;
-    bottom: 5px;
-    width: 100%;
-    text-align: center;
-    color: white;
-    font-weight: bold;
-    font-size: calc(0.9em * var(--font-size-multiplier));
-    text-shadow: 1px 1px 2px black;
-    z-index: 4;
-    cursor: pointer;
-    text-decoration: underline;
-}
+
 
 .court-confirm-btn.choose-later {
     background-color: var(--neutral-color);
@@ -3713,7 +3817,7 @@ input:checked + .slider:before {
     padding: 0.2rem 0.6rem;
     border-radius: 5px;
     font-weight: bold;
-    font-size: calc(1rem * var(--font-size-multiplier));
+    font-size: calc(1.1rem * var(--font-size-multiplier));
     min-width: 50px;
     text-align: center;
     text-shadow: 1px 1px 3px rgba(0,0,0,0.7); /* Added for readability on court lines */
@@ -4548,7 +4652,7 @@ input:checked + .slider:before {
     /* 25% Hit: Approach (0px) */
     25% { transform: translateY(0) translateX(3.125%); } 
     /* 30% to 100%: REST/Retreat (-25px) */
-    75%, 100% { transform: translateY(-25px) translateX(3.125%); }
+    55%, 100% { transform: translateY(-25px) translateX(3.125%); }
 }
 
 /* PADDLE MOVEMENT - DOUBLES TOP LEFT (TL) - Moves UP, Hits at 75% */
@@ -4566,7 +4670,7 @@ input:checked + .slider:before {
     /* 0% Hit: Approach (+25px) */
     0% { transform: translateY(0) translateX(3.125%); } 
     /* 5% to 95%: REST/Retreat (0px) */
-    50%, 95% { transform: translateY(25px) translateX(3.125%); }
+    30%, 95% { transform: translateY(25px) translateX(3.125%); }
     /* 100% Hit: Approach (+25px) */
     100% { transform: translateY(0) translateX(3.125%); } 
 }
@@ -4578,7 +4682,7 @@ input:checked + .slider:before {
     /* 50% Hit: Approach (+25px) */
     50% { transform: translateY(0) translateX(3.125%); } 
     /* 55% to 100%: REST/Retreat (0px) */
-    100% { transform: translateY(25px) translateX(3.125%); } 
+    80%, 100% { transform: translateY(25px) translateX(3.125%); } 
 }
 
 
@@ -4738,7 +4842,7 @@ input:checked + .slider:before {
     bottom: 5px; /* Positioned at the bottom of the court card's inner body */
     width: 100%;
     text-align: center;
-    color: white;
+    color: var(--neutral-color);
     font-weight: bold;
     font-size: calc(0.9em * var(--font-size-multiplier));
     text-shadow: 1px 1px 2px black;
@@ -4747,8 +4851,217 @@ input:checked + .slider:before {
     pointer-events: none; /* Allows clicks to pass through to elements behind it */
 }
 
-/* When 'Set Teams' is present, it claims the bottom spot. This rule pushes
-   the 'Match Mode' text up by adjusting its 'bottom' property. */
-.teams-not-set + .match-mode-display {
-    bottom: 25px; /* Adjust this value if you need more or less space */
+
+/* =================================
+    Leaderboard & Disclaimer Modals
+   ================================= */
+
+.rules-container {
+    margin: 1rem 0;
+    text-align: left;
+}
+
+.rules-container h4 {
+    color: var(--primary-blue);
+    margin-bottom: 0.5rem;
+}
+
+.rules-container ul {
+    padding-left: 20px;
+    margin-bottom: 1.5rem;
+}
+
+.rules-container p {
+    font-weight: 500;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: var(--primary-blue);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: calc(0.9rem * var(--font-size-multiplier));
+    padding: 0;
+}
+
+.link-button:hover {
+    color: #0056b3;
+}
+
+/* =================================
+    Leaderboard Prompt Styling
+   ================================= */
+
+.leaderboard-prompt {
+    background-color: var(--light-blue);
+    border: 2px solid var(--primary-blue);
+    color: var(--primary-blue);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+    margin-bottom: 0.2rem;
+    text-align: center;
+}
+
+.leaderboard-prompt p {
+    margin: 0;
+    font-weight: 500;
+}
+
+#leaderboard-confirm-modal .modal-actions .action-btn.confirm {
+    background-color: var(--confirm-color) !important;
+    border-color: var(--confirm-color) !important;
+}
+
+#leaderboard-confirm-modal .modal-actions .action-btn.cancel {
+    background-color: var(--cancel-color) !important;
+    border-color: var(--cancel-color) !important;
+}
+
+
+/* =================================
+    Check out Styling
+   ================================= */
+
+.checkout-stats-container {
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1.5rem 0;
+}
+
+.checkout-stats-container h4 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-blue);
+    font-size: calc(1.2rem * var(--font-size-multiplier));
+}
+
+.stats-grid {
+    display: grid;
+    /* UPDATED: Changed from 1fr 1fr to three columns */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.stat-item .stat-label {
+    font-size: 0.9em;
+    color: var(--neutral-color);
+    font-weight: 500;
+}
+
+.stat-item strong {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--dark-text);
+}
+
+.match-highlights {
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1rem;
+    font-size: calc(1rem * var(--font-size-multiplier));
+}
+
+.match-highlights p {
+    margin: 0.25rem 0;
+}
+
+/* =================================
+    Checkout Thanks Modal
+   ================================= */
+
+.checkout-thanks-logo {
+    display: block;
+    margin: -1rem auto 1rem auto;
+    height: 70px;
+    width: auto;
+    /* This is the key change: apply the SVG filter */
+    filter: url(#recolor-to-primary-blue);
+    pointer-events: none;
+}
+
+.checkout-thanks-content {
+    text-align: center;
+}
+
+#checkout-thanks-modal .modal-content,
+#checkout-thanks-no-stats-modal .modal-content {
+    padding-top: 2rem;
+    padding-bottom: 1.5rem;
+}
+
+/* =================================
+    Summary Card Extra Stats
+   ================================= */
+
+.summary-extra-stats {
+    border-top: 1px solid var(--border-color);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.summary-extra-stats > div {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.summary-extra-stats .stat-label {
+    font-size: 0.85em;
+    color: var(--neutral-color);
+    font-weight: 500;
+}
+
+.summary-extra-stats .stat-value {
+    font-size: 1em;
+    font-weight: bold;
+    color: var(--dark-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =================================
+    Summary Card Match Mode
+   ================================= */
+
+
+.summary-match-mode p {
+    background-color: var(--light-blue);
+    border: 2px solid var(--light-blue);
+    color: var(--primary-blue);
+    margin: 0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -1rem;  /* Extend to parent's edges */
+    margin-right: -1rem; /* Extend to parent's edges */
+}
+
+
+.match-mode-label {
+    display: none;
+    flex-shrink: 0;
+    font-size: calc(1rem * var(--font-size-multiplier));
+    font-weight: 400;
+}
+
+.match-mode-value {
+    flex-grow: 1;
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
 }

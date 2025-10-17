@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <svg style="position:absolute; height:0; width:0;">
+      <defs>
+        <filter id="recolor-to-primary-blue">
+            <feFlood flood-color="#0A0A57" result="flood" />
+            <feComposite in="flood" in2="SourceAlpha" operator="in" />
+        </filter>
+      </defs>
+    </svg>
+
     <header>
         <img src="source/eldorainge-tennis-logo.png" alt="Club Logo" id="header-logo">
         <div class="header-buttons">
@@ -75,6 +84,115 @@
         </div>
     </main>
 
+    <div id="checkout-thanks-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis Club" class="checkout-thanks-logo">
+            <div class="checkout-thanks-content">
+                <h3 id="checkout-thanks-title">Thanks for joining us!</h3>
+                
+                <div id="checkout-player-stats" class="checkout-stats-container hidden">
+                    <h4>Here's how you did today:</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Your Rank</span>
+                            <strong id="stat-rank">#1</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Win %</span>
+                            <strong id="stat-win-percentage">100%</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Time Today</span>
+                            <strong id="stat-time-today">00h00m</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Games Played</span>
+                            <strong id="stat-games-played">0</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Games Won</span>
+                            <strong id="stat-games-won">0</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total Time</span>
+                            <strong id="stat-total-time">00h00m</strong>
+                        </div>
+                    </div>
+                    <div class="match-highlights">
+                        <p id="best-match-highlight"><strong>Best Match:</strong> N/A</p>
+                        <p id="worst-match-highlight"><strong>Toughest Match:</strong> N/A</p>
+                    </div>
+                </div>
+
+                <p id="checkout-thanks-message">We hope you had a great day on the courts. Please join us for our next social day.</p>
+                <p><strong>Just a friendly reminder to please settle your tuck shop account before you leave.</strong></p>
+            </div>
+            <div class="modal-actions">
+                <button id="checkout-thanks-confirm-btn" class="action-btn confirm">Confirm Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-thanks-no-stats-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis Club" class="checkout-thanks-logo">
+            <div class="checkout-thanks-content">
+                <h3 id="checkout-thanks-no-stats-title">Thanks for joining us!</h3>
+                
+                <p id="checkout-thanks-no-stats-message">We hope you had a great day on the courts. Please join us for our next social day.</p>
+                <p><strong>Just a friendly reminder to please settle your tuck shop account before you leave.</strong></p>
+            </div>
+            <div class="modal-actions">
+                <button id="checkout-thanks-no-stats-confirm-btn" class="action-btn confirm">Confirm Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="leaderboard-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Rules & Leaderboard</h3>
+            </div>
+            <div class="rules-container">
+                <h4>How The App Works:</h4>
+                <ul>
+                    <li>The player at the top of the "Available Players" list selects a team from the 7 succeeding players and selects an available court to start a game.</li>
+                    <li>After your match, you must end the game on the app to be placed back in the queue.</li>
+                    <li>Court modes (Doubles, Singles, Rookie) are automatically assigned based on the number of checked-in players, with Doubles being the preferred format.</li>
+                    <li>To ensure fair play, the app will allow for a mixed doubles match if there are not enough players of the same gender in the next 7 available players.</li>
+                    <li>To ensure continuous play, if a player is called twice and does not respond, they will be moved outside the available players list and will be eligible for selection after the next match starts.</li>
+                    <li>For a bit of fun, players are ranked based on their win percentage (games won vs. games played).</li>
+                    <li>Lekker speel!!</li>
+                </ul>
+                <div class="leaderboard-prompt">
+                    <p>Do you want your results to be included in the Player Statistics Leaderboard?</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="leaderboard-btn-no" class="action-btn cancel">No, Exclude Me</button>
+                <button id="leaderboard-btn-yes" class="action-btn confirm">Yes, Include Me</button>
+            </div>
+            <div class="modal-footer" style="text-align: center; margin-top: 1rem;">
+                <button id="disclaimer-btn" class="link-button">View Disclaimer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="disclaimer-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Disclaimer</h3>
+            </div>
+            <p>Eldoraigne Tennis Club and the City of Tshwane Municipality cannot be held responsible for any injury, theft of personal items, or damage to or theft of motor vehicles.</p>
+            <p><strong>Use at own risk:</strong> All City parks and facilities are used at your own risk.</p>
+            <p><strong>Rules must be followed:</strong> All rules must be obeyed, and any reasonable request by an official on duty must be complied with.</p>
+            <p><strong>Misbehavior consequences:</strong> Misbehavior can result in offenders being barred from facilities.</p>
+            <div class="modal-actions">
+                <button id="disclaimer-close-btn" class="action-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="admin-settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
@@ -132,6 +250,16 @@
                 </div>
             </div>
             <p style="text-align: center; color: var(--neutral-color);">Choose the sound to play for notifications.</p>
+
+            <ul class="modal-action-list" style="border-top: 1px solid var(--border-color); margin-top: 1rem; padding-top: 1rem;">
+                <li class="court-availability-item">
+                    <label for="auto-minimize-toggle">Auto-Minimize Alerts</label>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-minimize-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </li>
+            </ul>
 
             <div id="sound-selection-list" class="sound-selection-list scrollable">
             </div>
@@ -363,10 +491,13 @@
             </div>
             <div id="history-list" class="history-list scrollable">
             </div>
+            <div id="team-history-list" class="history-list scrollable" style="display: none;">
+                </div>
             <div class="modal-actions">
                 <button id="history-close-btn">Close</button>
-                <button id="manual-entry-btn" class="action-btn neutral">Add Manual<br>Result</button>
-                <button id="history-toggle-view" class="action-btn">Show Player<br>Statistics</button>
+                <button id="manual-entry-btn" class="action-btn neutral">Add Manual Result</button>
+                <button id="history-toggle-teams-btn" class="action-btn">Show Team Stats</button>
+                <button id="history-toggle-view" class="action-btn">Show Player Stats</button>
             </div>
         </div>
     </div>

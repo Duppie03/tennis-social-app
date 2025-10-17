@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         historyViewMode: 'games',
         statsFilter: {
             gender: 'all',
+            teamGender: 'all', // <-- ADD THIS LINE
             sortKey: 'totalDurationMs',
             sortOrder: 'desc'
         },
@@ -140,9 +141,11 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationControls: {
             isMuted: false,        // Mute All Sounds
             isMinimized: false,    // Minimize Notifications (Only initial alert)
-            isTTSDisabled: false   // Turn Off Speech Only
+            isTTSDisabled: false,   // Turn Off Speech Only
+            autoMinimize: false    // <-- ADD THIS NEW LINE
         },
         currentQuoteIndex: 0,
+        currentAlertCount: 0, // <-- ADD THIS NEW LINE
         tennisQuotes: [
             "You only live once, but you get to serve twice.", "Tennis is a perfect combination of violent action taking place in an atmosphere of total tranquility.",
             "The serve is the only shot you have 100% control over.", "Losing is not my enemy, fear of losing is my enemy.",
@@ -227,6 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // NEW: Admin timer
     let adminSessionActive = false; // NEW: Track admin login state
     let adminSessionTimer = null;   // NEW: Timer for admin session timeout
+
+    const leaderboardConfirmModal = document.getElementById('leaderboard-confirm-modal');
+    const disclaimerModal = document.getElementById('disclaimer-modal');
 
     // NEW ELEMENTS: Weather Modals
     const currentWeatherModal = document.getElementById('current-weather-modal');
@@ -473,6 +479,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CORE FUNCTIONS ---
     function getAllKnownPlayers() { const playersOnCourt = state.courts.flatMap(court => court.players); const allPlayers = [ ...state.clubMembers, ...state.availablePlayers, ...playersOnCourt ]; const uniquePlayers = Array.from(new Map(allPlayers.map(p => [p.name, p])).values()); state.gameHistory.forEach(game => { [...game.teams.team1, ...game.teams.team2].forEach(name => { if (!uniquePlayers.some(p => p.name === name)) { uniquePlayers.push({ name: name, gender: '?', guest: true }); } }); }); return uniquePlayers; }
+
+    function getPlayerRank(playerName, playerGender) {
+        const todaysGames = state.gameHistory.filter(game => {
+            const gameDate = new Date(game.endTime).toISOString().split('T')[0];
+            return gameDate === new Date().toISOString().split('T')[0];
+        });
+        const allStats = calculatePlayerStats(todaysGames);
+        const allPlayers = getAllKnownPlayers();
+
+        const leaderboardPlayers = Object.keys(allStats)
+            .map(name => {
+                const player = allPlayers.find(p => p.name === name);
+                return {
+                    name,
+                    ...allStats[name],
+                    gender: player ? player.gender : '?',
+                    onLeaderboard: player ? player.onLeaderboard : false
+                };
+            })
+            .filter(p => p.onLeaderboard && p.gender === playerGender)
+            .sort((a, b) => {
+                const winPctA = a.played > 0 ? a.won / a.played : 0;
+                const winPctB = b.played > 0 ? b.won / b.played : 0;
+                if (winPctB !== winPctA) return winPctB - winPctA;
+                return b.totalDurationMs - a.totalDurationMs;
+            });
+
+        const rank = leaderboardPlayers.findIndex(p => p.name === playerName) + 1;
+        return rank > 0 ? rank : null;
+    }
+
+    function findBestAndWorstMatches(playerName) {
+        const todaysGames = state.gameHistory.filter(game => {
+            const gameDate = new Date(game.endTime).toISOString().split('T')[0];
+            return gameDate === new Date().toISOString().split('T')[0];
+        });
+
+        const playerGames = todaysGames.filter(game =>
+            (game.teams.team1.includes(playerName) || game.teams.team2.includes(playerName)) && game.score
+        );
+
+        if (playerGames.length === 0) return { best: null, worst: null };
+
+        let bestMatch = { scoreDiff: -Infinity, text: '' };
+        let worstMatch = { scoreDiff: Infinity, text: '' };
+
+        playerGames.forEach(game => {
+            const isTeam1 = game.teams.team1.includes(playerName);
+            const playerScore = isTeam1 ? game.score.team1 : game.score.team2;
+            const opponentScore = isTeam1 ? game.score.team2 : game.score.team1;
+            const scoreDiff = playerScore - opponentScore;
+            const outcome = scoreDiff > 0 ? 'Won' : 'Lost';
+            const scoreText = `${outcome} ${playerScore}-${opponentScore}`;
+
+            if (scoreDiff > bestMatch.scoreDiff) {
+                bestMatch = { scoreDiff, text: scoreText };
+            }
+            if (scoreDiff < worstMatch.scoreDiff) {
+                worstMatch = { scoreDiff, text: scoreText };
+            }
+        });
+
+        return {
+            best: bestMatch.text,
+            worst: worstMatch.text
+        };
+    }
+    
     function getPlayerByName(name) { 
         let player = state.availablePlayers.find(p => p.name === name); 
         if (player) return player; 
@@ -498,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.uiSettings = { fontSizeMultiplier: 1.0 };
             }
 
-if (!state.courtSettings) {
+            if (!state.courtSettings) {
                 state.courtSettings = {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
                 };
@@ -650,13 +724,19 @@ if (!state.courtSettings) {
                     timerEl.textContent = `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`;
                 } else if (court.status === 'game_pending' && court.autoStartTimeTarget) {
                     const remaining = court.autoStartTimeTarget - Date.now();
-                    if (remaining < 0) return timerEl.textContent = "00:00";
+                    if (remaining < 0) {
+                        timerEl.textContent = "00:00";
+                        return;
+                    }
                     const minutes = Math.floor(remaining / 60000);
                     const seconds = Math.floor((remaining % 60000) / 1000);
                     timerEl.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                } else {
+                    timerEl.textContent = ''; // Clear timer if not in progress or pending
                 }
             }
         });
+        updateAlertStatusTimer();
     }
 
 
@@ -1745,7 +1825,139 @@ if (!state.courtSettings) {
         headerTitle.style.paddingLeft = widthDifference < 0 ? `${-widthDifference}px` : '0';
     }
 
-    function calculatePlayerPlaytime() { const stats = calculatePlayerStats(); const now = Date.now(); state.courts.forEach(court => { if (court.status === 'in_progress' && court.gameStartTime) { const elapsed = Date.now() - court.gameStartTime; court.players.forEach(player => { const name = player.name; stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 }; stats[name].totalDurationMs += elapsed; }); } }); return stats; }
+    function calculatePlayerPlaytime() {
+        const stats = calculatePlayerStats(state.gameHistory); // Process all games for total playtime
+        const now = Date.now();
+        state.courts.forEach(court => {
+            if (court.status === 'in_progress' && court.gameStartTime) {
+                const elapsed = Date.now() - court.gameStartTime;
+                court.players.forEach(player => {
+                    const name = player.name;
+                    stats[name] = stats[name] || { played: 0, won: 0, totalDurationMs: 0 };
+                    stats[name].totalDurationMs += elapsed;
+                });
+            }
+        });
+        return stats;
+    }
+
+    function calculateTeamStats(gamesToProcess) {
+        const teamStats = {};
+
+        gamesToProcess.forEach(game => {
+            // Skip games that were skipped or have no score
+            if (game.winner === 'skipped' || !game.score) return;
+
+            // Skip games if any player opted out of the leaderboard
+            const allPlayerObjects = [...game.teams.team1, ...game.teams.team2].map(name => getPlayerByName(name));
+            if (allPlayerObjects.some(p => p.onLeaderboard === false)) return;
+
+            // Calculate game duration
+            const [hStr, mStr] = game.duration.split('h').map(s => s.replace('m', ''));
+            const gameDuration = (parseInt(hStr, 10) * 3600000) + (parseInt(mStr, 10) * 60000);
+
+            const processTeam = (team, isWinner) => {
+                if (team.length === 0) return;
+                
+                // Create a unique key for the team by sorting player names
+                const teamKey = [...team].sort().join(' & ');
+                const teamPlayerObjects = team.map(name => getPlayerByName(name));
+                const genders = teamPlayerObjects.map(p => p.gender);
+                
+                let teamType = 'Mixed';
+                if (genders.every(g => g === 'M')) teamType = 'Men';
+                if (genders.every(g => g === 'F')) teamType = 'Women';
+
+                if (!teamStats[teamKey]) {
+                    teamStats[teamKey] = {
+                        players: team,
+                        type: teamType,
+                        played: 0,
+                        won: 0,
+                        totalDurationMs: 0
+                    };
+                }
+                teamStats[teamKey].played += 1;
+                teamStats[teamKey].totalDurationMs += gameDuration;
+                if (isWinner) {
+                    teamStats[teamKey].won += 1;
+                }
+            };
+
+            const isTeam1Winner = game.winner === 'team1';
+            processTeam(game.teams.team1, isTeam1Winner);
+            processTeam(game.teams.team2, !isTeam1Winner);
+        });
+
+        return teamStats;
+    }
+
+    function renderTeamHistory() {
+        const teamStats = calculateTeamStats(state.gameHistory);
+        const teamHistoryList = document.getElementById('team-history-list');
+        teamHistoryList.innerHTML = "";
+
+        let teamsWithStats = Object.values(teamStats).filter(team => {
+            if (state.statsFilter.teamGender === 'all') return true;
+            return team.type.toLowerCase() === state.statsFilter.teamGender;
+        });
+
+        teamsWithStats.sort((a, b) => {
+            const statA = a;
+            const statB = b;
+            let compareValue = 0;
+            if (state.statsFilter.sortKey === 'name') {
+                compareValue = a.players.join(',').localeCompare(b.players.join(','));
+            } else {
+                compareValue = (statB[state.statsFilter.sortKey] || 0) - (statA[state.statsFilter.sortKey] || 0);
+            }
+            return state.statsFilter.sortOrder === 'asc' ? -compareValue : compareValue;
+        });
+
+        const genderFilterHTML = `
+            <div class="gender-selector" style="justify-content: center; margin-bottom: 1rem;">
+                <div class="radio-group">
+                    <label> <input type="radio" name="team-gender-filter" value="all" ${state.statsFilter.teamGender === 'all' ? 'checked' : ''}> All </label>
+                    <label> <input type="radio" name="team-gender-filter" value="men" ${state.statsFilter.teamGender === 'men' ? 'checked' : ''}> Men </label>
+                    <label> <input type="radio" name="team-gender-filter" value="women" ${state.statsFilter.teamGender === 'women' ? 'checked' : ''}> Women </label>
+                    <label> <input type="radio" name="team-gender-filter" value="mixed" ${state.statsFilter.teamGender === 'mixed' ? 'checked' : ''}> Mixed </label>
+                </div>
+            </div>`;
+        
+        if (teamsWithStats.length === 0) {
+            teamHistoryList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No team stats available for the selected filter.</p>';
+        } else {
+            const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+            const tableHeader = `
+                <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
+                    <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Team${getSortIcon('name')}</button>
+                    <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
+                    <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
+                    <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                </div>`;
+            
+            const teamRows = teamsWithStats.map(team => {
+                const winPercentage = formatWinPercentage(team.played, team.won);
+                return `
+                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
+                        <span>${team.players.join(' & ')}</span>
+                        <span>${team.played}</span>
+                        <span>${winPercentage}</span>
+                        <span>${formatDuration(team.totalDurationMs)}</span>
+                    </div>`;
+            }).join('');
+            teamHistoryList.innerHTML = genderFilterHTML + tableHeader + teamRows;
+        }
+
+        teamHistoryList.querySelectorAll('input[name="team-gender-filter"]').forEach(radio => radio.addEventListener('change', handleTeamStatsFilterChange));
+        teamHistoryList.querySelectorAll('.sort-btn').forEach(btn => btn.addEventListener('click', handleSortClick));
+    }
+
+    function handleTeamStatsFilterChange(e) {
+        state.statsFilter.teamGender = e.target.value;
+        saveState();
+        renderTeamHistory();
+    }
 
     function createCourtCard(court) {
         const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
@@ -1853,8 +2065,13 @@ if (!state.courtSettings) {
             cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
         }
 
+        // --- THIS IS THE NEW LOGIC BLOCK ---
         if (court.status === 'in_progress') {
+            // If the game is in progress, show the pencil icon to edit players.
             editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+        } else if (court.teamsSet === false) {
+            // If teams are not set, show the 'group' icon to set teams.
+            editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
         }
 
         const moreOptionsBtnHTML = `
@@ -1922,11 +2139,30 @@ if (!state.courtSettings) {
             bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
         }
 
-        const formatName = (playerObj) => playerObj ? playerObj.name.split(' ').join('<br>') : '';
+        const formatName = (playerObj) => playerObj ? playerObj.name.split(' ')[0] : '';
 
         let playerSpotsHTML = '';
         let coreReserveTextHTML = '';
         let animationHTML = '';
+        let matchModeDisplayHTML = '';
+
+        // --- THIS IS THE FIX ---
+        // Display match mode for games that are PENDING or IN PROGRESS
+        if ((court.status === 'in_progress' || court.status === 'game_pending') && court.matchMode) {
+            let text = '';
+            if (court.matchMode === 'fast') {
+                text = `Fast Play (${court.fastPlayGames} games)`;
+            } else if (court.matchMode === '1set') {
+                text = '1 Set Match';
+            } else if (court.matchMode === '3set') {
+                text = '3 Set Match';
+            }
+            if (text) {
+                matchModeDisplayHTML = `<div class="match-mode-display">${text}</div>`;
+            }
+        }
+        // --- END OF FIX ---
+
 
         // Logic for player names (when status is NOT available)
         if (court.status !== 'available') {
@@ -1954,11 +2190,6 @@ if (!state.courtSettings) {
                         <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.teams.team2[1])}</span></div>
                     `;
                 }
-            }
-
-            // Generate the "Set Teams" button if teams are NOT set and status is not 'available'
-            if (court.teamsSet === false) {
-                coreReserveTextHTML = `<div class="teams-not-set" data-action="choose-teams">Set Teams</div>`;
             }
 
             // Add the red ball animation alongside the player spots for in_progress
@@ -2018,11 +2249,6 @@ if (!state.courtSettings) {
         }
 
         let reserveTextHTML = coreReserveTextHTML;
-        let matchModeDisplayHTML = ''; // <-- ADD THIS LINE
-
-        if (state.matchSettings.matchMode === 'fast') {
-            matchModeDisplayHTML = `<div class="match-mode-display">Fast Play</div>`;
-        }
 
         // FINAL LOGIC: Overwrite the team status text if the court is AVAILABLE (Reserved For X).
         if (court.status === 'available') {
@@ -2074,41 +2300,49 @@ if (!state.courtSettings) {
 
     // NEW FUNCTION: Calculate the players with the highest stats overall
     function calculateStarPlayers() {
-        const stats = calculatePlayerStats();
+        // --- THIS IS THE NEW LOGIC ---
+        const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+        const todaysGames = state.gameHistory.filter(game => {
+            const gameDate = new Date(game.endTime).toISOString().split('T')[0];
+            return gameDate === today;
+        });
+        const stats = calculatePlayerStats(todaysGames); // Calculate stats for ONLY today's games
+        // --- END OF NEW LOGIC ---
+
         const allPlayers = getAllKnownPlayers();
-        
-        let bestMaleWP = { name: null, wp: -1 };
-        let bestFemaleWP = { name: null, wp: -1 };
-        let mostTimePlayed = { name: null, duration: -1 };
+
+        let king = { name: null, wp: -1, duration: -1 };
+        let queen = { name: null, wp: -1, duration: -1 };
 
         for (const name in stats) {
             const playerStats = stats[name];
             const playerObj = allPlayers.find(p => p.name === name);
-            if (!playerObj || playerStats.played === 0) continue;
+
+            // Skip players who opted out of the leaderboard, have no stats, or lack gender info
+            if (!playerObj || playerStats.played === 0 || playerObj.onLeaderboard === false || !playerObj.gender) {
+                continue;
+            }
 
             const winPercentage = playerStats.won / playerStats.played;
-            
-            // 1. Check for Win Percentage Leader (Crown)
+
             if (playerObj.gender === 'M') {
-                if (winPercentage > bestMaleWP.wp) {
-                    bestMaleWP = { name: name, wp: winPercentage };
+                if (winPercentage > king.wp) {
+                    king = { name: name, wp: winPercentage, duration: playerStats.totalDurationMs };
+                } else if (winPercentage === king.wp && playerStats.totalDurationMs > king.duration) {
+                    king = { name: name, wp: winPercentage, duration: playerStats.totalDurationMs };
                 }
             } else if (playerObj.gender === 'F') {
-                if (winPercentage > bestFemaleWP.wp) {
-                    bestFemaleWP = { name: name, wp: winPercentage };
+                if (winPercentage > queen.wp) {
+                    queen = { name: name, wp: winPercentage, duration: playerStats.totalDurationMs };
+                } else if (winPercentage === queen.wp && playerStats.totalDurationMs > queen.duration) {
+                    queen = { name: name, wp: winPercentage, duration: playerStats.totalDurationMs };
                 }
             }
-
-            // 2. Check for Time Played Leader (Stopwatch)
-            if (playerStats.totalDurationMs > mostTimePlayed.duration) {
-                mostTimePlayed = { name: name, duration: playerStats.totalDurationMs };
-            }
         }
-        
+
         return {
-            bestMaleWP: bestMaleWP.name,
-            bestFemaleWP: bestFemaleWP.name,
-            mostTimePlayed: mostTimePlayed.name
+            kingOfTheCourt: king.name,
+            queenOfTheCourt: queen.name
         };
     }
     // END NEW FUNCTION
@@ -2122,13 +2356,25 @@ if (!state.courtSettings) {
         ).length;
         const totalVisibleCourts = state.courtSettings.visibleCourts.length;
         const onDutyName = state.onDuty === 'None' ? 'Nobody' : state.onDuty;
-        
-        // --- START OF FIX ---
-        // Dynamically set the label based on whether someone is on duty.
         const dutyLabel = state.onDuty === 'None' ? 'Call Any Committee Member!' : 'Is On Duty. Call Me!';
-        // --- END OF FIX ---
 
-        // Determine initial icon and class based on state
+        // New calculations for extra stats
+        const { kingOfTheCourt, queenOfTheCourt } = calculateStarPlayers();
+        let matchModeText = '';
+        if (state.matchSettings.matchMode === '1set') {
+            matchModeText = '1 Set Game Mode';
+        } else if (state.matchSettings.matchMode === '3set') {
+            matchModeText = '3 Set Game Mode';
+        } else {
+            matchModeText = `Fast Play ${state.matchSettings.fastPlayGames} Game Mode`;
+        }
+
+        const availableCourts = state.courts.filter(c => c.status === 'available' && state.courtSettings.visibleCourts.includes(c.id));
+        const doublesAvailable = availableCourts.filter(c => c.courtMode === 'doubles').length;
+        const singlesAvailable = availableCourts.filter(c => c.courtMode === 'singles').length;
+        const rookieAvailable = availableCourts.filter(c => c.courtMode === 'rookie').length;
+
+
         const isExpanded = state.mobileControls.isSummaryExpanded;
         const bodyClass = isExpanded ? '' : 'is-collapsed';
         const iconClass = isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down';
@@ -2160,11 +2406,30 @@ if (!state.courtSettings) {
                         <span id="alert-status-display"></span>
                     </div>
 
+                    <div class="summary-match-mode">
+                        <p>
+                            <span class="match-mode-label">Match Mode:</span>
+                            <span class="match-mode-value">${matchModeText}</span>
+                        </p>
+                    </div>
+
                     <div class="summary-stats">
                         <p>Total Players: <strong style="float: right;">${total}</strong></p>
                         <p>Available Queue: <strong style="float: right; color: var(--confirm-color);">${available}</strong></p>
                         <p>On Court: <strong style="float: right; color: var(--cancel-color);">${onCourt}</strong></p>
                         <p>Available Courts: <strong style="float: right;">${availableCourtsCount} / ${totalVisibleCourts}</strong></p>
+                        <p>Court Availability: <strong style="float: right;">D:${doublesAvailable} S:${singlesAvailable} R:${rookieAvailable}</strong></p>
+                    </div>
+
+                    <div class="summary-extra-stats">
+                        <div>
+                            <span class="stat-label">King of the Court</span>
+                            <strong class="stat-value">👑 ${kingOfTheCourt || 'N/A'}</strong>
+                        </div>
+                        <div>
+                            <span class="stat-label">Queen of the Court</span>
+                            <strong class="stat-value">👑 ${queenOfTheCourt || 'N/A'}</strong>
+                        </div>
                     </div>
 
                     <div class="quote-section">
@@ -2360,6 +2625,8 @@ if (!state.courtSettings) {
         const playerStats = calculatePlayerPlaytime();
         const starPlayers = calculateStarPlayers();
 
+        autoAssignMatchMode();
+        runAutoMinimizeLogic(); // --- THIS IS THE FIX ---
         availablePlayersList.innerHTML = "";
 
         let sliceStart = 0;
@@ -2548,8 +2815,10 @@ if (!state.courtSettings) {
         modeDoublesBtn.disabled = renderQueue.length < 4;
 
         availablePlayersSection.classList.toggle("locked", !!courtInSetup || (selectedPlayerNames.length === 0 && allCourtsBusy));
+        
+        updateTimers(); // <-- THIS IS THE FIX
+        
         initSummaryCardElements();
-
         setTimeout(setPlayerListHeight, 0);
     }
 
@@ -2652,6 +2921,7 @@ if (!state.courtSettings) {
     function handleFastPlayGamesChange(e) {
         state.matchSettings.fastPlayGames = parseInt(e.target.value, 10);
         saveState();
+        render(); // <-- ADD THIS LINE
     }
 
 
@@ -2805,9 +3075,19 @@ if (!state.courtSettings) {
     }
 
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
-    function calculatePlayerStats(){
+    function calculatePlayerStats(gamesToProcess){
         const stats = {};
-        state.gameHistory.forEach(game => {
+        gamesToProcess.forEach(game => {
+            const allPlayersInGame = [...game.teams.team1, ...game.teams.team2];
+
+            // Find the player objects to check their leaderboard preference
+            const allPlayerObjects = allPlayersInGame.map(name => getPlayerByName(name));
+
+            // If ANY player in the game has opted out, the game does not count for anyone's stats
+            if (allPlayerObjects.some(p => p.onLeaderboard === false)) {
+                return; // Skip this game
+            }
+
             const allPlayers = [...game.teams.team1, ...game.teams.team2];
             const [hStr, mStr] = game.duration.split('h').map(s => s.replace('m', ''));
             const gameDuration = (parseInt(hStr, 10) * 3600000) + (parseInt(mStr, 10) * 60000);
@@ -2898,125 +3178,158 @@ if (!state.courtSettings) {
 
     function handleSort(key) { if (state.statsFilter.sortKey === key) { state.statsFilter.sortOrder = state.statsFilter.sortOrder === 'asc' ? 'desc' : 'asc'; } else { state.statsFilter.sortKey = key; state.statsFilter.sortOrder = key === 'name' ? 'asc' : 'desc'; } renderHistory(); saveState(); }
     function renderHistory() {
-        const stats = calculatePlayerStats();
-        const allKnownPlayers = getAllKnownPlayers();
-        
-        historyList.innerHTML = "";
-        document.querySelector("#history-page h3").textContent = state.historyViewMode === "games" ? "Game History" : "Player Stats";
-        historyToggleViewBtn.textContent = state.historyViewMode === "games" ? "Show Player Stats" : "Show Game History";
-        historyToggleViewBtn.classList.toggle("secondary", state.historyViewMode === "stats");
-        
+        const historyListEl = document.getElementById('history-list');
+        const teamHistoryListEl = document.getElementById('team-history-list');
+        const historyTitle = document.querySelector("#history-page h3");
+        const historyToggleViewBtn = document.getElementById('history-toggle-view');
+        const historyToggleTeamsBtn = document.getElementById('history-toggle-teams-btn');
+
+        // Hide all lists initially
+        historyListEl.style.display = 'none';
+        teamHistoryListEl.style.display = 'none';
+
         if (state.historyViewMode === "stats") {
-            let playersWithStats = Object.keys(stats).filter(name => {
-                const playerObj = allKnownPlayers.find(p => p.name === name);
-                if (!playerObj) return true;
-                if (state.statsFilter.gender === 'all') return true;
-                return playerObj.gender === state.statsFilter.gender;
-            });
+            historyTitle.textContent = "Player Stats";
+            historyToggleViewBtn.textContent = "Show Game History";
+            historyToggleTeamsBtn.textContent = "Show Team Stats";
+            historyListEl.style.display = ''; // Show the player stats/game history list
+            renderPlayerHistory(); // A new function for just the player stats part
+        } else if (state.historyViewMode === "teams") {
+            historyTitle.textContent = "Team Stats";
+            historyToggleViewBtn.textContent = "Show Player Stats";
+            historyToggleTeamsBtn.textContent = "Show Game History";
+            teamHistoryListEl.style.display = ''; 
+            state.statsFilter.teamGender = 'all'; // <-- ADD THIS LINE
+            renderTeamHistory();
+        } else { // "games" view
+            historyTitle.textContent = "Game History";
+            historyToggleViewBtn.textContent = "Show Player Stats";
+            historyToggleTeamsBtn.textContent = "Show Team Stats";
+            historyListEl.style.display = ''; // Show the player stats/game history list
+            renderGameHistory(); // A new function for just the game history part
+        }
+    }
 
-            playersWithStats.sort((a, b) => {
-                const statA = stats[a];
-                const statB = stats[b];
-                let compareValue = 0;
-                if (state.statsFilter.sortKey === 'name') {
-                    compareValue = a.localeCompare(b);
-                } else {
-                    compareValue = (statB[state.statsFilter.sortKey] || 0) - (statA[state.statsFilter.sortKey] || 0);
-                }
-                return state.statsFilter.sortOrder === 'asc' ? -compareValue : compareValue;
-            });
+    function renderPlayerHistory() {
+        const stats = calculatePlayerStats(state.gameHistory);
+        const allKnownPlayers = getAllKnownPlayers();
+        const historyListEl = document.getElementById('history-list');
+        historyListEl.innerHTML = "";
 
-            const genderFilterHTML = `
-                <div class="gender-selector" style="justify-content: center; margin-bottom: 1rem;">
-                    <div class="radio-group">
-                        <label> <input type="radio" name="stats-gender-filter" value="all" ${state.statsFilter.gender === 'all' ? 'checked' : ''}> All </label>
-                        <label> <input type="radio" name="stats-gender-filter" value="M" ${state.statsFilter.gender === 'M' ? 'checked' : ''}> Men </label>
-                        <label> <input type="radio" name="stats-gender-filter" value="F" ${state.statsFilter.gender === 'F' ? 'checked' : ''}> Women </label>
-                    </div>
+        let playersWithStats = Object.keys(stats).filter(name => {
+            const playerObj = allKnownPlayers.find(p => p.name === name);
+            if (!playerObj || playerObj.onLeaderboard === false) return false;
+            if (state.statsFilter.gender === 'all') return true;
+            return playerObj.gender === state.statsFilter.gender;
+        });
+
+        playersWithStats.sort((a, b) => {
+            const statA = stats[a];
+            const statB = stats[b];
+            let compareValue = 0;
+            if (state.statsFilter.sortKey === 'name') {
+                compareValue = a.localeCompare(b);
+            } else {
+                compareValue = (statB[state.statsFilter.sortKey] || 0) - (statA[state.statsFilter.sortKey] || 0);
+            }
+            return state.statsFilter.sortOrder === 'asc' ? -compareValue : compareValue;
+        });
+
+        const genderFilterHTML = `
+            <div class="gender-selector" style="justify-content: center; margin-bottom: 1rem;">
+                <div class="radio-group">
+                    <label> <input type="radio" name="stats-gender-filter" value="all" ${state.statsFilter.gender === 'all' ? 'checked' : ''}> All </label>
+                    <label> <input type="radio" name="stats-gender-filter" value="M" ${state.statsFilter.gender === 'M' ? 'checked' : ''}> Men </label>
+                    <label> <input type="radio" name="stats-gender-filter" value="F" ${state.statsFilter.gender === 'F' ? 'checked' : ''}> Women </label>
+                </div>
+            </div>`;
+        
+        if (playersWithStats.length === 0) {
+            historyListEl.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No stats available for the selected filter.</p>';
+        } else {
+            const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+            const tableHeader = `
+                <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
+                    <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Player${getSortIcon('name')}</button>
+                    <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
+                    <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
+                    <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
                 </div>`;
             
-            if (playersWithStats.length === 0) {
-                historyList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No stats available for the selected filter.</p>';
-            } else {
-                const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
-                const tableHeader = `
-                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
-                        <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Player${getSortIcon('name')}</button>
-                        <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
-                        <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won${getSortIcon('won')}</button>
-                        <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+            const playerRows = playersWithStats.map(name => {
+                const playerStats = stats[name];
+                const winPercentage = formatWinPercentage(playerStats.played, playerStats.won);
+                return `
+                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
+                        <span>${name}</span>
+                        <span>${playerStats.played}</span>
+                        <span>${winPercentage}</span>
+                        <span>${formatDuration(playerStats.totalDurationMs)}</span>
                     </div>`;
+            }).join('');
+            historyListEl.innerHTML = genderFilterHTML + tableHeader + playerRows;
+        }
+
+        historyListEl.querySelectorAll('input[name="stats-gender-filter"]').forEach(radio => radio.addEventListener('change', handleStatsFilterChange));
+        historyListEl.querySelectorAll('.sort-btn').forEach(btn => btn.addEventListener('click', handleSortClick));
+    }
+
+    function renderGameHistory() {
+        const historyListEl = document.getElementById('history-list');
+        historyListEl.innerHTML = "";
+        
+        if (state.gameHistory.length === 0) {
+            historyListEl.innerHTML = '<p style="text-align: center; color: #6c757d;">No games have been completed yet.</p>';
+        } else {
+            const headerHTML = `
+                <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
+                    <div class="history-details">
+                        <span class="game-time-cell">Time</span>
+                        <span>Game / Duration</span>
+                        <span class="score-cell">Score</span>
+                    </div>
+                </div>
+            `;
+            
+            let gamesHTML = [...state.gameHistory].reverse().map(game => {
+                const endTime = new Date(game.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const team1Players = game.teams.team1.join(' & ');
+                const team2Players = game.teams.team2.join(' & ');
+                let team1Class = '';
+                let team2Class = '';
+                let tiebreakDisplay = '';
+                const isResultSkipped = game.winner === 'skipped';
+
+                if (!isResultSkipped && game.winner) {
+                    if (game.winner === "team1") { team1Class = 'winner'; team2Class = 'loser'; } 
+                    else { team2Class = 'winner'; team1Class = 'loser'; }
+                }
+
+                if (game.score && game.score.tiebreak1 !== null) {
+                    const winnerTiebreak = game.winner === 'team1' ? game.score.tiebreak1 : game.score.tiebreak2;
+                    const loserTiebreak = game.winner === 'team1' ? game.score.tiebreak2 : game.score.tiebreak1;
+                    tiebreakDisplay = ` (${winnerTiebreak}-${loserTiebreak})`;
+                }
+
+                const scoreDisplay = isResultSkipped ? 'Result Skipped' : 
+                    (game.score ? `${game.score.team1} - ${game.score.team2}${tiebreakDisplay}` : 'Score Not Entered');
                 
-                const playerRows = playersWithStats.map(name => {
-                    const playerStats = stats[name];
-                    return `
-                        <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
-                            <span>${name}</span>
-                            <span>${playerStats.played}</span>
-                            <span>${playerStats.won} (${formatWinPercentage(playerStats.played, playerStats.won)})</span>
-                            <span>${formatDuration(playerStats.totalDurationMs)}</span>
-                        </div>`;
-                }).join('');
-                historyList.innerHTML = genderFilterHTML + tableHeader + playerRows;
-            }
-
-            document.querySelectorAll('input[name="stats-gender-filter"]').forEach(radio => radio.addEventListener('change', handleStatsFilterChange));
-            document.querySelectorAll('.sort-btn').forEach(btn => btn.addEventListener('click', handleSortClick));
-
-        } else { // Game History View
-            if (state.gameHistory.length === 0) {
-                historyList.innerHTML = '<p style="text-align: center; color: #6c757d;">No games have been completed yet.</p>';
-            } else {
-                const headerHTML = `
-                    <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
+                return `
+                    <div class="history-item" data-game-id="${game.id}"> 
                         <div class="history-details">
-                            <span class="game-time-cell">Time</span>
-                            <span>Game / Duration</span>
-                            <span class="score-cell">Score</span>
+                            <span class="game-time-cell">${endTime}</span>
+                            <span>Court ${game.court} - ${game.duration}</span>
+                            <span class="score-cell">${scoreDisplay}</span>
+                        </div>
+                        <div class="history-teams">
+                            <p class="${team1Class}">Team 1: ${team1Players}</p>
+                            <p class="${team2Class}">Team 2: ${team2Players}</p>
                         </div>
                     </div>
                 `;
-                
-                let gamesHTML = [...state.gameHistory].reverse().map(game => {
-                    const endTime = new Date(game.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const team1Players = game.teams.team1.join(' & ');
-                    const team2Players = game.teams.team2.join(' & ');
-                    let team1Class = '';
-                    let team2Class = '';
-                    let tiebreakDisplay = '';
-                    const isResultSkipped = game.winner === 'skipped';
-
-                    if (!isResultSkipped && game.winner) {
-                        if (game.winner === "team1") { team1Class = 'winner'; team2Class = 'loser'; } 
-                        else { team2Class = 'winner'; team1Class = 'loser'; }
-                    }
-
-                    if (game.score && game.score.tiebreak1 !== null) {
-                        const winnerTiebreak = game.winner === 'team1' ? game.score.tiebreak1 : game.score.tiebreak2;
-                        const loserTiebreak = game.winner === 'team1' ? game.score.tiebreak2 : game.score.tiebreak1;
-                        tiebreakDisplay = ` (${winnerTiebreak}-${loserTiebreak})`;
-                    }
-
-                    const scoreDisplay = isResultSkipped ? 'Result Skipped' : 
-                        (game.score ? `${game.score.team1} - ${game.score.team2}${tiebreakDisplay}` : 'Score Not Entered');
-                    
-                    return `
-                        <div class="history-item" data-game-id="${game.id}"> 
-                            <div class="history-details">
-                                <span class="game-time-cell">${endTime}</span>
-                                <span>Court ${game.court} - ${game.duration}</span>
-                                <span class="score-cell">${scoreDisplay}</span>
-                            </div>
-                            <div class="history-teams">
-                                <p class="${team1Class}">Team 1: ${team1Players}</p>
-                                <p class="${team2Class}">Team 2: ${team2Players}</p>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-                historyList.innerHTML = headerHTML + gamesHTML;
-            }
+            }).join('');
+            
+            historyListEl.innerHTML = headerHTML + gamesHTML;
         }
     }
     function renderReorderHistory() {
@@ -3178,45 +3491,80 @@ if (!state.courtSettings) {
     }
 }
 
-function handleConfirmSelection(){
-    const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
-    const requiredPlayers = gameMode === "doubles" ? 4 : 2;
-    if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
-    const court = state.courts.find(c => c.id === courtId);
-    const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+    function handleConfirmSelection(){
+        const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
+        const requiredPlayers = gameMode === "doubles" ? 4 : 2;
+        if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
+        const court = state.courts.find(c => c.id === courtId);
+        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
 
-    court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
+        court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
 
-    court.players = [...selectedPlayerObjects];
-    court.gameMode = gameMode;
+        court.players = [...selectedPlayerObjects];
+        court.gameMode = gameMode;
 
-    // --- NEW LOGIC: Snapshot the match settings for this game ---
-    court.matchMode = state.matchSettings.matchMode;
-    court.fastPlayGames = state.matchSettings.fastPlayGames;
-    // --- END NEW LOGIC ---
+        // --- NEW LOGIC: Snapshot the match settings for this game ---
+        court.matchMode = state.matchSettings.matchMode;
+        court.fastPlayGames = state.matchSettings.fastPlayGames;
+        // --- END NEW LOGIC ---
 
-    if (gameMode === 'doubles') {
-        court.status = "selecting_teams";
-        court.teams.team1 = [];
-        court.teams.team2 = [];
-    } else {
-        court.teams.team1 = [selectedPlayerObjects[0]];
-        court.teams.team2 = [selectedPlayerObjects[1]];
+        if (gameMode === 'doubles') {
+            court.status = "selecting_teams";
+            court.teams.team1 = [];
+            court.teams.team2 = [];
+        } else {
+            court.teams.team1 = [selectedPlayerObjects[0]];
+            court.teams.team2 = [selectedPlayerObjects[1]];
+            court.status = "game_pending";
+            court.autoStartTimeTarget = Date.now() + 60000;
+            court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+        }
+        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+        state.selection = {gameMode: state.selection.gameMode, players: [], courtId: null};
+        updateGameModeBasedOnPlayerCount();
+        enforceDutyPosition();
+        autoAssignCourtModes();
+        render();
+        saveState();
+    }
+
+    function handleCheckout(playerObject) {
+        // This function decides which modal to show.
+        if (playerObject.onLeaderboard === true) {
+            // If the player opted IN, show the modal with stats.
+            // This now passes the full object as required by the updated function.
+            showCheckoutThanksModal(playerObject);
+        } else {
+            // If the player opted OUT, show the new modal without stats.
+            showCheckoutThanksModalNoStats(playerObject);
+        }
+    }
+
+    function handleChooseLater(courtId){
+        const court = state.courts.find(c => c.id === courtId);
         court.status = "game_pending";
+        court.teamsSet = false;
+        court.matchMode = state.matchSettings.matchMode;
+        court.fastPlayGames = state.matchSettings.fastPlayGames;
         court.autoStartTimeTarget = Date.now() + 60000;
         court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+        render();
+        saveState();
     }
-    state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
-    state.selection = {gameMode: state.selection.gameMode, players: [], courtId: null};
-    updateGameModeBasedOnPlayerCount();
-    enforceDutyPosition();
-    autoAssignCourtModes();
-    render();
-    saveState();
-}
-
-    function handleChooseLater(courtId){ const court = state.courts.find(c => c.id === courtId); court.status = "game_pending"; court.teamsSet = false; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
-    function handleRandomizeTeams(courtId){ const court = state.courts.find(c => c.id === courtId); let players = [...court.players].sort(() => 0.5 - Math.random()); court.teams.team1 = [players[0], players[1]]; court.teams.team2 = [players[2], players[3]]; court.status = "game_pending"; court.teamsSet = true; court.autoStartTimeTarget = Date.now() + 60000; court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000); render(); saveState(); }
+    function handleRandomizeTeams(courtId){
+        const court = state.courts.find(c => c.id === courtId);
+        let players = [...court.players].sort(() => 0.5 - Math.random());
+        court.teams.team1 = [players[0], players[1]];
+        court.teams.team2 = [players[2], players[3]];
+        court.status = "game_pending";
+        court.matchMode = state.matchSettings.matchMode;
+        court.fastPlayGames = state.matchSettings.fastPlayGames;
+        court.teamsSet = true;
+        court.autoStartTimeTarget = Date.now() + 60000;
+        court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+        render();
+        saveState();
+    }
     function handleModalConfirm() {
         const courtId = chooseTeamsModal.dataset.courtId;
         const openedFrom = chooseTeamsModal.dataset.openedFrom;
@@ -3252,6 +3600,8 @@ function handleConfirmSelection(){
                 court.teams.team1 = team1Players;
                 court.teams.team2 = team2Players;
                 court.teamsSet = true;
+                court.matchMode = state.matchSettings.matchMode;
+                court.fastPlayGames = state.matchSettings.fastPlayGames;
 
                 if (openedFrom === 'endgame') {
                     handleEndGame(courtId); // Re-enter to show results modal
@@ -3265,6 +3615,7 @@ function handleConfirmSelection(){
             }
         }
     }
+
     function handleChooseTeams(courtId, openedFrom = 'setup', players = null) {
         chooseTeamsModal.classList.remove("hidden");
         chooseTeamsModal.dataset.openedFrom = openedFrom;
@@ -3312,6 +3663,7 @@ function handleConfirmSelection(){
             }
         });
     }
+
     function handleModalPlayerClick(e){ if (e.target.classList.contains("modal-player")){ const selectedCount = modalPlayerList.querySelectorAll(".selected").length; if (e.target.classList.contains("selected")){ e.target.classList.remove("selected"); } else if (selectedCount < 2) { e.target.classList.add("selected"); } } }
 
     function handleStartGame(courtId){
@@ -3550,14 +3902,14 @@ function handleConfirmSelection(){
     }
 
 // REPLACE this function
-// REPLACE this function
+
     function handleEndGame(courtId, editGameId = null, manualEntryData = null) {
-        resetEndGameModal(); // Ensure a clean slate
+        resetEndGameModal(); 
+
+        let matchModeDetails = { matchMode: '1set', fastPlayGames: 4 };
 
         if (manualEntryData) {
-            // This is the new logic block for manual entries
             if (manualEntryData.teamsSet) {
-                // If teams are already defined (e.g., from handleConfirmManualPlayers for singles), display them for score entry
                 endGameModal.dataset.manualEntry = JSON.stringify(manualEntryData.players.map(p => p.name));
                 endGameTimestamp.textContent = `Manual Entry - ${new Date().toLocaleString('en-ZA')}`;
                 const team1Names = getPlayerNames(manualEntryData.teams.team1).join(" & ");
@@ -3567,21 +3919,17 @@ function handleConfirmSelection(){
                     <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
                 `;
             } else {
-                // If teams are not set (e.g., 4 players selected for doubles), go to team selection
                 handleChooseTeams(null, 'manual', manualEntryData.players);
-                return; // Stop here and wait for team selection
+                return;
             }
         }
         else if (editGameId) {
             const gameToEdit = state.gameHistory.find(g => g.id == editGameId);
             if (!gameToEdit) return;
-
             endGameModal.dataset.editGameId = editGameId;
             endGameTimestamp.textContent = `Editing Game from: ${new Date(gameToEdit.endTime).toLocaleString()}`;
             const team1Names = gameToEdit.teams.team1.join(" & ");
             const team2Names = gameToEdit.teams.team2.join(" & ");
-            
-            // Always present a clean slate for team selection when editing
             endGameTeams.innerHTML = `
                 <div class="team-selection" data-team="team1"><div><strong>Team 1:</strong> <span>${team1Names}</span></div></div>
                 <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
@@ -3595,6 +3943,7 @@ function handleConfirmSelection(){
                 return;
             }
             endGameModal.dataset.courtId = courtId;
+            matchModeDetails = { matchMode: court.matchMode, fastPlayGames: court.fastPlayGames };
             const now = new Date();
             endGameTimestamp.textContent = `Completed: ${now.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
             const team1Names = getPlayerNames(court.teams.team1).join(" & ");
@@ -3604,6 +3953,9 @@ function handleConfirmSelection(){
                 <div class="team-selection" data-team="team2"><div><strong>Team 2:</strong> <span>${team2Names}</span></div></div>
             `;
         }
+
+        endGameModal.dataset.matchMode = matchModeDetails.matchMode;
+        endGameModal.dataset.fastPlayGames = matchModeDetails.fastPlayGames;
 
         const skipBtn = document.getElementById('end-game-skip-btn');
         endGameTeams.querySelectorAll('.team-selection').forEach(el => el.addEventListener('click', (e) => {
@@ -3619,6 +3971,24 @@ function handleConfirmSelection(){
             validateEndGameForm();
         }));
         
+        // --- THIS IS THE FIX ---
+        // Define keypad rules based on the current game's mode
+        let winKeypadConfig = {};
+        let loseKeypadConfig = {};
+
+        if (matchModeDetails.matchMode === 'fast') {
+            winKeypadConfig = { maxLength: 2, maxValue: matchModeDetails.fastPlayGames };
+            loseKeypadConfig = { maxLength: 2, maxValue: matchModeDetails.fastPlayGames - 1 };
+        } else { // 1 Set Match logic
+            winKeypadConfig = { maxLength: 1, maxValue: 7 };
+            loseKeypadConfig = { maxLength: 1, maxValue: 7 };
+        }
+
+        // Dynamically wire up the score inputs to use these specific rules for this session
+        wireScoreInputToKeypad(winningScoreInput, winKeypadConfig);
+        wireScoreInputToKeypad(losingScoreInput, loseKeypadConfig);
+        // --- END OF FIX ---
+
         endGameModal.classList.remove("hidden");
     }
 
@@ -3640,24 +4010,18 @@ function handleConfirmSelection(){
         if (court) {
             if(court.autoStartTimer) clearTimeout(court.autoStartTimer);
             
-            // --- Preserve Players (NEW LOGIC) ---
-            // 1. Get the list of players who were on the court
             const playersWhoWereSelected = court.players.map(p => p.name);
             
-            // 2. Clear any existing selection and set the court's players as the new selection
             state.selection.players = playersWhoWereSelected; 
-            state.selection.courtId = null; // Clear court ID selection
-            // --- End New Logic ---
-
-            // --- If a queue snapshot exists, restore it. This is the "undo" action. ---
+            state.selection.courtId = null; 
+            
             if (court.queueSnapshot) {
                 state.availablePlayers = court.queueSnapshot;
             } else {
-                // Fallback for older data: return current on-court players to the front.
                 const playersToRequeue = court.players.filter(p => !p.guest);
                 state.availablePlayers = [...playersToRequeue, ...state.availablePlayers];
             }
-            
+
             court.becameAvailableAt = Date.now();
             
             court.status = "available";
@@ -3666,15 +4030,19 @@ function handleConfirmSelection(){
             court.gameMode = null;
             court.autoStartTimer = null;
             court.gameStartTime = null;
-            court.queueSnapshot = null; // Clear the snapshot after use
-            court.teamsSet = null;      // Add this line right after
+            court.queueSnapshot = null;
+            court.teamsSet = null;
             cancelConfirmModal.classList.add("hidden");
             updateGameModeBasedOnPlayerCount();
-            enforceDutyPosition(); // Re-check fairness rule on the restored list
-            autoAssignCourtModes();
+            enforceDutyPosition();
+            autoAssignCourtModes();         
             render();
             saveState();
             checkAndPlayAlert(false);
+
+            requestAnimationFrame(() => {
+            requestAnimationFrame(ensureCourtSelectionAnimation);
+            });
         }
     }
     
@@ -3683,35 +4051,68 @@ function handleConfirmSelection(){
         if (playerToCheckInName) {
             const playerObject = state.clubMembers.find(p => p.name === playerToCheckInName);
             if (playerObject) {
-                state.availablePlayers.push(playerObject);
-                state.clubMembers = state.clubMembers.filter(p => p.name !== playerToCheckInName);
+                // Show leaderboard confirmation instead of directly checking in
+                leaderboardConfirmModal.dataset.player = JSON.stringify(playerObject);
+                leaderboardConfirmModal.classList.remove('hidden');
+                cancelConfirmModal.classList.add('hidden');
+                checkInModal.classList.add('hidden');
             }
-            cancelConfirmModal.classList.add("hidden");
-            populateCheckInModal(); // Repopulate the list
-            checkInModal.classList.remove("hidden"); // Show the list again
-            updateGameModeBasedOnPlayerCount();
-            enforceDutyPosition(); // --- ADDED LINE ---
-            autoAssignCourtModes();
-            render();
-            saveState();
-            checkAndPlayAlert(false);
         }
+    }
+
+    // Helper function to complete the check-in process
+// in script.js
+
+    // Helper function to complete the check-in process
+    function finishCheckIn(playerObject) {
+        if (!state.availablePlayers.some(p => p.name === playerObject.name)) {
+            state.availablePlayers.push(playerObject);
+            state.clubMembers = state.clubMembers.filter(p => p.name !== playerObject.name);
+        }
+
+        // Hide the leaderboard/guest modals
+        leaderboardConfirmModal.classList.add('hidden');
+        guestNameModal.classList.add('hidden');
+
+        // Repopulate the check-in list with the remaining members
+        populateCheckInModal();
+        
+        // --- THIS IS THE KEY CHANGE ---
+        // Re-open the check-in modal instead of going to the main screen
+        checkInModal.classList.remove('hidden');
+
+        // Reset the guest form fields for the next potential entry
+        guestNameInput.value = '';
+        guestSurnameInput.value = '';
+        guestConfirmBtn.disabled = true;
+        document.querySelector('input[name="player-type"][value="guest"]').checked = true;
+
+        // Update the main application state in the background
+        updateGameModeBasedOnPlayerCount();
+        autoAssignCourtModes();
+        render();
+        saveState();
+        checkAndPlayAlert(false);
     }
 
     function executePlayerCheckOut(){
         const playerToCheckOutName = cancelConfirmModal.dataset.player;
         if (playerToCheckOutName) {
+            // --- THIS IS THE FIX ---
+            // Check if the player checking out is the first one in the queue.
+            if (state.availablePlayers.length > 0 && state.availablePlayers[0].name === playerToCheckOutName) {
+                // If so, reset the alert timer and count for the next player.
+                resetAlertSchedule();
+            }
+            // --- END OF FIX ---
+
             const playerObject = state.availablePlayers.find(p => p.name === playerToCheckOutName);
-            if (playerObject) { // Check if player was found
-
-                // --- START FIX ---
-                // If the player being checked out is a junior, remove them from the activeChildren list
+            if (playerObject) {
                 if (playerObject.isJunior) {
-                    state.juniorClub.activeChildren = state.juniorClub.activeChildren.filter(child => child.name !== playerToCheckOutName);
+                    state.juniorClub.activeChildren = state.juniorClub.active-children.filter(child => child.name !== playerToCheckOutName);
                 }
-                // --- END FIX ---
 
-                if (!playerObject.guest) { // Only add back non-guests
+                if (!playerObject.guest) {
                     state.clubMembers.push(playerObject);
                     state.clubMembers.sort((a, b) => a.name.localeCompare(b.name));
                 }
@@ -3719,12 +4120,13 @@ function handleConfirmSelection(){
             state.availablePlayers = state.availablePlayers.filter(p => p.name !== playerToCheckOutName);
             
             cancelConfirmModal.classList.add("hidden");
-            populateCheckOutModal(); // Repopulate the list
-            checkOutModal.classList.remove("hidden"); // Show the list again
+            populateCheckOutModal();
+            checkOutModal.classList.remove("hidden");
             updateGameModeBasedOnPlayerCount();
             autoAssignCourtModes();
             render();
             saveState();
+            // The render() function now triggers the necessary alert checks automatically.
         }
     }
     
@@ -3805,13 +4207,9 @@ function handleConfirmSelection(){
             const gameToUpdate = state.gameHistory.find(g => g.id == editGameId);
             if (!gameToUpdate) return;
 
-            // --- THIS IS THE FIX ---
-            // If the score was skipped previously, the score object will be null.
-            // This line creates an empty score object if it doesn't exist.
             if (!gameToUpdate.score) {
                 gameToUpdate.score = {};
             }
-            // --- END OF FIX ---
 
             gameToUpdate.winner = endGameModal.dataset.winner;
             const finalWinningScore = parseInt(winningScoreInput.value, 10);
@@ -3872,7 +4270,11 @@ function handleConfirmSelection(){
                 winner: winnerValue
             };
             state.gameHistory.push(newGame);
-            const playersToRequeue = [...court.players];
+
+            const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
+            const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
+            const playersToRequeue = [...winningPlayers, ...losingPlayers].filter(p => !p.guest);
+
             state.availablePlayers.push(...playersToRequeue);
             court.becameAvailableAt = Date.now();
             const nextAvailableCourtId = findNextAvailableCourtId();
@@ -3967,6 +4369,18 @@ function handleConfirmSelection(){
     }
 
     function checkAndShowTieBreak() {
+        const matchMode = endGameModal.dataset.matchMode || '1set';
+
+        // --- THIS IS THE FIX ---
+        // Never show tie-break for Fast Play mode
+        if (matchMode === 'fast') {
+            tieBreakerArea.classList.add('hidden');
+            winnerTiebreakInput.value = '';
+            loserTiebreakInput.value = '';
+            return;
+        }
+        // --- END OF FIX ---
+
         const winScore = parseInt(winningScoreInput.value, 10);
         const loseScore = parseInt(losingScoreInput.value, 10);
         if (winScore === 7 && loseScore === 6) {
@@ -3985,15 +4399,25 @@ function handleConfirmSelection(){
             endGameConfirmBtn.disabled = true;
             return;
         }
+
+        const matchMode = endGameModal.dataset.matchMode || '1set'; // Get match mode
+        const fastPlayGames = parseInt(endGameModal.dataset.fastPlayGames, 10) || 4; // Get fast play games
+
         const winScoreVal = winningScoreInput.value;
         const loseScoreVal = losingScoreInput.value;
         const winScore = parseInt(winScoreVal, 10);
         const loseScore = parseInt(loseScoreVal, 10);
         let scoresValid = false;
         if (winScoreVal !== '' && loseScoreVal !== '') {
-            if (winScore === 6 && loseScore >= 0 && loseScore <= 4) scoresValid = true;
-            if (winScore === 7 && loseScore === 5) scoresValid = true;
-            if (winScore === 7 && loseScore === 6) scoresValid = true;
+            if (matchMode === 'fast') {
+                if (winScore === fastPlayGames && loseScore < fastPlayGames) {
+                    scoresValid = true;
+                }
+            } else { // 1set or 3set logic
+                if (winScore === 6 && loseScore >= 0 && loseScore <= 4) scoresValid = true;
+                if (winScore === 7 && loseScore === 5) scoresValid = true;
+                if (winScore === 7 && loseScore === 6) scoresValid = true;
+            }
         }
         if (!scoresValid) {
             endGameConfirmBtn.disabled = true;
@@ -4107,149 +4531,148 @@ function handleConfirmSelection(){
     }
 
     
-// NEW FUNCTION: Function that handles the actual sound + TTS sequence for a single item
-function _playAnnouncementSequence(item, callback) {
-    isAnnouncementPlaying = true;
-    const { msg1, msg2, soundFile } = item;
-    
-    const playSequencedTTS = (msg1, msg2, onDone) => {
-        if (state.notificationControls.isTTSDisabled) return onDone();
+    // NEW FUNCTION: Function that handles the actual sound + TTS sequence for a single item
+    function _playAnnouncementSequence(item, callback) {
+        isAnnouncementPlaying = true;
+        const { msg1, msg2, soundFile } = item;
+        
+        const playSequencedTTS = (msg1, msg2, onDone) => {
+            if (state.notificationControls.isTTSDisabled) return onDone();
 
-        if (!msg1 && !msg2) return onDone();
+            if (!msg1 && !msg2) return onDone();
 
-        const utterance1 = getUtterance(msg1 || msg2); 
-        if (!utterance1) return onDone();
+            const utterance1 = getUtterance(msg1 || msg2); 
+            if (!utterance1) return onDone();
 
-        utterance1.onend = () => {
-            if (msg1 && msg2) {
-                const utterance2 = getUtterance(msg2);
-                if (utterance2) {
-                    utterance2.onend = onDone; // Call final callback after the second message
-                    window.speechSynthesis.speak(utterance2);
+            utterance1.onend = () => {
+                if (msg1 && msg2) {
+                    const utterance2 = getUtterance(msg2);
+                    if (utterance2) {
+                        utterance2.onend = onDone; // Call final callback after the second message
+                        window.speechSynthesis.speak(utterance2);
+                    } else {
+                        onDone();
+                    }
                 } else {
-                    onDone();
+                    onDone(); // Done after the first message
                 }
-            } else {
-                onDone(); // Done after the first message
+            };
+
+            // Ensure no pending TTS is running before starting the new sequence.
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
             }
+            window.speechSynthesis.speak(utterance1);
         };
 
-        // Ensure no pending TTS is running before starting the new sequence.
+        if (state.notificationControls.isTTSDisabled) {
+            // If TTS is disabled, we only worry about the audio playing, then call back.
+            if (!soundFile) return callback();
+        }
+        
+        // Stop previous sound
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+        }
+
+        // CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
         if (window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
         }
-        window.speechSynthesis.speak(utterance1);
-    };
-
-    if (state.notificationControls.isTTSDisabled) {
-        // If TTS is disabled, we only worry about the audio playing, then call back.
-        if (!soundFile) return callback();
-    }
-    
-    // Stop previous sound
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-    }
-
-    // CRITICAL FIX: Cancel any existing speech NOW before starting audio/TTS.
-    if (window.speechSynthesis.speaking) {
-         window.speechSynthesis.cancel();
-    }
-    
-    if (!soundFile) {
-        playSequencedTTS(msg1, msg2, callback);
-        return;
-    }
-
-    // NEW LOGIC: If a sound is about to play for this item, suppress the sound
-    // for all subsequent announcements currently waiting in the queue.
-    announcementQueue.forEach(queuedItem => {
-        queuedItem.soundFile = null;
-    });
-
-    const audioPath = `source/${soundFile}`;
-    currentAudio = new Audio(audioPath);
-    
-    // Wait for sound to finish, then start TTS sequence
-    currentAudio.addEventListener('playing', function onSoundPlaying() {
-        currentAudio.removeEventListener('playing', onSoundPlaying);
         
-        currentAudio.addEventListener('ended', function onSoundEnd() {
-            currentAudio.removeEventListener('ended', onSoundEnd);
-            // Play sequenced TTS, passing the main callback as the final onDone
-            playSequencedTTS(msg1, msg2, callback); 
+        if (!soundFile) {
+            playSequencedTTS(msg1, msg2, callback);
+            return;
+        }
+
+        // NEW LOGIC: If a sound is about to play for this item, suppress the sound
+        // for all subsequent announcements currently waiting in the queue.
+        announcementQueue.forEach(queuedItem => {
+            queuedItem.soundFile = null;
         });
-    });
 
-    currentAudio.play().catch(error => {
-        console.error(`Error playing alert sound ${audioPath}: `, error);
-        // Fallback: Play sequenced TTS immediately if sound fails
-        playSequencedTTS(msg1, msg2, callback);
-    });
-}
-
-// NEW FUNCTION: Function that processes the queue
-function processAnnouncementQueue() {
-    if (announcementQueue.length === 0) {
-        isAnnouncementPlaying = false;
-        return;
-    }
-
-    // NEW LOGIC: Prepend the alert tone if a sequence is starting.
-    if (!isAnnouncementPlaying) {
-        isAnnouncementPlaying = true; // Mark as playing NOW to prevent rapid subsequent calls from getting here.
+        const audioPath = `source/${soundFile}`;
+        currentAudio = new Audio(audioPath);
         
-        const firstTTSItem = announcementQueue[0];
-        
-        // If the first item doesn't have an override sound (e.g., CommitteeCall.mp3 was passed)
-        if (!firstTTSItem.soundFile) {
-            // Prepend a tone-only item using the standard selected alert sound.
-            announcementQueue.unshift({
-                msg1: null,
-                msg2: null,
-                soundFile: state.selectedAlertSound 
+        // Wait for sound to finish, then start TTS sequence
+        currentAudio.addEventListener('playing', function onSoundPlaying() {
+            currentAudio.removeEventListener('playing', onSoundPlaying);
+            
+            currentAudio.addEventListener('ended', function onSoundEnd() {
+                currentAudio.removeEventListener('ended', onSoundEnd);
+                // Play sequenced TTS, passing the main callback as the final onDone
+                playSequencedTTS(msg1, msg2, callback); 
             });
-        } 
+        });
+
+        currentAudio.play().catch(error => {
+            console.error(`Error playing alert sound ${audioPath}: `, error);
+            // Fallback: Play sequenced TTS immediately if sound fails
+            playSequencedTTS(msg1, msg2, callback);
+        });
     }
 
-    const nextItem = announcementQueue.shift(); // Get the next item
-    
-    // Play the item, and when it's done, process the next item in the queue
-    _playAnnouncementSequence(nextItem, processAnnouncementQueue);
-}
+    // NEW FUNCTION: Function that processes the queue
+    function processAnnouncementQueue() {
+        if (isAnnouncementPlaying && announcementQueue.length === 0) {
+            isAnnouncementPlaying = false;
+            return;
+        }
+        if (announcementQueue.length === 0) {
+            return;
+        }
 
-// PUBLIC INTERFACE (Replaces old playAlertSound)
-function playAlertSound(courtMessage = null, dutyMessage = null, soundFileNameOverride = null) {
-    
-    // Check if all notifications are muted
-    if (state.notificationControls.isMuted) return; 
+        if (!isAnnouncementPlaying) {
+            isAnnouncementPlaying = true;
+            
+            const firstItem = announcementQueue[0];
+            
+            if (!firstItem.soundFile) {
+                announcementQueue.unshift({
+                    msg1: null,
+                    msg2: null,
+                    soundFile: state.selectedAlertSound 
+                });
+            } 
+        }
 
-    // 1. Add the new announcement to the queue
-    announcementQueue.push({
-        msg1: courtMessage,
-        msg2: dutyMessage,
-        // CRITICAL: Standard alerts are now TTS-only. Sound is only included if it is an OVERRIDE (e.g., CommitteeCall)
-        soundFile: soundFileNameOverride || null
-    });
-
-    // 2. Start the queue processor if it's not already running
-    if (!isAnnouncementPlaying) {
-        processAnnouncementQueue();
+        const nextItem = announcementQueue.shift();
+        
+        _playAnnouncementSequence(nextItem, processAnnouncementQueue);
     }
-}
 
-// PUBLIC INTERFACE (Replaces old playCustomTTS)
-function playCustomTTS(message) {
-     // Check if all notifications are muted OR if TTS is disabled
-     if (state.notificationControls.isMuted || state.notificationControls.isTTSDisabled) return;
+    // PUBLIC INTERFACE (Replaces old playAlertSound)
+    function playAlertSound(courtMessage = null, dutyMessage = null, soundFileNameOverride = null) {
+        
+        // Check if all notifications are muted
+        if (state.notificationControls.isMuted) return; 
 
-     const utterance = getUtterance(message);
-     if (utterance) {
-         // Push to queue with no sound and no second message, preserving the null sound file for TTS-only announcements
-         playAlertSound(message, null, null);
-     }
-}
+        // 1. Add the new announcement to the queue
+        announcementQueue.push({
+            msg1: courtMessage,
+            msg2: dutyMessage,
+            // CRITICAL: Standard alerts are now TTS-only. Sound is only included if it is an OVERRIDE (e.g., CommitteeCall)
+            soundFile: soundFileNameOverride || null
+        });
+
+        // 2. Start the queue processor if it's not already running
+        if (!isAnnouncementPlaying) {
+            processAnnouncementQueue();
+        }
+    }
+
+    // PUBLIC INTERFACE (Replaces old playCustomTTS)
+    function playCustomTTS(message) {
+        // Check if all notifications are muted OR if TTS is disabled
+        if (state.notificationControls.isMuted || state.notificationControls.isTTSDisabled) return;
+
+        const utterance = getUtterance(message);
+        if (utterance) {
+            // Push to queue with no sound and no second message, preserving the null sound file for TTS-only announcements
+            playAlertSound(message, null, null);
+        }
+    }
 
     // NEW HELPER FUNCTION: Finds the name of the first available, non-paused player
     function getFirstAvailablePlayerName() {
@@ -4268,45 +4691,60 @@ function playCustomTTS(message) {
         const hasEnoughPlayers = availablePlayerCount >= 4;
         const availableCourtId = findNextAvailableCourtId();
         const conditionMet = hasEnoughPlayers && availableCourtId;
-        
-        const firstPlayerName = getFirstAvailablePlayerName(); 
+        const firstPlayerName = getFirstAvailablePlayerName();
 
         if (!conditionMet || !firstPlayerName) {
+            resetAlertSchedule();
             return;
         }
 
-        // --- UPDATED ANNOUNCEMENT LOGIC ---
-        // Use the new helper function here
         const formattedCourtId = formatCourtIdForTTS(availableCourtId);
-        const courtMessage = `Attention, ${firstPlayerName.split(' ')[0]}. Please come and select your match. Court ${formattedCourtId} is available.`;
-        // --- END UPDATED LOGIC ---
+        let standardMessage = `Attention, ${firstPlayerName.split(' ')[0]}. Please come and select your match. Court ${formattedCourtId} is available.`;
 
-        if (alertState === 'initial_check' || forceCheck) {
-            if (forceCheck) {
-                playAlertSound(courtMessage);
-                if (state.notificationControls.isMinimized) {
-                    alertScheduleTime = 0;
-                    alertState = 'initial_check';
-                } else {
-                    alertScheduleTime = now + FIVE_MINUTES_MS;
-                    alertState = '5_min_repeat';
-                }
-            } else {
-                alertScheduleTime = now + TWO_MINUTES_MS;
-                alertState = '2_min_countdown';
-            }
+        if (forceCheck) {
+            playAlertSound(standardMessage);
+            return;
+        }
+
+        if (alertState === 'initial_check') {
+            const firstInterval = state.notificationControls.isMinimized ? TWO_MINUTES_MS : FIVE_MINUTES_MS;
+            alertScheduleTime = now + firstInterval;
+            alertState = '2_min_countdown';
+            state.currentAlertCount = 1;
             return;
         }
 
         if (now >= alertScheduleTime) {
-            playAlertSound(courtMessage);
-            if (state.notificationControls.isMinimized) {
-                alertScheduleTime = 0;
-                alertState = 'initial_check';
-            } else {
-                alertScheduleTime = now + FIVE_MINUTES_MS;
-                alertState = '5_min_repeat';
+            if (state.currentAlertCount >= 2) {
+                if (state.availablePlayers.length > 1) {
+                    const playerToMove = state.availablePlayers.shift();
+                    const insertionIndex = Math.min(8, state.availablePlayers.length);
+                    state.availablePlayers.splice(insertionIndex, 0, playerToMove);
+
+                    const newFirstPlayerName = getFirstAvailablePlayerName();
+                    const swapMessage = `${playerToMove.name.split(' ')[0]} has been moved down. ${newFirstPlayerName.split(' ')[0]}, please select your match on court ${formattedCourtId}.`;
+                    
+                    playAlertSound(swapMessage);
+                    render();
+                    saveState();
+                    resetAlertSchedule();
+                    return;
+                }
             }
+
+            // --- THIS IS THE FIX ---
+            // If this is the second alert (count is 1 before increment), add the "last call" message.
+            if (state.currentAlertCount === 1) {
+                standardMessage += " This is your last call.";
+            }
+            // --- END OF FIX ---
+
+            playAlertSound(standardMessage);
+            state.currentAlertCount++;
+
+            const nextInterval = state.notificationControls.isMinimized ? TWO_MINUTES_MS : FIVE_MINUTES_MS;
+            alertScheduleTime = now + nextInterval;
+            alertState = '5_min_repeat';
         }
     }
 
@@ -4447,6 +4885,48 @@ function playCustomTTS(message) {
                 }
                 courtModeKeypadConfirmBtn.disabled = true;
             }, 820);
+        }
+    }
+
+    function runAutoMinimizeLogic() {
+        if (!state.notificationControls.autoMinimize) {
+            return; // Do nothing if the feature is turned off
+        }
+
+        // 1. Count only the courts available for social play (not reserved for league or turned off)
+        const socialCourts = state.courts.filter(c =>
+            state.courtSettings.visibleCourts.includes(c.id) && c.courtMode !== 'league'
+        );
+        const socialCourtCount = socialCourts.length;
+
+        // 2. Get the total number of players currently at the club
+        const totalPlayerCount = totalPlayersAtClub();
+
+        // 3. Define the threshold based on the available social courts
+        // This is the max capacity of social courts for doubles, plus a waiting queue of 4.
+        const minimizeThreshold = (socialCourtCount * 4) + 4;
+
+
+        // 4. Apply the new logic
+        // Condition for quick turnaround (2-minute timer):
+        if (totalPlayerCount >= minimizeThreshold) {
+            if (!state.notificationControls.isMinimized) {
+                state.notificationControls.isMinimized = true;
+                // --- THIS IS THE FIX ---
+                playCustomTTS("Switching to 2-minute alerts.");
+                // --- END OF FIX ---
+                updateNotificationIcons();
+                saveState();
+            }
+        }
+        // Condition for relaxed turnaround (5-minute timer):
+        else {
+            if (state.notificationControls.isMinimized) {
+                state.notificationControls.isMinimized = false;
+                playCustomTTS("Player queue is clear. Switching to 5-minute alerts.");
+                updateNotificationIcons();
+                saveState();
+            }
         }
     }
     
@@ -4744,7 +5224,14 @@ function playCustomTTS(message) {
     // NEW FUNCTION: Sound selection modal logic
     function handleSoundSelectionModal() {
         tempSelectedSound = state.selectedAlertSound;
-        updateNotificationIcons(); // Ensure icons reflect current state
+        updateNotificationIcons();
+        
+        // Set the state of the new toggle switch
+        const autoMinimizeToggle = document.getElementById('auto-minimize-toggle');
+        if (autoMinimizeToggle) {
+            autoMinimizeToggle.checked = state.notificationControls.autoMinimize;
+        }
+
         renderSoundList();
         adminSettingsModal.classList.add('hidden');
         soundSelectionModal.classList.remove('hidden');
@@ -4825,6 +5312,7 @@ function playCustomTTS(message) {
     function resetAlertSchedule() {
         alertScheduleTime = 0;
         alertState = 'initial_check';
+        state.currentAlertCount = 0; // <-- ADD THIS NEW LINE
     }
     
     function renderReorderHistory() {
@@ -5299,6 +5787,14 @@ function playCustomTTS(message) {
             if (keypadConfig.maxLength && displayValue.length >= keypadConfig.maxLength) {
                 return;
             }
+            // --- THIS IS THE FIX ---
+            const potentialValue = displayValue + key;
+            if (keypadConfig.maxValue !== undefined && parseInt(potentialValue, 10) > keypadConfig.maxValue) {
+                // Vibrate or shake to indicate invalid input (optional feedback)
+                if (navigator.vibrate) navigator.vibrate(100);
+                return; // Don't allow input that exceeds the max value
+            }
+            // --- END OF FIX ---
             displayValue += key;
         }
 
@@ -5309,7 +5805,7 @@ function playCustomTTS(message) {
             keypadDisplay.textContent = displayValue;
             if (activeInput && !activeInput.classList.contains('reorder-position')) {
                 activeInput.value = displayValue;
-                activeInput.dispatchEvent(new Event('input')); // This is the fix
+                activeInput.dispatchEvent(new Event('input')); 
             }
         }
 
@@ -5351,12 +5847,22 @@ function playCustomTTS(message) {
     }
 
     function hideKeypad() { customKeypadModal.classList.add('hidden'); keypadConfig = {}; activeInput = null; }
-    function wireScoreInputToKeypad(input) { 
-        input.readOnly = true; 
-        input.addEventListener('click', (e) => { 
-            e.preventDefault(); // Prevents double-opening or native keyboards
-            showKeypad(e.target); 
-        }); 
+
+    function wireScoreInputToKeypad(input, config = {}) {
+        input.readOnly = true;
+        // Remove any old listener attached to this input to prevent duplicates
+        if (input._keypadListener) {
+            input.removeEventListener('click', input._keypadListener);
+        }
+        // Define the new listener with the current game's rules
+        const newListener = (e) => {
+            e.preventDefault(); // Prevent native keyboards on mobile
+            showKeypad(e.target, config);
+        };
+        // Add the new listener
+        input.addEventListener('click', newListener);
+        // Store a reference to the new listener so it can be removed later
+        input._keypadListener = newListener;
     }
     // --- ALPHA KEYPAD CORE DATA (Required for alphabetical input) ---
     const QWERTY_LAYOUT = [ 
@@ -5504,44 +6010,21 @@ function playCustomTTS(message) {
         
         let playerObject;
 
-        // --- THIS IS THE NEW LOGIC ---
         if (!isGuest) {
-            // This is a member. Try to find them in the master list.
             playerObject = MASTER_MEMBER_LIST.find(p => p.name.toLowerCase() === formattedPlayerName.toLowerCase());
-
             if (playerObject) {
-                // Found them! Remove from club members and add to available.
                 state.clubMembers = state.clubMembers.filter(p => p.name.toLowerCase() !== formattedPlayerName.toLowerCase());
             } else {
-                // This is a new member not in the CSV, treat them like a guest for this session.
                 playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
             }
         } else {
-            // This is a guest. Create a new guest object.
             playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
         }
-        // --- END OF NEW LOGIC ---
 
-        // Add the final player object to the available list if they aren't already there
-        if (!state.availablePlayers.some(p => p.name === playerObject.name)) {
-            state.availablePlayers.push(playerObject);
-        }
-        
-        // Reset and close the modal
+        // Show leaderboard confirmation
+        leaderboardConfirmModal.dataset.player = JSON.stringify(playerObject);
+        leaderboardConfirmModal.classList.remove('hidden');
         guestNameModal.classList.add('hidden');
-        checkInModal.classList.remove('hidden'); 
-        populateCheckInModal(); 
-        
-        guestNameInput.value = '';
-        guestSurnameInput.value = '';
-        guestConfirmBtn.disabled = true;
-        document.querySelector('input[name="player-type"][value="guest"]').checked = true;
-
-        // Standard updates
-        updateGameModeBasedOnPlayerCount();
-        autoAssignCourtModes();
-        render();
-        saveState();
     }
     function resetConfirmModal(){ 
         setTimeout(() => { 
@@ -5601,6 +6084,138 @@ function playCustomTTS(message) {
         }
         setupListWithIndex(state.availablePlayers, checkOutList, document.getElementById('check-out-abc-index'));
     }
+
+
+
+    function executeCheckout(playerName) {
+        if (!playerName) return;
+
+        if (state.availablePlayers.length > 0 && state.availablePlayers[0].name === playerName) {
+            resetAlertSchedule();
+        }
+
+        const playerObject = state.availablePlayers.find(p => p.name === playerName);
+        if (playerObject) {
+            if (playerObject.isJunior) {
+                state.juniorClub.activeChildren = state.juniorClub.activeChildren.filter(child => child.name !== playerName);
+            }
+            if (!playerObject.guest) {
+                state.clubMembers.push(playerObject);
+                state.clubMembers.sort((a, b) => a.name.localeCompare(b.name));
+            }
+        }
+        state.availablePlayers = state.availablePlayers.filter(p => p.name !== playerName);
+
+        // Hide both modals, just in case
+        document.getElementById('checkout-thanks-modal').classList.add("hidden");
+        document.getElementById('checkout-thanks-no-stats-modal').classList.add("hidden");
+
+        populateCheckOutModal();
+        checkOutModal.classList.remove("hidden");
+        
+        updateGameModeBasedOnPlayerCount();
+        autoAssignCourtModes();
+        render();
+        saveState();
+    }
+
+// REPLACE your existing 'showCheckoutThanksModal' function with this one
+
+    function showCheckoutThanksModalNoStats(playerObject) {
+        if (!playerObject) return;
+
+        const playerName = playerObject.name;
+        const firstName = playerName.split(' ')[0];
+        document.getElementById('checkout-thanks-no-stats-title').textContent = `Thanks for joining us, ${firstName}!`;
+
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        let nextSocialDay, nextSocialTime;
+
+        if (dayOfWeek < 3 || (dayOfWeek === 3 && today.getHours() < 17)) {
+            nextSocialDay = "this coming Wednesday";
+            nextSocialTime = "17h30";
+        } else if (dayOfWeek < 6 || (dayOfWeek === 6 && today.getHours() < 13)) {
+            nextSocialDay = "this coming Saturday";
+            nextSocialTime = "13h00";
+        } else {
+            nextSocialDay = "next Wednesday";
+            nextSocialTime = "17h30";
+        }
+
+        const message = `We hope you had a great day on the courts. Please join us for our next social on ${nextSocialDay}, starting at ${nextSocialTime}.`;
+        document.getElementById('checkout-thanks-no-stats-message').textContent = message;
+        
+        const modal = document.getElementById('checkout-thanks-no-stats-modal');
+        modal.dataset.player = playerName;
+
+        checkOutModal.classList.add('hidden');
+        modal.classList.remove('hidden');
+    }
+
+    function showCheckoutThanksModal(playerObject) {
+        if (!playerObject) return;
+
+        const playerName = playerObject.name;
+        const firstName = playerName.split(' ')[0];
+        document.getElementById('checkout-thanks-title').textContent = `Thanks for joining us, ${firstName}!`;
+
+        const statsContainer = document.getElementById('checkout-player-stats');
+        
+        statsContainer.classList.add('hidden');
+
+        if (playerObject.onLeaderboard === true) {
+            const todaysGames = state.gameHistory.filter(game => new Date(game.endTime).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]);
+            const playerStatsToday = calculatePlayerStats(todaysGames)[playerName];
+
+            // This is the key change: We no longer check if games have been played.
+            // We only check if the stats object exists, which it will for any checked-in player.
+            if (playerStatsToday) {
+                const rank = getPlayerRank(playerName, playerObject.gender);
+                const winPercentage = formatWinPercentage(playerStatsToday.played, playerStatsToday.won);
+                const { best, worst } = findBestAndWorstMatches(playerName);
+                const allTimeStats = calculatePlayerStats(state.gameHistory);
+                const allTimeDurationMs = allTimeStats[playerName] ? allTimeStats[playerName].totalDurationMs : 0;
+
+                document.getElementById('stat-rank').textContent = rank ? `#${rank}` : 'N/A';
+                document.getElementById('stat-win-percentage').textContent = winPercentage;
+                document.getElementById('stat-games-played').textContent = playerStatsToday.played;
+                document.getElementById('stat-games-won').textContent = playerStatsToday.won;
+                document.getElementById('stat-time-today').textContent = formatDuration(playerStatsToday.totalDurationMs);
+                document.getElementById('stat-total-time').textContent = formatDuration(allTimeDurationMs);
+                document.getElementById('best-match-highlight').innerHTML = `<strong>Best Match:</strong> ${best || 'N/A'}`;
+                document.getElementById('worst-match-highlight').innerHTML = `<strong>Toughest Match:</strong> ${worst || 'N/A'}`;
+
+                statsContainer.classList.remove('hidden');
+            }
+        }
+        
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        let nextSocialDay, nextSocialTime;
+
+        if (dayOfWeek < 3 || (dayOfWeek === 3 && today.getHours() < 17)) {
+            nextSocialDay = "this coming Wednesday";
+            nextSocialTime = "17h30";
+        } else if (dayOfWeek < 6 || (dayOfWeek === 6 && today.getHours() < 13)) {
+            nextSocialDay = "this coming Saturday";
+            nextSocialTime = "13h00";
+        } else {
+            nextSocialDay = "next Wednesday";
+            nextSocialTime = "17h30";
+        }
+
+        const message = `We hope you had a great day on the courts. Please join us for our next social on ${nextSocialDay}, starting at ${nextSocialTime}.`;
+        document.getElementById('checkout-thanks-message').textContent = message;
+        
+        const modal = document.getElementById('checkout-thanks-modal');
+        modal.dataset.player = playerName;
+
+        checkOutModal.classList.add('hidden');
+        modal.classList.remove('hidden');
+    }
+
+
 
 // NEW, DECOUPLED FUNCTION: Handles only the Committee Call announcement sequence
     function playUntimedCall(ttsMessage) {
@@ -5822,6 +6437,44 @@ function playCustomTTS(message) {
             
             // Perform the clean swap
             [players[firstActiveIndex], players[targetSwapIndex]] = [targetPlayer, cmPlayer];
+        }
+    }
+
+    function autoAssignMatchMode() {
+        if (!state.matchSettings.autoMatchModes) {
+            return; // Do nothing if the feature is turned off
+        }
+
+        const socialCourts = state.courts.filter(c => 
+            state.courtSettings.visibleCourts.includes(c.id) && c.courtMode !== 'league'
+        );
+        const socialCourtCount = socialCourts.length;
+        
+        const totalPlayerCount = totalPlayersAtClub();
+        const fastPlayThreshold = (socialCourtCount * 4) + 4;
+
+        const TWO_MINUTES_MS = 2 * 60 * 1000;
+
+        if (totalPlayerCount >= fastPlayThreshold) {
+            if (state.matchSettings.matchMode !== 'fast') {
+                state.matchSettings.matchMode = 'fast';
+                state.matchSettings.fastPlayGames = 4;
+                playCustomTTS("High demand detected. Switching to Fast Play mode.");
+
+                // --- THIS IS THE FIX ---
+                // If an alert is scheduled for more than 2 minutes away, reset it to 2 minutes.
+                const remainingTime = alertScheduleTime - Date.now();
+                if (alertState !== 'initial_check' && remainingTime > TWO_MINUTES_MS) {
+                    alertScheduleTime = Date.now() + TWO_MINUTES_MS;
+                    playCustomTTS("Alert timer accelerated.");
+                }
+                // --- END OF FIX ---
+            }
+        } else {
+            if (state.matchSettings.matchMode !== '1set') {
+                state.matchSettings.matchMode = '1set';
+                playCustomTTS("Player queue is clear. Switching to standard 1 Set matches.");
+            }
         }
     }
 
@@ -7565,7 +8218,6 @@ function playCustomTTS(message) {
             // START 1-second timers for display updates
             setInterval(() => {
                 updateTimers();
-                updateAlertStatusTimer();
             }, 1000);
 
             // Start repeating check for alert condition
@@ -7675,9 +8327,32 @@ function playCustomTTS(message) {
         }
     });
     modalPlayerList.addEventListener("click",handleModalPlayerClick);
-    historyBtn.addEventListener("click",()=>{state.historyViewMode='games'; renderHistory(); historyPage.classList.remove("hidden")});
+    historyBtn.addEventListener("click", () => {
+        state.historyViewMode = 'games'; // Always start on the game history view
+        renderHistory();
+        historyPage.classList.remove("hidden");
+    });
     historyCloseBtn.addEventListener("click",()=>historyPage.classList.add("hidden"));
-    historyToggleViewBtn.addEventListener("click",()=>{state.historyViewMode="games"===state.historyViewMode?"stats":"games";renderHistory();saveState()});
+    historyToggleViewBtn.addEventListener("click", () => {
+        if (state.historyViewMode === 'stats') {
+            state.historyViewMode = "games";
+        } else {
+            state.historyViewMode = "stats";
+        }
+        renderHistory();
+        saveState();
+    });
+
+    document.getElementById('history-toggle-teams-btn').addEventListener('click', () => {
+        if (state.historyViewMode === 'teams') {
+            state.historyViewMode = 'games';
+        } else {
+            state.historyViewMode = 'teams';
+        }
+        renderHistory();
+        saveState();
+    });
+
     checkInBtn.addEventListener("click",()=>{populateCheckInModal(),checkInModal.classList.remove("hidden")});
     checkInCancelBtn.addEventListener("click",()=>checkInModal.classList.add("hidden"));
     
@@ -7958,36 +8633,91 @@ function playCustomTTS(message) {
     // ADDED WINDOW RESIZE LISTENER FOR AUTOMATIC EXPANSION
     window.addEventListener('resize', resetCollapseOnResize);
 
-    // MODIFIED: Restored listener to show confirmation modal for Check-in
-    checkInList.addEventListener("click",e=>{
-        if(e.target.classList.contains("add")){
-            const playerName=e.target.dataset.player;
-            const player = getPlayerByName(playerName); 
-            cancelConfirmModal.querySelector("h3").textContent="Confirm Check In";
-            cancelConfirmModal.querySelector("p").textContent=`Are you sure you want to check in ${playerName.split(' ')[0]} (${player.gender})?`;
-            modalBtnYesConfirm.textContent="Confirm"; // Standardized Text
-            modalBtnNo.textContent = "Close";      // Standardized Text
-            cancelConfirmModal.dataset.mode="checkInPlayer";
-            cancelConfirmModal.dataset.player=playerName;
-            cancelConfirmModal.classList.remove("hidden")
+    // UPDATED: Bypasses the confirmation modal for a direct check-in flow
+    checkInList.addEventListener("click", e => {
+        if (e.target.classList.contains("add")) {
+            const playerName = e.target.dataset.player;
+            // Find the full player object from the clubMembers list
+            const playerObject = state.clubMembers.find(p => p.name === playerName);
+            
+            if (playerObject) {
+                // Store the player data in the leaderboard modal's dataset
+                leaderboardConfirmModal.dataset.player = JSON.stringify(playerObject);
+                
+                // Show the leaderboard modal directly
+                leaderboardConfirmModal.classList.remove('hidden');
+                
+                // Hide the check-in modal
+                checkInModal.classList.add('hidden');
+            }
         }
     });
 
     checkOutBtn.addEventListener("click",()=>{populateCheckOutModal(),checkOutModal.classList.remove("hidden")});
     checkOutCloseBtn.addEventListener("click",()=>checkOutModal.classList.add("hidden"));
     
-    // MODIFIED: Restored listener to show confirmation modal for Check-out
-    checkOutList.addEventListener("click",e=>{
-        if(e.target.classList.contains("remove")){
-            const playerName=e.target.dataset.player;
-            const player = getPlayerByName(playerName); 
-            cancelConfirmModal.querySelector("h3").textContent="Confirm Check Out";
-            cancelConfirmModal.querySelector("p").textContent=`Are you sure you want to check out ${playerName.split(' ')[0]} (${player.gender})?`;
-            modalBtnYesConfirm.textContent="Confirm"; // Standardized Text
-            modalBtnNo.textContent = "Close";      // Standardized Text
-            cancelConfirmModal.dataset.mode="checkOutPlayer";
-            cancelConfirmModal.dataset.player=playerName;
-            cancelConfirmModal.classList.remove("hidden")
+    // MODIFIED: This now calls the new handleCheckout function
+    checkOutList.addEventListener("click", e => {
+        if (e.target.classList.contains("remove")) {
+            const playerName = e.target.dataset.player;
+            const playerObject = state.availablePlayers.find(p => p.name === playerName);
+            if (playerObject) {
+                // Instead of showing a modal directly, call the new handler function
+                handleCheckout(playerObject);
+            }
+        }
+    });
+
+
+
+    // Listener for the ORIGINAL modal (with stats)
+    document.getElementById('checkout-thanks-confirm-btn').addEventListener('click', () => {
+        const modal = document.getElementById('checkout-thanks-modal');
+        executeCheckout(modal.dataset.player);
+    });
+
+    // NEW: Listener for the NEW modal (no stats)
+    document.getElementById('checkout-thanks-no-stats-confirm-btn').addEventListener('click', () => {
+        const modal = document.getElementById('checkout-thanks-no-stats-modal');
+        executeCheckout(modal.dataset.player);
+    });
+
+
+    // NEW: Listener for the branded checkout modal confirmation
+    document.getElementById('checkout-thanks-confirm-btn').addEventListener('click', () => {
+        const modal = document.getElementById('checkout-thanks-modal');
+        const playerToCheckOutName = modal.dataset.player;
+
+        if (playerToCheckOutName) {
+            // --- This is the same core logic from executePlayerCheckOut ---
+            if (state.availablePlayers.length > 0 && state.availablePlayers[0].name === playerToCheckOutName) {
+                resetAlertSchedule();
+            }
+
+            const playerObject = state.availablePlayers.find(p => p.name === playerToCheckOutName);
+            if (playerObject) {
+                if (playerObject.isJunior) {
+                    state.juniorClub.activeChildren = state.juniorClub.activeChildren.filter(child => child.name !== playerToCheckOutName);
+                }
+                if (!playerObject.guest) {
+                    state.clubMembers.push(playerObject);
+                    state.clubMembers.sort((a, b) => a.name.localeCompare(b.name));
+                }
+            }
+            state.availablePlayers = state.availablePlayers.filter(p => p.name !== playerToCheckOutName);
+            
+            // Hide the thanks modal
+            modal.classList.add("hidden");
+            
+            // Repopulate and show the original checkout modal again
+            populateCheckOutModal();
+            checkOutModal.classList.remove("hidden");
+            
+            // Update the main state
+            updateGameModeBasedOnPlayerCount();
+            autoAssignCourtModes();
+            render();
+            saveState();
         }
     });
 
@@ -8043,7 +8773,7 @@ function playCustomTTS(message) {
     
     // MODIFIED: Yes button now handles check-in/out and the force announcement
     // MODIFIED: Yes button now handles check-in/out and the force announcement
-modalBtnYesConfirm.addEventListener("click", () => {
+    modalBtnYesConfirm.addEventListener("click", () => {
         const mode = cancelConfirmModal.dataset.mode;
 
         if (mode === "removeSingleChild") {
@@ -8052,7 +8782,6 @@ modalBtnYesConfirm.addEventListener("click", () => {
             const gameId = cancelConfirmModal.dataset.gameId;
             cancelConfirmModal.classList.add("hidden");
             resetConfirmModal();
-            historyPage.classList.add("hidden"); // <-- THIS IS THE FIX
             handleEndGame(null, gameId); 
         } else if (mode === "checkOutPlayer") {
             executePlayerCheckOut();
@@ -8105,14 +8834,19 @@ modalBtnYesConfirm.addEventListener("click", () => {
         }
     });
     
+ // Add generic listeners that trigger validation whenever an input's value changes.
     const scoreInputs = [winningScoreInput, losingScoreInput, winnerTiebreakInput, loserTiebreakInput];
     scoreInputs.forEach(input => {
-        wireScoreInputToKeypad(input);
         input.addEventListener("input", () => {
             checkAndShowTieBreak();
             validateEndGameForm();
         });
     });
+
+    // Wire up the keypad for the tie-break inputs, which have no special max value rules.
+    // The main score inputs are now wired up dynamically inside handleEndGame().
+    wireScoreInputToKeypad(winnerTiebreakInput);
+    wireScoreInputToKeypad(loserTiebreakInput);
 
 
 // REPLACE this event listener
@@ -8321,6 +9055,55 @@ modalBtnYesConfirm.addEventListener("click", () => {
         cancelConfirmModal.dataset.gameId = gameId;
         cancelConfirmModal.classList.remove("hidden");
     });
+
+    // EVENT LISTENERS FOR LEADERBOARD AND DISCLAIMER MODALS
+    document.getElementById('leaderboard-btn-yes').addEventListener('click', () => {
+        const player = JSON.parse(leaderboardConfirmModal.dataset.player);
+        player.onLeaderboard = true;
+        finishCheckIn(player);
+    });
+
+    document.getElementById('leaderboard-btn-no').addEventListener('click', () => {
+        const player = JSON.parse(leaderboardConfirmModal.dataset.player);
+        player.onLeaderboard = false;
+        finishCheckIn(player);
+    });
+
+    document.getElementById('disclaimer-btn').addEventListener('click', () => {
+        disclaimerModal.classList.remove('hidden');
+    });
+
+    document.getElementById('disclaimer-close-btn').addEventListener('click', () => {
+        disclaimerModal.classList.add('hidden');
+    });
+
+    // Event listener for the new Auto-Minimize toggle
+    document.getElementById('auto-minimize-toggle').addEventListener('change', (e) => {
+        state.notificationControls.autoMinimize = e.target.checked;
+        if (state.notificationControls.autoMinimize) {
+            runAutoMinimizeLogic(); // Immediately run the logic when turned on
+        }
+        saveState();
+    });
+
+    // We also need to call the auto-minimize logic whenever players or courts change state
+    // For example, at the end of these functions:
+    // (You will need to find these functions and add the call)
+
+    // In executeGameCancellation() -> right before saveState()
+    runAutoMinimizeLogic();
+
+    // In executePlayerCheckIn() -> right before saveState()
+    runAutoMinimizeLogic();
+
+    // In executePlayerCheckOut() -> right before saveState()
+    runAutoMinimizeLogic();
+
+    // In finishCheckIn() -> right before saveState()
+    runAutoMinimizeLogic();
+    
+    // In resetCourtAfterGame() -> right before saveState()
+    runAutoMinimizeLogic();
 
     // EVENT LISTENERS FOR SOUND SELECTION
     selectSoundBtn.addEventListener('click', handleSoundSelectionModal);
@@ -8553,6 +9336,16 @@ modalBtnYesConfirm.addEventListener("click", () => {
             }
         }
     });
+    // --- START OF NEW VISIBILITY CHANGE LOGIC ---
+    document.addEventListener('visibilitychange', () => {
+        // Check if the page has become visible
+        if (document.visibilityState === 'visible') {
+            // Re-run the function that applies the court selection animations
+            ensureCourtSelectionAnimation();
+        }
+    });
+    // --- END OF NEW VISIBILITY CHANGE LOGIC ---
+
     // --- END OF NEW KEYBOARD BINDING LOGIC ---
 });
 
