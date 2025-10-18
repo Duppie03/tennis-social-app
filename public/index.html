@@ -57,10 +57,12 @@
                             <button id="checkInBtn" class="action-btn">Check In</button>
                             <button id="checkOutBtn" class="action-btn">Check Out</button>
                         </div>
-                        <h4>Mode</h4>
-                        <div class="mode-selector">
-                            <button id="mode-doubles" class="mode-btn active">Doubles</button>
-                            <button id="mode-singles" class="mode-btn">Singles</button>
+                        <div id="game-mode-container">
+                            <h4>Mode</h4>
+                            <div class="mode-selector">
+                                <button id="mode-doubles" class="mode-btn active">Doubles</button>
+                                <button id="mode-singles" class="mode-btn">Singles</button>
+                            </div>
                         </div>
                         
                         <div class="player-list-header">
@@ -128,7 +130,8 @@
                 <p><strong>Just a friendly reminder to please settle your tuck shop account before you leave.</strong></p>
             </div>
             <div class="modal-actions">
-                <button id="checkout-thanks-confirm-btn" class="action-btn confirm">Confirm Checkout</button>
+                <button id="checkout-thanks-back-btn" class="action-btn neutral">Back</button>
+                <button id="checkout-thanks-confirm-btn" class="action-btn confirm">Confirm</button>
             </div>
         </div>
     </div>
@@ -143,7 +146,8 @@
                 <p><strong>Just a friendly reminder to please settle your tuck shop account before you leave.</strong></p>
             </div>
             <div class="modal-actions">
-                <button id="checkout-thanks-no-stats-confirm-btn" class="action-btn confirm">Confirm Checkout</button>
+                <button id="checkout-thanks-no-stats-back-btn" class="action-btn neutral">Back</button>
+                <button id="checkout-thanks-no-stats-confirm-btn" class="action-btn confirm">Confirm</button>
             </div>
         </div>
     </div>
@@ -154,23 +158,24 @@
                 <h3>Rules & Leaderboard</h3>
             </div>
             <div class="rules-container">
-                <h4>How The App Works:</h4>
-                <ul>
-                    <li>The player at the top of the "Available Players" list selects a team from the 7 succeeding players and selects an available court to start a game.</li>
-                    <li>After your match, you must end the game on the app to be placed back in the queue.</li>
-                    <li>Court modes (Doubles, Singles, Rookie) are automatically assigned based on the number of checked-in players, with Doubles being the preferred format.</li>
-                    <li>To ensure fair play, the app will allow for a mixed doubles match if there are not enough players of the same gender in the next 7 available players.</li>
-                    <li>To ensure continuous play, if a player is called twice and does not respond, they will be moved outside the available players list and will be eligible for selection after the next match starts.</li>
-                    <li>For a bit of fun, players are ranked based on their win percentage (games won vs. games played).</li>
-                    <li>Lekker speel!!</li>
-                </ul>
-                <div class="leaderboard-prompt">
+                <div class="rules-content-scrollable"> <h4>How The App Works:</h4>
+                    <ul>
+                        <li>The player at the top of the "Available Players" list selects a team from the 7 succeeding players and selects an available court to start a game.</li>
+                        <li>After your match, you must end the game on the app to be placed back in the queue.</li>
+                        <li>Court modes (Doubles, Singles, Rookie) are automatically assigned based on the number of checked-in players, with Doubles being the preferred format.</li>
+                        <li>To ensure fair play, the app will allow for a mixed doubles match if there are not enough players of the same gender in the next 7 available players.</li>
+                        <li>To ensure continuous play, if a player is called twice and does not respond, they will be moved outside the available players list and will be eligible for selection after the next match starts.</li>
+                        <li>For a bit of fun, players are ranked based on their win percentage (games won vs. games played).</li>
+                        <li>Lekker speel!!</li>
+                    </ul>
+                </div> <div class="leaderboard-prompt">
                     <p>Do you want your results to be included in the Player Statistics Leaderboard?</p>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button id="leaderboard-btn-no" class="action-btn cancel">No, Exclude Me</button>
-                <button id="leaderboard-btn-yes" class="action-btn confirm">Yes, Include Me</button>
+            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                <button id="leaderboard-back-btn" class="action-btn neutral">Back</button>
+                <button id="leaderboard-btn-no" class="action-btn cancel" style="grid-column: 2 / 3;">No Thanks</button>
+                <button id="leaderboard-btn-yes" class="action-btn confirm" style="grid-column: 3 / 4;">Yes Please</button>
             </div>
             <div class="modal-footer" style="text-align: center; margin-top: 1rem;">
                 <button id="disclaimer-btn" class="link-button">View Disclaimer</button>
@@ -495,9 +500,9 @@
                 </div>
             <div class="modal-actions">
                 <button id="history-close-btn">Close</button>
-                <button id="manual-entry-btn" class="action-btn neutral">Add Manual Result</button>
-                <button id="history-toggle-teams-btn" class="action-btn">Show Team Stats</button>
-                <button id="history-toggle-view" class="action-btn">Show Player Stats</button>
+                <button id="manual-entry-btn" class="action-btn neutral">Add Result</button>
+                <button id="history-toggle-teams-btn" class="action-btn">Team Stats</button>
+                <button id="history-toggle-view" class="action-btn">Player Stats</button>
             </div>
         </div>
     </div>
@@ -670,7 +675,7 @@
     <div id="sign-out-member-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
-                <h3 id="sign-out-member-title">Select Member Signing Out</h3>
+                <h3>Select Member Signing Out</h3>
             </div>
             <p id="sign-out-member-prompt" style="color: var(--neutral-color);">Please select the member responsible for this ball sign-out.</p>
             <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
@@ -747,7 +752,7 @@
             <div id="ball-history-list" class="history-list scrollable">
                 </div>
             <div class="modal-actions">
-                <button id="ball-history-close-btn">Close</button>
+                <button id="ball-history-close-btn" class="action-btn">Close</button>
             </div>
         </div>
     </div>
@@ -794,13 +799,7 @@
                     </button>
                 </div>
             </div>
-        <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
-            <div class="radio-group" id="junior-club-name-filter-group" style="display: flex; gap: 2rem;">
-                    <label> <input type="radio" name="junior-club-name-filter" value="parent" checked> Parent Name</label>
-                    <label> <input type="radio" name="junior-club-name-filter" value="child"> Child Name</label>
-                </div>
-            </div>
-            <div class="list-container" style="margin-top: -1.5rem;">
+            <div class="list-container">
                 <div id="junior-club-abc-index" class="abc-index"></div>
                 <ul id="junior-club-list" class="modal-action-list scrollable"></ul>
             </div>
@@ -856,7 +855,7 @@
     <div id="child-selection-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
-                <h3 id="child-selection-title">Select Attending Children</h3>
+                <h3>Select Attending Children</h3>
             </div>
             <p id="child-selection-prompt">Please select the children who are present today.</p>
             <ul id="attending-children-list" class="modal-action-list scrollable">
@@ -888,14 +887,7 @@
             <div class="modal-header-with-actions">
                 <h3>Junior Club Payment History</h3>
             </div>
-            <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
-                <div class="radio-group" id="payment-filter-group" style="display: flex; gap: 2rem;">
-                    <label> <input type="radio" name="payment-filter" value="all" checked> All</label>
-                    <label> <input type="radio" name="payment-filter" value="paid"> Paid</label>
-                    <label> <input type="radio" name="payment-filter" value="unpaid"> Unpaid</label>
-                </div>
-            </div>
-            <div class="list-container" style="margin-top: -1.5rem;">
+            <div class="list-container">
                 <div id="junior-club-history-abc-index" class="abc-index"></div>
                 <ul id="junior-club-history-list" class="history-list scrollable" style="padding: 0;">
                     </ul>
@@ -931,14 +923,6 @@
             <div class="modal-header-with-actions">
                 <h3>Junior Club Roster</h3>
             </div>
-            <div class="modal-actions" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color);">
-                <div class="radio-group" id="roster-type-filter-group" style="display: flex; gap: 2rem;">
-                    <label> <input type="radio" name="roster-type-filter" value="all" checked> All</label>
-                    <label> <input type="radio" name="roster-type-filter" value="parents"> Parents Only</label>
-                    <label> <input type="radio" name="roster-type-filter" value="children"> Children Only</label>
-                </div>
-            </div>
-
             <div class="list-container">
                 <div id="junior-club-roster-abc-index" class="abc-index"></div>
                 <ul id="junior-club-roster-list" class="modal-action-list scrollable"></ul>
@@ -1002,6 +986,26 @@
                 </div>
             </div>
         </div>
+<div id="temp-duty-handover-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header-with-actions">
+            <h3>Temporary Duty Handover</h3>
+        </div>
+        <p id="temp-duty-handover-prompt" style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">
+            Who is going to take over from <strong><span id="temp-duty-current-member">Member Name</span></strong>?<br>
+            Please inform them before heading to court.
+        </p>
+        <div class="admin-settings-panel" style="max-height: 400px;">
+            <ul id="temp-duty-handover-list" class="modal-action-list scrollable">
+            </ul>
+        </div>
+        <div class="modal-actions">
+            <button id="temp-duty-cancel-btn" class="action-btn cancel">Cancel</button>
+            <button id="temp-duty-confirm-btn" class="action-btn confirm" disabled>Confirm Handover</button>
+        </div>
+    </div>
+</div>
+
 
     <script src="script.js"></script>
 </body>

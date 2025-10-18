@@ -65,7 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 parent: 'all',
                 paid: 'all', // 'all', 'paid', 'unpaid'
             }, // <-- CORRECTED CLOSING BRACE
-
             rosterFilter: { // This is for the new Roster modal
                 sortKey: 'name',         // 'name' or 'last_checkin'
                 sortOrder: 'asc',        // 'asc' or 'desc'
@@ -105,13 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ],
         courtSettings: {
             visibleCourts: ['A', 'B', 'C', 'D', 'E'],
-            autoAssignModes: true // <-- ADD THIS NEW LINE
+            autoAssignModes: true,
+            showGameModeSelector: false // <-- ADD THIS LINE
         },
 
     // NEW MATCH SETTINGS BLOCK
         matchSettings: {
             matchMode: '1set',    // '1set', '3set', 'fast'
-            fastPlayGames: 4,     // 4, 6, or 8
+            fastPlayGames: 4,     // 3, 4, or 5
             autoMatchModes: true  // Auto-assign match modes
         },
 
@@ -125,6 +125,17 @@ document.addEventListener('DOMContentLoaded', () => {
             players: [],
             courtId: null
         },
+
+        historySort: {
+            key: 'endTime',
+            order: 'desc'
+        },
+
+        gameHistoryFilter: {
+            timeFrame: 'Total', // 'Today', 'Month', 'Year', 'Total'
+            gameType: 'all'     // 'all', 'doubles', 'singles'
+        },
+
         guestHistory: [], // NEW: To store guest data
         gameHistory: [],
         reorderHistory: [],
@@ -142,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isMuted: false,        // Mute All Sounds
             isMinimized: false,    // Minimize Notifications (Only initial alert)
             isTTSDisabled: false,   // Turn Off Speech Only
-            autoMinimize: false    // <-- ADD THIS NEW LINE
+            autoMinimize: true    // <-- ADD THIS NEW LINE
         },
         currentQuoteIndex: 0,
         currentAlertCount: 0, // <-- ADD THIS NEW LINE
@@ -284,6 +295,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // CRITICAL FIX: Add the missing gender filter element reference
     const rosterGenderFilterGroup = document.getElementById('roster-gender-filter-group');
 
+    // TEMPORARY DUTY HANDOVER ELEMENTS
+    const tempDutyHandoverModal = document.getElementById('temp-duty-handover-modal');
+    const tempDutyHandoverList = document.getElementById('temp-duty-handover-list');
+    const tempDutyCurrentMember = document.getElementById('temp-duty-current-member');
+    const tempDutyCancelBtn = document.getElementById('temp-duty-cancel-btn');
+    const tempDutyConfirmBtn = document.getElementById('temp-duty-confirm-btn');
 
     // NEW ELEMENTS FOR MANUAL GAME ENTRY
     const manualEntryModal = document.getElementById('manual-entry-modal');
@@ -444,11 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const signOutMemberCancelBtn = document.getElementById('sign-out-member-cancel-btn');
     const returnStockBtn = document.getElementById('return-stock-btn');
     const returnUsedBallsBtn = document.getElementById('return-used-balls-btn'); // <-- ADD THIS
+    console.log('Add Stock Button:', addStockBtn);
+    console.log('Return Stock Button:', returnStockBtn);
+    console.log('Return Used Balls Button:', returnUsedBallsBtn);
     const ballHistoryBtn = document.getElementById('ball-history-btn');
     const ballHistoryModal = document.getElementById('ball-history-modal');
     const ballHistoryList = document.getElementById('ball-history-list');
     const ballHistoryCloseBtn = document.getElementById('ball-history-close-btn'); 
-    const signOutMemberTitle = document.getElementById('sign-out-member-title');
     const signOutMemberPrompt = document.getElementById('sign-out-member-prompt');
 
 
@@ -577,6 +596,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
                 };
             }
+
+            // ADD THIS 'if' BLOCK
+            if (state.courtSettings.showGameModeSelector === undefined) {
+                state.courtSettings.showGameModeSelector = true;
+            }
             
             // Ensure matchSettings exists and has defaults
             if (!state.matchSettings) {
@@ -684,15 +708,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const weekday = date.toLocaleDateString("en-ZA", { weekday: "long" });
         const day = String(date.getDate()).padStart(2, '0');
 
-        // Format time to hh:mm AM/PM
-        let time = date.toLocaleTimeString("en-US", {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
+        // Get 24-hour time parts
+        const hour24 = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
 
-        // Convert to lowercase and remove the space (e.g., "09:05 AM" -> "09:05am")
-        time = time.replace(' ', '').toLowerCase();
+        // Determine am/pm for the tag
+        const ampm = date.getHours() >= 12 ? 'pm' : 'am';
+
+        // Construct the custom time string
+        const time = `${hour24}:${minutes}:${seconds} ${ampm}`;
 
         headerClock.textContent = `${weekday} ${day}, ${time}`; 
     }
@@ -1272,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
         });
 
-        playCustomTTS(`Stock updated. Returned ${count} used balls.`);
+        //playCustomTTS(`Stock updated. Returned ${count} used balls.`);
         updateUsedBallStockDisplay();
         saveState();
         cancelConfirmModal.classList.add("hidden");
@@ -1311,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!button) return;
 
         if (button.disabled) {
-            playCustomTTS("Sign out requires balls. Please add stock first.");
+            //playCustomTTS("Sign out requires balls. Please add stock first.");
             return;
         }
 
@@ -1320,58 +1345,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Generalized Member Selection Modal
-    function showMemberSelectionModal(action, category = null) {
-        signOutMemberList.innerHTML = '';
+function showMemberSelectionModal(action, category = null) {
+    signOutMemberList.innerHTML = '';
 
-        // Set modal title and prompt based on the action
-        if (action === 'add') {
-            signOutMemberTitle.textContent = 'Select Member Adding Stock';
-            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock addition.';
-        } else if (action === 'return') {
-            signOutMemberTitle.textContent = 'Select Member Returning Stock';
-            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
-        } else if (action === 'return_used') { // <-- ADD THIS ENTIRE ELSE IF BLOCK
-            signOutMemberTitle.textContent = 'Select Member Returning Used Balls';
-            signOutMemberPrompt.textContent = 'Please select the member responsible for this used ball return.';
-        } else { // signout
-            signOutMemberTitle.textContent = 'Select Member Signing Out';
-            signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
-        }
-
-        // Store action context in the modal
-        signOutMemberModal.dataset.action = action;
-        if (category) {
-            signOutMemberModal.dataset.category = category;
-        } else {
-            delete signOutMemberModal.dataset.category;
-        }
-
-        const members = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
-
-        if (members.length === 0) {
-            signOutMemberList.innerHTML = '<li style="justify-content: center; color: var(--cancel-color);">No committee members found.</li>';
-            return;
-        }
-
-        signOutMemberConfirmBtn.disabled = true;
-
-        members.forEach(member => {
-            const li = document.createElement('li');
-            li.className = 'committee-member';
-            li.dataset.player = member.name;
-            li.innerHTML = `<label><input type="radio" name="signoutMember" value="${member.name}"><div class="member-details"><span class="member-name">${member.name}</span><span class="member-designation">${member.committee || 'Member'}</span></div></label>`;
-            signOutMemberList.appendChild(li);
-        });
-
-        signOutMemberList.querySelectorAll('input[name="signoutMember"]').forEach(radio => {
-            radio.removeEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
-            radio.addEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
-        });
-
-        adminSettingsModal.classList.add('hidden');
-        ballManagementModal.classList.add('hidden');
-        signOutMemberModal.classList.remove('hidden');
+    // Set modal prompt based on the action
+    if (action === 'add') {
+        signOutMemberPrompt.textContent = 'Please select the member responsible for this stock addition.';
+    } else if (action === 'return') {
+        signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
+    } else if (action === 'return_used') {
+        signOutMemberPrompt.textContent = 'Please select the member responsible for this used ball return.';
+    } else { // signout
+        signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
     }
+
+    // Store action context in the modal
+    signOutMemberModal.dataset.action = action;
+    if (category) {
+        signOutMemberModal.dataset.category = category;
+    } else {
+        delete signOutMemberModal.dataset.category;
+    }
+
+    const members = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
+
+    if (members.length === 0) {
+        signOutMemberList.innerHTML = '<li style="justify-content: center; color: var(--cancel-color);">No committee members found.</li>';
+        return;
+    }
+
+    signOutMemberConfirmBtn.disabled = true;
+
+    members.forEach(member => {
+        const li = document.createElement('li');
+        li.className = 'committee-member';
+        li.dataset.player = member.name;
+        li.innerHTML = `<label><input type="radio" name="signoutMember" value="${member.name}"><div class="member-details"><span class="member-name">${member.name}</span><span class="member-designation">${member.committee || 'Member'}</span></div></label>`;
+        signOutMemberList.appendChild(li);
+    });
+
+    signOutMemberList.querySelectorAll('input[name="signoutMember"]').forEach(radio => {
+        radio.removeEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+        radio.addEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+    });
+
+    adminSettingsModal.classList.add('hidden');
+    ballManagementModal.classList.add('hidden');
+    signOutMemberModal.classList.remove('hidden');
+}
 
     // 4. Generalized Member Confirmation and Keypad Trigger
     function handleMemberSelectionConfirm() {
@@ -1440,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         hideKeypad();
 
         if (isNaN(cansToSignOut) || cansToSignOut <= 0 || cansToSignOut > state.ballManagement.stock) {
-            playCustomTTS("Sign out failed. Invalid quantity or insufficient stock.");
+            //playCustomTTS("Sign out failed. Invalid quantity or insufficient stock.");
             return;
         }
 
@@ -1470,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
         });
 
-        playCustomTTS(`Stock updated. Added ${count} cans.`);
+        //playCustomTTS(`Stock updated. Added ${count} cans.`);
         updateBallStockDisplay();
         saveState();
         cancelConfirmModal.classList.add("hidden");
@@ -1493,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
             count: count, member: member, stockBefore: stockBefore, stockAfter: stockAfter
         });
 
-        playCustomTTS(`Stock updated. Returned ${count} cans.`);
+        //playCustomTTS(`Stock updated. Returned ${count} cans.`);
         updateBallStockDisplay();
         saveState();
         cancelConfirmModal.classList.add("hidden");
@@ -1521,94 +1542,14 @@ document.addEventListener('DOMContentLoaded', () => {
             count: cansCount, member: member, stockBefore: stockBefore, stockAfter: stockAfter
         });
 
-        playCustomTTS(`Signed out ${cansCount} cans for ${category}, by ${member}.`);
+        //playCustomTTS(`Signed out ${cansCount} cans for ${category}, by ${member}.`);
         updateBallStockDisplay();
         saveState();
         cancelConfirmModal.classList.add("hidden");
         ballManagementModal.classList.remove("hidden");
         resetConfirmModal(); // ADD THIS LINE
     }
-
-    //function executeSignOutBalls() {
-    //    const cansCount = parseInt(cancelConfirmModal.dataset.count, 10);
-    //    const category = cancelConfirmModal.dataset.category;
-    //    const member = cancelConfirmModal.dataset.member;
-//
-//        if (isNaN(cansCount) || state.ballManagement.stock < cansCount) {
-//            playCustomTTS("Sign out failed. Insufficient stock.");
-//            return;
-//        }
-
-//        const stockBefore = state.ballManagement.stock;
- //       state.ballManagement.stock -= cansCount; // Deduct CANS
- //       const stockAfter = state.ballManagement.stock;
- //       state.ballManagement.history.push({
- //           timestamp: Date.now(),
- //           action: 'out',
- //           category: category,
- //           count: cansCount,
- //           member: member, // Log the signing member
- //           stockBefore: stockBefore,
- //           stockAfter: stockAfter
- //       });
-        
- //       playCustomTTS(`Signed out ${cansCount} cans for ${category}, signed out by ${member}.`);
- //       updateBallStockDisplay();
- //       saveState();
- //       cancelConfirmModal.classList.add("hidden");
- //       ballManagementModal.classList.remove("hidden"); // Return to ball modal
- //   }
     
-    function handleReturnStock() {
-        showKeypad(null, { 
-            mode: 'return', 
-            maxLength: 3, 
-            title: 'Enter cans to return' 
-        });
-        keypadConfirmBtn.removeEventListener('click', confirmBallStockReturn);
-        keypadConfirmBtn.addEventListener('click', confirmBallStockReturn);
-    }
-
-
-    function confirmBallStockReturn() {
-        const value = parseInt(keypadDisplay.textContent, 10);
-        hideKeypad();
-
-        if (isNaN(value) || value <= 0) return;
-
-        cancelConfirmModal.querySelector("h3").textContent = "Confirm Return";
-        cancelConfirmModal.querySelector("p").textContent = 
-            `Confirm returning ${value} can(s) of balls to stock?`;
-        modalBtnYesConfirm.textContent = "Confirm Return";
-        modalBtnNo.textContent = "Cancel";
-        cancelConfirmModal.dataset.mode = "returnBallStock";
-        cancelConfirmModal.dataset.count = value;
-        cancelConfirmModal.classList.remove("hidden");
-    }
-
-    function executeReturnBallStock() {
-        const count = parseInt(cancelConfirmModal.dataset.count, 10);
-        if (isNaN(count) || count <= 0) return;
-
-        const stockBefore = state.ballManagement.stock;
-        state.ballManagement.stock += count; // Add CANS back to stock
-        const stockAfter = state.ballManagement.stock;
-        state.ballManagement.history.push({
-            timestamp: Date.now(),
-            action: 'in',
-            category: 'return',
-            count: count,
-            stockBefore: stockBefore,
-            stockAfter: stockAfter
-        });
-
-        playCustomTTS(`Stock updated. Returned ${count} cans.`);
-        updateBallStockDisplay();
-        saveState();
-        cancelConfirmModal.classList.add("hidden");
-        ballManagementModal.classList.remove("hidden"); // Return to ball modal
-    }
-
     function renderBallHistoryModal() {
         ballHistoryList.innerHTML = ''; // Clear previous content
 
@@ -1761,10 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     }
-    
-
-
-    
+        
     function updateAlertStatusTimer() {
         if (!alertStatusDisplay) return;
 
@@ -1928,24 +1866,36 @@ document.addEventListener('DOMContentLoaded', () => {
             teamHistoryList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No team stats available for the selected filter.</p>';
         } else {
             const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+
+            // --- THIS IS THE FIX ---
             const tableHeader = `
-                <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
-                    <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Team${getSortIcon('name')}</button>
-                    <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
-                    <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
-                    <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
+                    <div class="stats-grid-row">
+                        <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Team${getSortIcon('name')}</button>
+                        <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
+                        <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
+                        <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                    </div>
                 </div>`;
             
             const teamRows = teamsWithStats.map(team => {
                 const winPercentage = formatWinPercentage(team.played, team.won);
-                return `
-                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
-                        <span>${team.players.join(' & ')}</span>
-                        <span>${team.played}</span>
-                        <span>${winPercentage}</span>
-                        <span>${formatDuration(team.totalDurationMs)}</span>
-                    </div>`;
+                    // --- THIS IS THE FIX ---
+                    const teamNameHTML = team.players.map(name => `<span>${name}</span>`).join('');
+
+                    return `
+                        <div class="history-item">
+                            <div class="stats-grid-row">
+                                <span class="team-name-stacked">${teamNameHTML}</span>
+                                <span>${team.played}</span>
+                                <span>${winPercentage}</span>
+                                <span>${formatDuration(team.totalDurationMs)}</span>
+                            </div>
+                        </div>`;
+                    // --- END OF FIX ---
             }).join('');
+            // --- END OF FIX ---
+
             teamHistoryList.innerHTML = genderFilterHTML + tableHeader + teamRows;
         }
 
@@ -1958,6 +1908,55 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
         renderTeamHistory();
     }
+
+    // Helper function to check if a game falls within the selected time frame
+    function isGameInTimeFrame(game, timeFrame) {
+        const gameDate = new Date(game.endTime);
+        const now = new Date();
+
+        const gameYear = gameDate.getFullYear();
+        const currentYear = now.getFullYear();
+
+        switch (timeFrame) {
+            case 'Today':
+                return gameDate.toISOString().split('T')[0] === now.toISOString().split('T')[0];
+            case 'Month':
+                return gameYear === currentYear && gameDate.getMonth() === now.getMonth();
+            case 'Year':
+                return gameYear === currentYear;
+            case 'Total':
+            default:
+                return true;
+        }
+    }
+
+    // Handler for the time frame filter change
+    function handleGameTimeFilterChange(e) {
+        state.gameHistoryFilter.timeFrame = e.target.value;
+        saveState();
+        renderGameHistory();
+    }
+
+    // Handler for the game type filter change
+    function handleGameTypeFilterChange(e) {
+        state.gameHistoryFilter.gameType = e.target.value;
+        saveState();
+        renderGameHistory();
+    }
+
+    function handleHistorySortClick(e) {
+        const key = e.target.dataset.sortKey;
+        if (!key) return;
+
+        if (state.historySort.key === key) {
+            state.historySort.order = state.historySort.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            state.historySort.key = key;
+            state.historySort.order = 'desc'; // Default to descending for any new column
+        }
+        renderGameHistory(); // Re-render just the game history list
+        saveState();
+    } 
 
     function createCourtCard(court) {
         const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
@@ -2615,7 +2614,147 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
     }
 
+    // NEW FUNCTION: Check if on-duty member is being selected for a game
+    function checkOnDutyMemberInSelection(selectedPlayerNames) {
+        if (state.onDuty === 'None') return false;
+        return selectedPlayerNames.includes(state.onDuty);
+    }
+
+    // NEW FUNCTION: Show temporary duty handover modal
+    function showTempDutyHandoverModal(callback) {
+        tempDutyHandoverList.innerHTML = '';
+        tempDutyCurrentMember.textContent = state.onDuty;
+        
+        // Get all committee members who are currently checked in
+        const checkedInCommitteeMembers = [
+            ...state.availablePlayers.filter(p => p.committee),
+            ...state.courts.flatMap(c => c.players).filter(p => p.committee)
+        ];
+
+        const selectedPlayerNames = new Set(state.selection.players);
+        
+        // Remove the current on-duty member and filter for those NOT on court
+        const availableCommitteeMembers = state.availablePlayers
+            .filter(p => p.committee && p.name !== state.onDuty && !selectedPlayerNames.has(p.name))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Add "None" option first
+        const noneOption = document.createElement('li');
+        noneOption.className = 'committee-member';
+        noneOption.innerHTML = `
+            <label>
+                <input type="radio" name="tempDutyMember" value="None">
+                <div class="member-details">
+                    <span class="member-name">None</span>
+                    <span class="member-designation">No temporary replacement</span>
+                </div>
+            </label>
+        `;
+        tempDutyHandoverList.appendChild(noneOption);
+        
+        // Add available committee members
+        if (availableCommitteeMembers.length === 0) {
+            const noMembersLi = document.createElement('li');
+            noMembersLi.style.justifyContent = 'center';
+            noMembersLi.style.color = 'var(--neutral-color)';
+            noMembersLi.textContent = 'No other committee members available';
+            tempDutyHandoverList.appendChild(noMembersLi);
+        } else {
+            availableCommitteeMembers.forEach(member => {
+                const li = document.createElement('li');
+                li.className = 'committee-member';
+                li.innerHTML = `
+                    <label>
+                        <input type="radio" name="tempDutyMember" value="${member.name}">
+                        <div class="member-details">
+                            <span class="member-name">${member.name}</span>
+                            <span class="member-designation">${member.committee}</span>
+                        </div>
+                    </label>
+                `;
+                tempDutyHandoverList.appendChild(li);
+            });
+        }
+        
+        // Store the callback to execute on confirm
+        tempDutyHandoverModal.dataset.callback = 'pending';
+        tempDutyHandoverModal.callback = callback;
+        
+        tempDutyConfirmBtn.disabled = true;
+        
+        // Enable confirm button when a selection is made
+        tempDutyHandoverList.querySelectorAll('input[name="tempDutyMember"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                tempDutyConfirmBtn.disabled = false;
+            });
+        });
+        
+        tempDutyHandoverModal.classList.remove('hidden');
+    }
+
+    // NEW FUNCTION: Handle temporary duty handover confirmation
+    function handleTempDutyHandoverConfirm() {
+        const selectedMember = tempDutyHandoverList.querySelector('input[name="tempDutyMember"]:checked');
+        
+        if (!selectedMember) return;
+        
+        const newTempDuty = selectedMember.value;
+        const originalDuty = state.onDuty;
+        
+        // Store the original on-duty member
+        if (!state.tempDutyHandover) {
+            state.tempDutyHandover = {
+                originalMember: originalDuty,
+                tempMember: newTempDuty,
+                timestamp: Date.now()
+            };
+        }
+        
+        // Update the on-duty member
+        state.onDuty = newTempDuty;
+
+        // Announce the change
+        if (newTempDuty === 'None') {
+            playAlertSound(`There will be nobody on duty while ${originalDuty} is in a match.`);
+        } else {
+            playAlertSound(`${newTempDuty} is temporarily on duty while ${originalDuty} is in a match.`);
+        }
+        
+        tempDutyHandoverModal.classList.add('hidden');
+        
+        // Execute the stored callback (continue with game setup)
+        if (tempDutyHandoverModal.callback) {
+            tempDutyHandoverModal.callback();
+            tempDutyHandoverModal.callback = null;
+        }
+        
+        saveState();
+        render();
+    }
+
+    // NEW FUNCTION: Restore original duty member after game ends
+    function restoreOriginalDutyMember() {
+        if (state.tempDutyHandover && state.tempDutyHandover.originalMember) {
+            state.onDuty = state.tempDutyHandover.originalMember;
+            state.tempDutyHandover = null;
+            saveState();
+            render();
+        }
+    }
+
+
     function render() {
+
+        // --- THIS IS THE UPDATED BLOCK ---
+        const gameModeContainer = document.getElementById('game-mode-container');
+        const availablePlayersSectionEl = document.getElementById('availablePlayersSection');
+        if (gameModeContainer && availablePlayersSectionEl) {
+            const showSelector = state.courtSettings.showGameModeSelector;
+            gameModeContainer.style.display = showSelector ? 'block' : 'none';
+            // This new line adds/removes a class to control the margin
+            availablePlayersSectionEl.classList.toggle('mode-selector-hidden', !showSelector);
+        }
+        // --- END OF UPDATED BLOCK ---
         const {
             gameMode,
             players: selectedPlayerNames,
@@ -3041,38 +3180,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
 
-                const court = state.courts.find(c => c.id === courtId);
-                const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
-
-                court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
-                court.players = [...selectedPlayerObjects];
-                court.gameMode = gameMode;
-
-                if (gameMode === 'doubles') {
-                    court.status = "selecting_teams";
-                    court.teams.team1 = [];
-                    court.teams.team2 = [];
-                } else {
-                    court.teams.team1 = [selectedPlayerObjects[0]];
-                    court.teams.team2 = [selectedPlayerObjects[1]];
-                    court.status = "game_pending";
-                    court.autoStartTimeTarget = Date.now() + 60000;
-                    court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+                // NEW: Check if on-duty member is in the selection BEFORE setting up the court
+                if (checkOnDutyMemberInSelection(selectedPlayerNames)) {
+                    showTempDutyHandoverModal(() => {
+                        // This callback continues the game setup after duty handover
+                        proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode);
+                    });
+                    return;
                 }
 
-                state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
-                state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
-
-                updateGameModeBasedOnPlayerCount();
-                enforceDutyPosition();
-                render();
-                saveState();
+                // If on-duty member is not selected, proceed normally
+                proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode);
 
             }, 2000);
             
             return;
         }
     }
+
+    // NEW FUNCTION: Extracted court selection logic
+    function proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode) {
+        const court = state.courts.find(c => c.id === courtId);
+        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+
+        court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
+        court.players = [...selectedPlayerObjects];
+        court.gameMode = gameMode;
+
+        if (gameMode === 'doubles') {
+            court.status = "selecting_teams";
+            court.teams.team1 = [];
+            court.teams.team2 = [];
+        } else {
+            court.teams.team1 = [selectedPlayerObjects[0]];
+            court.teams.team2 = [selectedPlayerObjects[1]];
+            court.status = "game_pending";
+            court.autoStartTimeTarget = Date.now() + 60000;
+            court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+        }
+
+        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+        state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
+
+        updateGameModeBasedOnPlayerCount();
+        enforceDutyPosition();
+        render();
+        saveState();
+    } 
 
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
     function calculatePlayerStats(gamesToProcess){
@@ -3190,21 +3344,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (state.historyViewMode === "stats") {
             historyTitle.textContent = "Player Stats";
-            historyToggleViewBtn.textContent = "Show Game History";
-            historyToggleTeamsBtn.textContent = "Show Team Stats";
+            historyToggleViewBtn.textContent = "Game History";
+            historyToggleTeamsBtn.textContent = "Team Stats";
             historyListEl.style.display = ''; // Show the player stats/game history list
             renderPlayerHistory(); // A new function for just the player stats part
         } else if (state.historyViewMode === "teams") {
             historyTitle.textContent = "Team Stats";
-            historyToggleViewBtn.textContent = "Show Player Stats";
-            historyToggleTeamsBtn.textContent = "Show Game History";
+            historyToggleViewBtn.textContent = "Player Stats";
+            historyToggleTeamsBtn.textContent = "Game History";
             teamHistoryListEl.style.display = ''; 
             state.statsFilter.teamGender = 'all'; // <-- ADD THIS LINE
             renderTeamHistory();
         } else { // "games" view
             historyTitle.textContent = "Game History";
-            historyToggleViewBtn.textContent = "Show Player Stats";
-            historyToggleTeamsBtn.textContent = "Show Team Stats";
+            historyToggleViewBtn.textContent = "Player Stats";
+            historyToggleTeamsBtn.textContent = "Team Stats";
             historyListEl.style.display = ''; // Show the player stats/game history list
             renderGameHistory(); // A new function for just the game history part
         }
@@ -3248,25 +3402,33 @@ document.addEventListener('DOMContentLoaded', () => {
             historyListEl.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No stats available for the selected filter.</p>';
         } else {
             const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
+            
+            // --- THIS IS THE FIX ---
             const tableHeader = `
-                <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-weight: bold; background-color: #f8f9fa;">
-                    <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Player${getSortIcon('name')}</button>
-                    <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
-                    <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
-                    <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
+                    <div class="stats-grid-row">
+                        <button class="sort-btn" data-sort-key="name" style="text-align: left; background: none; border: none; font-weight: bold; cursor: pointer;">Player${getSortIcon('name')}</button>
+                        <button class="sort-btn" data-sort-key="played" style="background: none; border: none; font-weight: bold; cursor: pointer;">Played${getSortIcon('played')}</button>
+                        <button class="sort-btn" data-sort-key="won" style="background: none; border: none; font-weight: bold; cursor: pointer;">Won %${getSortIcon('won')}</button>
+                        <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
+                    </div>
                 </div>`;
             
             const playerRows = playersWithStats.map(name => {
                 const playerStats = stats[name];
                 const winPercentage = formatWinPercentage(playerStats.played, playerStats.won);
                 return `
-                    <div class="history-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;">
-                        <span>${name}</span>
-                        <span>${playerStats.played}</span>
-                        <span>${winPercentage}</span>
-                        <span>${formatDuration(playerStats.totalDurationMs)}</span>
+                    <div class="history-item">
+                        <div class="stats-grid-row">
+                            <span>${name}</span>
+                            <span>${playerStats.played}</span>
+                            <span>${winPercentage}</span>
+                            <span>${formatDuration(playerStats.totalDurationMs)}</span>
+                        </div>
                     </div>`;
             }).join('');
+            // --- END OF FIX ---
+
             historyListEl.innerHTML = genderFilterHTML + tableHeader + playerRows;
         }
 
@@ -3279,59 +3441,178 @@ document.addEventListener('DOMContentLoaded', () => {
         historyListEl.innerHTML = "";
         
         if (state.gameHistory.length === 0) {
-            historyListEl.innerHTML = '<p style="text-align: center; color: #6c757d;">No games have been completed yet.</p>';
-        } else {
-            const headerHTML = `
-                <div class="history-item" style="border-bottom: 2px solid var(--primary-blue); font-weight: bold; background-color: #f8f9fa;">
-                    <div class="history-details">
-                        <span class="game-time-cell">Time</span>
-                        <span>Game / Duration</span>
-                        <span class="score-cell">Score</span>
+            // Include the filters even when empty
+            const emptyFilters = createGameHistoryFilters(); 
+            historyListEl.innerHTML = emptyFilters + '<p style="text-align: center; color: #6c757d;">No games have been completed yet.</p>';
+            
+            // Re-attach listeners even to the empty version
+            attachGameHistoryFilterListeners();
+            return;
+        }
+
+        // --- FILTERING LOGIC ---
+        const filteredByTime = state.gameHistory.filter(game => 
+            isGameInTimeFrame(game, state.gameHistoryFilter.timeFrame)
+        );
+
+        const filteredHistory = filteredByTime.filter(game => {
+            if (state.gameHistoryFilter.gameType === 'all') return true;
+            return game.teams.team1.length === (state.gameHistoryFilter.gameType === 'doubles' ? 2 : 1);
+        });
+
+        // --- Sorting Logic ---
+        const sortedHistory = [...filteredHistory].sort((a, b) => {
+            // ... (existing sorting logic remains here) ...
+            const { key, order } = state.historySort;
+            let valA, valB;
+
+            if (key === 'score') {
+                // If score is null (skipped game), treat as 0 for sorting purposes
+                valA = a.score ? Math.max(a.score.team1, a.score.team2) : 0;
+                valB = b.score ? Math.max(b.score.team1, b.score.team2) : 0;
+            } else if (key === 'court') {
+                // Sorting by court (A, B, C...)
+                valA = a.court || '';
+                valB = b.court || '';
+            }
+            else {
+                // Default to sorting by endTime if other key is not found or is 'endTime'
+                valA = a.endTime || 0; 
+                valB = b.endTime || 0;
+            }
+            // For 'score' and 'endTime', default order is usually desc. For 'court' it is asc.
+            const defaultOrder = (key === 'score' || key === 'endTime') ? 'desc' : 'asc';
+            const finalOrder = order || defaultOrder;
+
+            if (valA < valB) return finalOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return finalOrder === 'asc' ? 1 : -1;
+            return 0; 
+        });
+
+        // --- HEADER GENERATION ---
+        const getSortIcon = (key) => (state.historySort.key !== key) ? ' ' : (state.historySort.order === 'asc' ? ' 🔼' : ' 🔽');
+        const headerHTML = `
+            <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
+                <div class="game-history-grid">
+                    <button class="sort-btn game-time-cell" data-sort-key="endTime">${'Time'}${getSortIcon('endTime')}</button>
+                    <button class="sort-btn game-duration-cell" data-sort-key="court">Game Info${getSortIcon('court')}</button>
+                    <div class="teams-header game-teams-cell">Teams</div>
+                    <button class="sort-btn game-score-cell" data-sort-key="score">${'Score'}${getSortIcon('score')}</button>
+                </div>
+            </div>
+        `;
+
+        // --- GAME ROWS GENERATION (Existing Logic) ---
+        const gamesHTML = sortedHistory.map(game => {
+            // ... (existing game row rendering logic) ...
+            const gameDate = new Date(game.endTime);
+            const time = gameDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+            const date = gameDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+            const isResultSkipped = game.winner === 'skipped';
+            
+            let team1Class = isResultSkipped ? '' : (game.winner === "team1" ? 'winner' : 'loser');
+            let team2Class = isResultSkipped ? '' : (game.winner === "team1" ? 'loser' : 'winner');
+
+            const team1HTML = game.teams.team1.map(player => `<p class="${team1Class}">${player}</p>`).join('');
+            const team2HTML = game.teams.team2.map(player => `<p class="${team2Class}">${player}</p>`).join('');
+            
+            let scoreDisplayHTML;
+            if (isResultSkipped) {
+                scoreDisplayHTML = '<p>Skipped</p>';
+            } else if (!game.score) {
+                scoreDisplayHTML = 'N/A';
+            } else {
+                const winningScore = game.winner === 'team1' ? game.score.team1 : game.score.team2;
+                const losingScore = game.winner === 'team1' ? game.score.team2 : game.score.team1;
+
+                scoreDisplayHTML = `<p><span class="winner">${winningScore}</span> - <span class="loser">${losingScore}</span></p>`;
+
+                if (game.score.tiebreak1 !== null && game.score.tiebreak2 !== null) {
+                    const winnerTiebreak = game.winner === 'team1' ? game.score.tiebreak1 : game.score.tiebreak2;
+                    const loserTiebreak = game.winner === 'team1' ? game.score.tiebreak2 : game.score.tiebreak1;
+                    const tiebreakHTML = `(<span class="winner">${winnerTiebreak}</span> - <span class="loser">${loserTiebreak}</span>)`;
+                    scoreDisplayHTML += `<p style="font-size: 0.9em; color: var(--neutral-color);">${tiebreakHTML}</p>`;
+                }
+            }
+
+            const courtDisplay = game.court === 'Manual' 
+                ? `${game.teams.team1.length === 2 ? 'Doubles' : 'Singles'}` 
+                : `Court ${game.court}`;
+            
+            // MODIFIED DURATION CELL
+            return `
+                <div class="history-item" data-game-id="${game.id}"> 
+                    <div class="game-history-grid">
+                        <div class="game-time-cell" style="display: flex; flex-direction: column; line-height: 1.2;">
+                            <span>${time}</span>
+                            <span style="font-size: 0.9em; color: var(--neutral-color);">${date}</span>
+                        </div>
+                        <div class="game-duration-cell" style="display: flex; flex-direction: column; line-height: 1.2;">
+                            <span>${courtDisplay}</span>
+                            <span style="font-size: 0.9em; color: var(--neutral-color);">${game.duration}</span>
+                        </div>
+                        <div class="game-teams-cell">
+                            ${team1HTML}
+                            ${team2HTML}
+                        </div>
+                        <div class="game-score-cell">
+                            ${scoreDisplayHTML}
+                        </div>
                     </div>
                 </div>
             `;
-            
-            let gamesHTML = [...state.gameHistory].reverse().map(game => {
-                const endTime = new Date(game.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const team1Players = game.teams.team1.join(' & ');
-                const team2Players = game.teams.team2.join(' & ');
-                let team1Class = '';
-                let team2Class = '';
-                let tiebreakDisplay = '';
-                const isResultSkipped = game.winner === 'skipped';
-
-                if (!isResultSkipped && game.winner) {
-                    if (game.winner === "team1") { team1Class = 'winner'; team2Class = 'loser'; } 
-                    else { team2Class = 'winner'; team1Class = 'loser'; }
-                }
-
-                if (game.score && game.score.tiebreak1 !== null) {
-                    const winnerTiebreak = game.winner === 'team1' ? game.score.tiebreak1 : game.score.tiebreak2;
-                    const loserTiebreak = game.winner === 'team1' ? game.score.tiebreak2 : game.score.tiebreak1;
-                    tiebreakDisplay = ` (${winnerTiebreak}-${loserTiebreak})`;
-                }
-
-                const scoreDisplay = isResultSkipped ? 'Result Skipped' : 
-                    (game.score ? `${game.score.team1} - ${game.score.team2}${tiebreakDisplay}` : 'Score Not Entered');
-                
-                return `
-                    <div class="history-item" data-game-id="${game.id}"> 
-                        <div class="history-details">
-                            <span class="game-time-cell">${endTime}</span>
-                            <span>Court ${game.court} - ${game.duration}</span>
-                            <span class="score-cell">${scoreDisplay}</span>
-                        </div>
-                        <div class="history-teams">
-                            <p class="${team1Class}">Team 1: ${team1Players}</p>
-                            <p class="${team2Class}">Team 2: ${team2Players}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            historyListEl.innerHTML = headerHTML + gamesHTML;
-        }
+        }).join('');
+        
+        // --- ASSEMBLE FINAL HTML ---
+        historyListEl.innerHTML = createGameHistoryFilters() + headerHTML + gamesHTML;
+        
+        // --- RE-ATTACH LISTENERS ---
+        historyListEl.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', handleHistorySortClick);
+        });
+        attachGameHistoryFilterListeners();
     }
+
+    function createGameHistoryFilters() {
+        const { timeFrame, gameType } = state.gameHistoryFilter;
+        
+        // Wrap both filter groups in a single flex container
+        return `
+            <div class="game-history-filter-container">
+                <div class="gender-selector" style="justify-content: center;">
+                    <div class="radio-group">
+                        <label> <input type="radio" name="game-type-filter" value="all" ${gameType === 'all' ? 'checked' : ''}> All </label>
+                        <label> <input type="radio" name="game-type-filter" value="singles" ${gameType === 'singles' ? 'checked' : ''}> Singles </label>
+                        <label> <input type="radio" name="game-type-filter" value="doubles" ${gameType === 'doubles' ? 'checked' : ''}> Doubles </label>
+                    </div>
+                </div>
+                <div class="gender-selector" style="justify-content: center;">
+                    <div class="radio-group">
+                        <label> <input type="radio" name="game-time-filter" value="Today" ${timeFrame === 'Today' ? 'checked' : ''}> Today </label>
+                        <label> <input type="radio" name="game-time-filter" value="Month" ${timeFrame === 'Month' ? 'checked' : ''}> Month </label>
+                        <label> <input type="radio" name="game-time-filter" value="Year" ${timeFrame === 'Year' ? 'checked' : ''}> Year </label>
+                        <label> <input type="radio" name="game-time-filter" value="Total" ${timeFrame === 'Total' ? 'checked' : ''}> Total </label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function attachGameHistoryFilterListeners() {
+        // Time Frame Filter
+        document.querySelectorAll('input[name="game-time-filter"]').forEach(radio => {
+            radio.removeEventListener('change', handleGameTimeFilterChange);
+            radio.addEventListener('change', handleGameTimeFilterChange);
+        });
+
+        // Game Type Filter
+        document.querySelectorAll('input[name="game-type-filter"]').forEach(radio => {
+            radio.removeEventListener('change', handleGameTypeFilterChange);
+            radio.addEventListener('change', handleGameTypeFilterChange);
+        });
+    }
+
     function renderReorderHistory() {
         reorderHistoryList.innerHTML = "";
         
@@ -3495,11 +3776,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
         if (selectedPlayerNames.length !== requiredPlayers || !courtId) return;
+        
+        // This function is now only called from the confirmation overlay
+        // which means it's an alternative flow, but we still need the same check
+        if (checkOnDutyMemberInSelection(selectedPlayerNames)) {
+            showTempDutyHandoverModal(() => {
+                proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode);
+            });
+            return;
+        }
+        
+        proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode);
+    }
+
+
+    // NEW FUNCTION: Extracted game setup logic
+    function proceedWithGameSetup(selectedPlayerNames, courtId, gameMode) {
         const court = state.courts.find(c => c.id === courtId);
         const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
 
         court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
-
         court.players = [...selectedPlayerObjects];
         court.gameMode = gameMode;
 
@@ -3527,6 +3823,7 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
         saveState();
     }
+
 
     function handleCheckout(playerObject) {
         // This function decides which modal to show.
@@ -3897,7 +4194,11 @@ document.addEventListener('DOMContentLoaded', () => {
             manualGameData.teams.team2 = [playerObjects[1]];
         }
         
+        // --- FIX: Ensure both player selection modals are closed ---
         manualEntryModal.classList.add('hidden');
+        outsidePlayerModal.classList.add('hidden'); 
+        // --- END FIX ---
+        
         handleEndGame(null, null, manualGameData); // Pass the manual data object
     }
 
@@ -4923,7 +5224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             if (state.notificationControls.isMinimized) {
                 state.notificationControls.isMinimized = false;
-                playCustomTTS("Player queue is clear. Switching to 5-minute alerts.");
+                playCustomTTS("Switching to 5-minute alerts.");
                 updateNotificationIcons();
                 saveState();
             }
@@ -5015,17 +5316,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         courtAvailabilityList.innerHTML = '';
-        // --- NEW: Render the Auto-Assign Toggle First ---
-        const autoAssignToggleLi = document.createElement('li');
-        autoAssignToggleLi.className = 'court-availability-item';
-        autoAssignToggleLi.innerHTML = `
-            <label for="auto-assign-toggle">Auto Assign Modes</label>
-            <label class="switch">
-                <input type="checkbox" id="auto-assign-toggle" ${state.courtSettings.autoAssignModes ? 'checked' : ''}>
-                <span class="slider"></span>
-            </label>
+        // --- NEW: Render the Toggles First ---
+        const togglesLi = document.createElement('li');
+        togglesLi.className = 'court-availability-item';
+        togglesLi.style.display = 'block'; // Allow items inside to stack
+        togglesLi.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem;">
+                <label for="auto-assign-toggle">Auto Assign Modes</label>
+                <label class="switch">
+                    <input type="checkbox" id="auto-assign-toggle" ${state.courtSettings.autoAssignModes ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.5rem; border-top: 1px solid #f0f0f0;">
+                <label for="show-mode-selector-toggle">Show Game Mode Selector</label>
+                <label class="switch">
+                    <input type="checkbox" id="show-mode-selector-toggle" ${state.courtSettings.showGameModeSelector ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            </div>
         `;
-        courtAvailabilityList.appendChild(autoAssignToggleLi);
+        courtAvailabilityList.appendChild(togglesLi);
         // --- END NEW ---
         
         // NEW: Match Mode Settings
@@ -5050,13 +5361,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <label>Fast Play Games (First to):</label>
                 <div class="radio-group" style="padding: 0.25rem 0.5rem;">
                     <label>
-                        <input type="radio" name="fast-play-games" value="4" ${state.matchSettings.fastPlayGames === 4 ? 'checked' : ''}> 4 Games
+                        <input type="radio" name="fast-play-games" value="4" ${state.matchSettings.fastPlayGames === 3 ? 'checked' : ''}> 3 Games
                     </label>
                     <label>
-                        <input type="radio" name="fast-play-games" value="6" ${state.matchSettings.fastPlayGames === 6 ? 'checked' : ''}> 6 Games
+                        <input type="radio" name="fast-play-games" value="6" ${state.matchSettings.fastPlayGames === 3 ? 'checked' : ''}> 4 Games
                     </label>
                     <label>
-                        <input type="radio" name="fast-play-games" value="8" ${state.matchSettings.fastPlayGames === 8 ? 'checked' : ''}> 8 Games
+                        <input type="radio" name="fast-play-games" value="8" ${state.matchSettings.fastPlayGames === 5 ? 'checked' : ''}> 5 Games
                     </label>
                 </div>
             </li>
@@ -5097,6 +5408,13 @@ document.addEventListener('DOMContentLoaded', () => {
             saveState();
         });
         // --- END NEW ---
+
+        // Event listener for the new "Show Game Mode" toggle
+        document.getElementById('show-mode-selector-toggle').addEventListener('change', (e) => {
+            state.courtSettings.showGameModeSelector = e.target.checked;
+            saveState();
+            render(); // Re-render to show/hide the selector immediately
+        });
 
         courtAvailabilityList.querySelectorAll('input[type="checkbox"][id^="court-toggle"]').forEach(toggle => {
             toggle.addEventListener('change', handleCourtVisibilityChange);
@@ -5735,66 +6053,59 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function handleKeypadClick(e) {
         const key = e.target.dataset.key;
-        let displayValue;
-        const mode = keypadConfig.mode;
-
-        if (mode === 'date') {
-            handleDateInput(activeInput, key);
-            if (e.target.id === 'keypad-confirm-btn') {
-                hideKeypad();
-            }
-            return;
-        }
+        const {
+            mode,
+            maxLength,
+            maxValue
+        } = keypadConfig;
+        let displayValue = (mode === 'admin' || mode === 'reset') ? (keypadDisplay.dataset.hiddenValue || '') : keypadDisplay.textContent;
 
         if (e.target.id === 'keypad-confirm-btn') {
             if (e.target.disabled) return;
 
-            if (mode === 'admin') {
-                checkAdminPasscode();
-                return;
-            } else if (mode === 'reset') {
-                checkResetPasscode();
-                return;
-            } else if (mode === 'addStock') {
-                confirmBallStockUpdate();
-                return;
-            } else if (mode === 'returnStock') {
-                confirmBallStockReturn();
-                return;
-            } else if (mode === 'returnUsed') {
-                confirmUsedBallReturn();
-                return;
-            } else if (mode === 'signOut') {
-                confirmSignOutQuantity();
-                return;
-            } else if (activeInput && activeInput.classList.contains('reorder-position')) {
-                handleReorderPositionChange(keypadDisplay.textContent);
-            } else if (activeInput) {
-                activeInput.dispatchEvent(new Event('input'));
+            switch (mode) {
+                case 'admin':
+                    checkAdminPasscode();
+                    break;
+                case 'reset':
+                    checkResetPasscode();
+                    break;
+                case 'addStock':
+                    confirmBallStockUpdate();
+                    break;
+                case 'returnStock':
+                    confirmBallStockReturn();
+                    break;
+                case 'returnUsed':
+                    confirmUsedBallReturn();
+                    break;
+                case 'signOut':
+                    confirmSignOutQuantity();
+                    break;
+                default:
+                    if (activeInput && activeInput.classList.contains('reorder-position')) {
+                        handleReorderPositionChange(keypadDisplay.textContent);
+                    } else if (activeInput) {
+                        activeInput.dispatchEvent(new Event('input'));
+                    }
+                    hideKeypad();
+                    break;
             }
-
-            hideKeypad();
             return;
         }
-
-        displayValue = (mode === 'admin' || mode === 'reset') ? (keypadDisplay.dataset.hiddenValue || '') : keypadDisplay.textContent;
 
         if (key === 'backspace') {
             displayValue = displayValue.slice(0, -1);
         } else if (key === 'clear') {
             displayValue = '';
         } else if (/[0-9]/.test(key)) {
-            if (keypadConfig.maxLength && displayValue.length >= keypadConfig.maxLength) {
+            if (maxLength && displayValue.length >= maxLength) {
                 return;
             }
-            // --- THIS IS THE FIX ---
             const potentialValue = displayValue + key;
-            if (keypadConfig.maxValue !== undefined && parseInt(potentialValue, 10) > keypadConfig.maxValue) {
-                // Vibrate or shake to indicate invalid input (optional feedback)
-                if (navigator.vibrate) navigator.vibrate(100);
-                return; // Don't allow input that exceeds the max value
+            if (maxValue !== undefined && parseInt(potentialValue, 10) > maxValue) {
+                return;
             }
-            // --- END OF FIX ---
             displayValue += key;
         }
 
@@ -5805,7 +6116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             keypadDisplay.textContent = displayValue;
             if (activeInput && !activeInput.classList.contains('reorder-position')) {
                 activeInput.value = displayValue;
-                activeInput.dispatchEvent(new Event('input')); 
+                activeInput.dispatchEvent(new Event('input'));
             }
         }
 
@@ -5817,26 +6128,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function showKeypad(input, config = {}) {
         activeInput = input;
         keypadConfig = config;
-        const mode = config.mode;
+        const {
+            mode,
+            title
+        } = config;
 
-        // Reset display for all modes, except for date which needs to show the current value
-        keypadDisplay.textContent = (mode === 'date' && activeInput) ? activeInput.value : '';
+        keypadDisplay.textContent = '';
         delete keypadDisplay.dataset.hiddenValue;
 
         if (mode === 'admin' || mode === 'reset') {
             keypadDisplay.setAttribute('data-mode', mode);
-            keypadDisplay.setAttribute('data-placeholder', config.title || 'Enter PIN');
+            keypadDisplay.setAttribute('data-placeholder', title || 'Enter PIN');
             keypadCancelBtn.classList.remove('hidden');
             keypadConfirmBtn.classList.remove('wide-full');
             keypadConfirmBtn.classList.add('wide-half');
         } else {
             keypadDisplay.removeAttribute('data-mode');
-            if (config.title) {
-                keypadDisplay.setAttribute('data-placeholder', config.title);
+            if (title) {
+                keypadDisplay.setAttribute('data-placeholder', title);
             } else {
                 keypadDisplay.removeAttribute('data-placeholder');
             }
-            
+
             keypadCancelBtn.classList.add('hidden');
             keypadConfirmBtn.classList.remove('wide-half');
             keypadConfirmBtn.classList.add('wide-full');
@@ -6459,21 +6772,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.matchSettings.matchMode !== 'fast') {
                 state.matchSettings.matchMode = 'fast';
                 state.matchSettings.fastPlayGames = 4;
-                playCustomTTS("High demand detected. Switching to Fast Play mode.");
+                playCustomTTS("There is currently a high demand. Switching to Fast Play mode.");
 
-                // --- THIS IS THE FIX ---
                 // If an alert is scheduled for more than 2 minutes away, reset it to 2 minutes.
                 const remainingTime = alertScheduleTime - Date.now();
                 if (alertState !== 'initial_check' && remainingTime > TWO_MINUTES_MS) {
                     alertScheduleTime = Date.now() + TWO_MINUTES_MS;
                     playCustomTTS("Alert timer accelerated.");
                 }
-                // --- END OF FIX ---
             }
         } else {
             if (state.matchSettings.matchMode !== '1set') {
                 state.matchSettings.matchMode = '1set';
-                playCustomTTS("Player queue is clear. Switching to standard 1 Set matches.");
+                playCustomTTS("Player queue is reduced. Switching to standard 1 Set matches.");
             }
         }
     }
@@ -6607,6 +6918,19 @@ document.addEventListener('DOMContentLoaded', () => {
         court.gameStartTime = null;
         court.queueSnapshot = null;
         
+        // NEW: Check if we need to restore the original duty member
+        if (state.tempDutyHandover && state.tempDutyHandover.originalMember) {
+            // Check if the original duty member's game has ended
+            const originalMemberStillOnCourt = state.courts.some(c => 
+                c.status === 'in_progress' && 
+                c.players.some(p => p.name === state.tempDutyHandover.originalMember)
+            );
+            
+            if (!originalMemberStillOnCourt) {
+                restoreOriginalDutyMember();
+            }
+        }
+        
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
         autoAssignCourtModes();
@@ -6647,52 +6971,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSkipButtonClick() {
         const skipBtn = document.getElementById('end-game-skip-btn');
         const action = skipBtn.dataset.action;
-        const courtId = endGameModal.dataset.courtId;
-        const court = state.courts.find(c => c.id === courtId);
-        if (!court) return;
-
-        const team1Names = getPlayerNames(court.teams.team1);
-        const team2Names = getPlayerNames(court.teams.team2);
-        let playersToRequeue = [];
-
-        const newGame = {
-            id: Date.now(),
-            court: court.id,
-            startTime: court.gameStartTime,
-            endTime: Date.now(),
-            duration: document.getElementById(`timer-${court.id}`).textContent,
-            teams: { team1: team1Names, team2: team2Names },
-            score: null,
-            winner: 'skipped'
-        };
 
         if (action === 'skip-scores') {
-            const winnerValue = endGameModal.dataset.winner;
-            if (!winnerValue) return;
-
-            newGame.winner = winnerValue;
-            const winningPlayers = winnerValue === "team1" ? court.teams.team1 : court.teams.team2;
-            const losingPlayers = winnerValue === "team1" ? court.teams.team2 : court.teams.team1;
-            playersToRequeue = [...winningPlayers, ...losingPlayers];
-
-        } else { // This handles 'skip-result'
-            playersToRequeue = [...court.players];
+            confirmSkipScores();
+        } else { // 'skip-result'
+            confirmSkipResult();
         }
-
-        state.gameHistory.push(newGame);
-        state.availablePlayers.push(...playersToRequeue);
-
-        const nextAvailableCourtId = findNextAvailableCourtId();
-        const firstPlayerName = state.availablePlayers[0] ? state.availablePlayers[0].name : 'The next players';
-        const openCourtMessage = nextAvailableCourtId 
-            ? `Attention, ${firstPlayerName}. Please come and select your match. Court ${nextAvailableCourtId} is available.`
-            : `Attention, ${firstPlayerName}. Please come and select your match. A court is now available.`;
-
-        playAlertSound(openCourtMessage);
-
-        resetCourtAfterGame(court.id);
-        resetEndGameModal(); // <-- THIS IS THE FIX
-        checkAndPlayAlert(false);
     }
 
         // --- ADDED FUNCTION ---
@@ -7109,6 +7393,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return sortOrder === 'asc' ? compareValue : -compareValue;
         });
 
+        // --- NEW FILTER HTML INJECTION ---
+        const filterHTML = `
+            <div class="list-filter-header" style="text-align: center;">
+                <div class="radio-group" id="roster-type-filter-group" style="display: flex; gap: 2rem; justify-content: center; background-color: transparent;">
+                    <label> <input type="radio" name="roster-type-filter" value="all" ${type === 'all' ? 'checked' : ''}> All</label>
+                    <label> <input type="radio" name="roster-type-filter" value="parents" ${type === 'parents' ? 'checked' : ''}> Parents Only</label>
+                    <label> <input type="radio" name="roster-type-filter" value="children" ${type === 'children' ? 'checked' : ''}> Children Only</label>
+                </div>
+            </div>
+        `;
+        juniorClubRosterList.insertAdjacentHTML('afterbegin', filterHTML);
+
+        // RE-ATTACH LISTENER to the newly injected radio group
+        juniorClubRosterList.querySelector('#roster-type-filter-group').addEventListener('change', handleRosterTypeFilterChange);
+        // --- END OF NEW FILTER HTML INJECTION ---
+
         // --- NEW LOGIC FOR ABC INDEXING ---
         const indexList = uniqueRoster.map(item => {
             const name = item.isParentOnlyView 
@@ -7119,16 +7419,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (uniqueRoster.length === 0) {
             document.getElementById('junior-club-roster-abc-index').innerHTML = '';
-            juniorClubRosterList.innerHTML = '<li class="waiting-message">No members match the current filters.</li>';
+            juniorClubRosterList.insertAdjacentHTML('beforeend', '<li class="waiting-message">No members match the current filters.</li>');
             return;
         }
 
         juniorClubRosterList.rosterData = uniqueRoster;
         const getSortIcon = (key) => (state.juniorClub.rosterFilter.sortKey !== key) ? ' ' : (sortOrder === 'asc' ? ' 🔼' : ' 🔽');
-        document.getElementById('roster-type-filter-group').querySelectorAll('input[name="roster-type-filter"]').forEach(radio => {
-            radio.checked = radio.value === type;
-        });
-
+        
         const buttonStyle = "background: none; color: var(--dark-text); border: none; padding: 0.5rem; min-width: 0; line-height: 1.2;";
         let headerHTML = '';
         if (type === 'parents') {
@@ -7147,7 +7444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="action-btn roster-sort-btn roster-col-checkin" data-sort-key="last_checkin" style="${buttonStyle}">Last<br>Check-In${getSortIcon('last_checkin')}</button>
                 </div></div>`;
         }
-        juniorClubRosterList.innerHTML = headerHTML;
+        juniorClubRosterList.insertAdjacentHTML('beforeend', headerHTML);
 
         uniqueRoster.forEach((item, index) => {
             const li = document.createElement('li');
@@ -7237,62 +7534,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function validateNewParentForm() {
-        const parentName = parentNameInput.value.trim();
-        const parentSurname = parentSurnameInput.value.trim();
-        const parentPhone = parentPhoneInput.value.trim();
+    function showChildSelectionModal(parent) {
+        attendingChildrenList.innerHTML = "";
         
-        const parentFieldsValid = parentName.length > 0 && parentSurname.length > 0 && parentPhone.length > 0; 
-        
-        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
-        let allChildrenComplete = childGroups.length > 0;
-        
-        const addChildBtn = document.getElementById('add-child-btn');
-        const removeChildBtn = document.getElementById('remove-child-btn-main');
-        const lastChildGroup = childGroups.length > 0 ? childGroups[childGroups.length - 1] : null;
+        childSelectionModal.dataset.parentId = parent.id;
+        childSelectionModal.querySelector('h3').textContent = `${parent.name} ${parent.surname}'s Children`;
 
-        childGroups.forEach((group) => {
-            if (!isChildFieldComplete(group)) {
-                allChildrenComplete = false;
-            }
+        // NEW: Compile a set of all currently checked-in junior players
+        const allCheckedInJuniorNames = new Set([
+            ...state.availablePlayers.filter(p => p.isJunior).map(p => p.name),
+            ...state.courts.flatMap(c => c.players).filter(p => p.isJunior).map(p => p.name),
+            // CRITICAL ADDITION: Include activeChildren from the junior club state
+            ...state.juniorClub.activeChildren.map(c => c.name) 
+        ]);
+
+        parent.registeredChildren.forEach(child => {
+            const li = document.createElement('li');
+            // FIX 1: Trim the reconstructed full name string for the checkbox value.
+            const childFullName = `${child.name} ${child.surname}`.trim();
+            li.innerHTML = `
+                <label style="flex-grow: 1; display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="attendingChild" value="${childFullName}" data-child-name="${child.name}" style="margin-right: 1rem;">
+                    <div style="flex-grow: 1;">
+                        <span style="font-weight: 500;">${child.name} ${child.surname}</span>
+                    </div>
+                </label>
+            `;
+            attendingChildrenList.appendChild(li);
         });
         
-        const parentCollapseTriggered = parentFieldsValid && !state.juniorClub.registrationFlow.parentCollapsed;
+        childSelectionConfirmBtn.disabled = true;
+        childSelectionConfirmBtn.textContent = 'Check In (0 Children)';
         
-        if (parentCollapseTriggered) {
-            state.juniorClub.registrationFlow.parentCollapsed = true;
-            state.juniorClub.registrationFlow.childrenExpanded = true; 
-        } else if (!parentFieldsValid) {
-            state.juniorClub.registrationFlow.parentCollapsed = false;
-        }
-
-        const canAddChild = parentFieldsValid && lastChildGroup && isChildFieldComplete(lastChildGroup);
-        
-        // --- START OF FIX ---
-        // This combined condition handles all states correctly.
-        // The button is active (visible and enabled) if there's at least one child AND all child forms are complete.
-        const canRemoveChild = childGroups.length > 0 && allChildrenComplete;
-        
-        removeChildBtn.style.display = canRemoveChild ? 'block' : 'none';
-        removeChildBtn.disabled = !canRemoveChild;
-        // --- END OF FIX ---
-
-        addChildBtn.style.display = canAddChild ? 'block' : 'none';
-        addChildBtn.disabled = !canAddChild;
-        
-        const isConfirmReady = parentFieldsValid && allChildrenComplete;
-        newParentConfirmBtn.disabled = !isConfirmReady;
-
-        if (isConfirmReady) {
-            newParentConfirmBtn.style.setProperty('background-color', 'var(--confirm-color)', 'important');
-            newParentConfirmBtn.style.setProperty('border-color', 'var(--confirm-color)', 'important');
-        } else {
-            newParentConfirmBtn.style.setProperty('background-color', 'var(--inactive-color)', 'important');
-            newParentConfirmBtn.style.setProperty('border-color', 'var(--inactive-color)', 'important');
-        }
-        
-        renderParentForm(); 
+        juniorClubModal.classList.add('hidden');
+        childSelectionModal.classList.remove('hidden');
     }
+
 
     /**
      * Renders the main Junior Club check-in list, dynamically switching between
@@ -7303,10 +7580,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const displayMode = state.juniorClub.checkInFilter.displayMode;
         
-        // --- START OF FIX ---
-        // This now correctly gets the list of active juniors from the junior club's state.
+        // --- START OF NEW FILTER HTML INJECTION ---
+        const filterHTML = `
+            <div class="list-filter-header" style="text-align: center;">
+                <div class="radio-group" id="junior-club-name-filter-group" style="display: flex; gap: 2rem; justify-content: center; background-color: transparent;">
+                    <label> <input type="radio" name="junior-club-name-filter" value="parent" ${displayMode === 'parent' ? 'checked' : ''}> Parent Name</label>
+                    <label> <input type="radio" name="junior-club-name-filter" value="child" ${displayMode === 'child' ? 'checked' : ''}> Child Name</label>
+                </div>
+            </div>
+        `;
+        juniorClubList.insertAdjacentHTML('afterbegin', filterHTML);
+        
+        // RE-ATTACH LISTENER to the newly injected radio group
+        juniorClubList.querySelector('#junior-club-name-filter-group').addEventListener('change', handleJuniorClubNameFilterChange);
+        // --- END OF NEW FILTER HTML INJECTION ---
+
+        
+        // 1. Get a list of all player names currently at the club (available or on court)
         const checkedInPlayerNames = new Set(state.juniorClub.activeChildren.map(c => c.name));
-        // --- END OF FIX ---
         
         let finalListItems = [];
         state.juniorClub.parents.forEach(parent => {
@@ -7420,10 +7711,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const indexList = renderedList.map(item => ({ name: item.primaryDisplay }));
             
         setupListWithIndex(indexList, juniorClubList, document.getElementById('junior-club-abc-index'));
-
-        juniorClubNameFilterGroup.querySelectorAll(`input[name="junior-club-name-filter"]`).forEach(radio => {
-            radio.checked = radio.value === displayMode;
-        });
     }
 
     // New wrapper function to update the entire modal display
@@ -7445,7 +7732,7 @@ document.addEventListener('DOMContentLoaded', () => {
         attendingChildrenList.innerHTML = "";
         
         childSelectionModal.dataset.parentId = parent.id;
-        document.getElementById('child-selection-title').textContent = `${parent.name} ${parent.surname}'s Children`;
+        childSelectionModal.querySelector('h3').textContent = `${parent.name} ${parent.surname}'s Children`;
 
         // NEW: Compile a set of all currently checked-in junior players
         const allCheckedInJuniorNames = new Set([
@@ -7475,6 +7762,65 @@ document.addEventListener('DOMContentLoaded', () => {
         
         juniorClubModal.classList.add('hidden');
         childSelectionModal.classList.remove('hidden');
+    }
+
+    function validateNewParentForm(shouldRender = true) {
+        const parentName = parentNameInput.value.trim();
+        const parentSurname = parentSurnameInput.value.trim();
+        const parentPhone = parentPhoneInput.value.trim();
+        
+        const parentFieldsValid = parentName.length > 0 && parentSurname.length > 0 && parentPhone.length > 0; 
+        
+        const childGroups = childrenContainer.querySelectorAll('.child-field-group');
+        let allChildrenComplete = childGroups.length > 0;
+        
+        const addChildBtn = document.getElementById('add-child-btn');
+        const removeChildBtn = document.getElementById('remove-child-btn-main');
+        const lastChildGroup = childGroups.length > 0 ? childGroups[childGroups.length - 1] : null;
+
+        childGroups.forEach((group) => {
+            if (!isChildFieldComplete(group)) {
+                allChildrenComplete = false;
+            }
+        });
+        
+        const parentCollapseTriggered = parentFieldsValid && !state.juniorClub.registrationFlow.parentCollapsed;
+        
+        if (parentCollapseTriggered) {
+            state.juniorClub.registrationFlow.parentCollapsed = true;
+            state.juniorClub.registrationFlow.childrenExpanded = true; 
+        } else if (!parentFieldsValid) {
+            state.juniorClub.registrationFlow.parentCollapsed = false;
+        }
+
+        const canAddChild = parentFieldsValid && lastChildGroup && isChildFieldComplete(lastChildGroup);
+        
+        // --- START OF FIX ---
+        // This combined condition handles all states correctly.
+        // The button is active (visible and enabled) if there's at least one child AND all child forms are complete.
+        const canRemoveChild = childGroups.length > 0 && allChildrenComplete;
+        
+        removeChildBtn.style.display = canRemoveChild ? 'block' : 'none';
+        removeChildBtn.disabled = !canRemoveChild;
+        // --- END OF FIX ---
+
+        addChildBtn.style.display = canAddChild ? 'block' : 'none';
+        addChildBtn.disabled = !canAddChild;
+        
+        const isConfirmReady = parentFieldsValid && allChildrenComplete;
+        newParentConfirmBtn.disabled = !isConfirmReady;
+
+        if (isConfirmReady) {
+            newParentConfirmBtn.style.setProperty('background-color', 'var(--confirm-color)', 'important');
+            newParentConfirmBtn.style.setProperty('border-color', 'var(--confirm-color)', 'important');
+        } else {
+            newParentConfirmBtn.style.setProperty('background-color', 'var(--inactive-color)', 'important');
+            newParentConfirmBtn.style.setProperty('border-color', 'var(--inactive-color)', 'important');
+        }
+        
+        if (shouldRender) {
+            renderParentForm();
+        }
     }
 
     function registerNewParent() {
@@ -7507,7 +7853,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Check for duplicate Parent ID during NEW registration
         if (currentMode !== 'edit' && state.juniorClub.parents.some(p => p.id === newParentId)) {
-            playCustomTTS("A parent with this name is already registered.");
+            // playCustomTTS("A parent with this name is already registered.");
             return;
         }
 
@@ -7527,7 +7873,7 @@ document.addEventListener('DOMContentLoaded', () => {
             parentToUpdate.id = newParentId; // Update ID if name changed
             parentToUpdate.registeredChildren = children;
             
-            playCustomTTS(`${parentName}'s profile has been successfully updated.`);
+            // playCustomTTS(`${parentName}'s profile has been successfully updated.`);
         } else {
             // --- NEW REGISTRATION MODE ---
             parentToUpdate = {
@@ -7538,7 +7884,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 registeredChildren: children
             };
             state.juniorClub.parents.push(parentToUpdate);
-            playCustomTTS(`${parentName} successfully registered.`);
+            // playCustomTTS(`${parentName} successfully registered.`);
         }
 
         // 4. Clean up state and UI
@@ -7649,7 +7995,13 @@ document.addEventListener('DOMContentLoaded', () => {
         validateNewParentForm();
     }
     
+    // TEMPORARY DUTY HANDOVER LISTENERS
+    tempDutyCancelBtn.addEventListener('click', () => {
+        tempDutyHandoverModal.classList.add('hidden');
+        tempDutyHandoverModal.callback = null;
+    });
 
+    tempDutyConfirmBtn.addEventListener('click', handleTempDutyHandoverConfirm);
 
     // New Parent Modal: Handle the main Remove Child button click
     document.getElementById('remove-child-btn-main').addEventListener('click', () => {
@@ -7740,7 +8092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newChildren = attendingChildren.filter(c => !allCheckedInNames.has(c.name));
         
         if (newChildren.length === 0) {
-            playCustomTTS("All selected children are already checked in.");
+            // playCustomTTS("All selected children are already checked in.");
             childSelectionModal.classList.add('hidden');
             showJuniorClubModal(); // Show the main junior list again
             return;
@@ -7766,7 +8118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const numCheckedIn = newChildren.length;
         const childString = numCheckedIn === 1 ? 'child' : 'children';
-        playCustomTTS(`${numCheckedIn} ${childString} checked in for ${parent.name}.`);
+        // playCustomTTS(`${numCheckedIn} ${childString} checked in for ${parent.name}.`);
         
         // Refresh the junior club list to show the updated check-in status
         showJuniorClubModal(); 
@@ -7794,12 +8146,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const filter = state.juniorClub.statsFilter.paid;
         
-        const filterGroup = document.getElementById('payment-filter-group');
-        if (filterGroup) {
-            filterGroup.querySelectorAll(`input[name="payment-filter"]`).forEach(radio => {
-                radio.checked = radio.value === filter;
-            });
-        }
+        // --- START OF NEW FILTER HTML INJECTION ---
+        const filterHTML = `
+            <div class="list-filter-header" style="text-align: center;">
+                <div class="radio-group" id="payment-filter-group" style="display: flex; gap: 2rem; justify-content: center; background-color: transparent;">
+                    <label> <input type="radio" name="payment-filter" value="all" ${filter === 'all' ? 'checked' : ''}> All</label>
+                    <label> <input type="radio" name="payment-filter" value="paid" ${filter === 'paid' ? 'checked' : ''}> Paid</label>
+                    <label> <input type="radio" name="payment-filter" value="unpaid" ${filter === 'unpaid' ? 'checked' : ''}> Unpaid</label>
+                </div>
+            </div>
+        `;
+        juniorClubHistoryList.insertAdjacentHTML('afterbegin', filterHTML);
+
+        // RE-ATTACH LISTENER to the newly injected radio group
+        juniorClubHistoryList.querySelector('#payment-filter-group').addEventListener('change', handlePaymentFilterChange);
+        // --- END OF NEW FILTER HTML INJECTION ---
 
         const filteredHistory = state.juniorClub.history.filter(entry => {
             if (filter === 'all') return true;
@@ -7813,7 +8174,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (filteredHistory.length === 0) {
             document.getElementById('junior-club-history-abc-index').innerHTML = '';
-            juniorClubHistoryList.innerHTML = '<li class="waiting-message">No history matches the current filter.</li>';
+            juniorClubHistoryList.insertAdjacentHTML('beforeend', '<li class="waiting-message">No history matches the current filter.</li>');
             return;
         }
 
@@ -7821,8 +8182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'history-item';
             li.dataset.entryId = entry.id;
-            // CRITICAL: Set for indexing
-            li.dataset.playerName = entry.parentName;
+            li.dataset.playerName = entry.parentName; // For ABC index
 
             const paymentStatusText = entry.isPaid ? 'Paid' : 'Unpaid';
             const paymentStatusClass = entry.isPaid ? 'paid' : 'unpaid';
@@ -7830,19 +8190,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const childNamesStr = entry.childNames.join(', ');
             const date = new Date(entry.id).toLocaleDateString('en-ZA');
 
-            // --- THIS IS THE NEW, CLEANER HTML STRUCTURE ---
+            // --- CORRECTED HTML STRUCTURE (No outer wrapper div) ---
             li.innerHTML = `
-                <div style="display: flex; flex-direction: column; flex-grow: 1; min-width: 0;">
+                <div class="name-col">
                     <span style="font-weight: 500; color: var(--dark-text);">${entry.parentName}</span>
                     <span style="font-weight: 400; color: var(--dark-text); font-size: 0.95em; padding-left: 1rem;">${childNamesStr}</span>
                 </div>
-                <div style="text-align: right; flex-shrink: 0; margin-left: 1rem;">
+                <div class="status-col">
                     <span class="payment-status ${paymentStatusClass}">${paymentStatusText}</span>
-                    <br>
-                    <span style="font-size: 0.85em; color: var(--neutral-color);">${date}</span>
+                    <span class="payment-date-text" style="font-size: 0.85em; color: var(--neutral-color); display: block;">${date}</span>
                 </div>
             `;
-            // --- END OF NEW STRUCTURE ---
+            // --- END CORRECTION ---
 
             juniorClubHistoryList.appendChild(li);
         });
@@ -8031,13 +8390,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        validateNewParentForm(); // Always revalidate buttons
+        validateNewParentForm(false); // Always revalidate buttons without causing a render loop
     }
 
 
     // MODIFIED: Entry point for the New Parent Modal
     function showNewParentModal() {
         juniorClubModal.classList.add('hidden');
+        
+        // --- THIS IS THE FIX ---
+        // 1. Reset the modal's title and mode
+        newParentModal.querySelector('h3').textContent = 'New Parent Registration';
+        newParentModal.dataset.mode = 'new'; // Explicitly set mode to 'new'
+        
+        // 2. Reset the confirm button text
+        newParentConfirmBtn.textContent = 'Confirm Registration';
+        // --- END OF FIX ---
+
         newParentModal.classList.remove('hidden');
         
         // Reset/Initialize the form flow state
@@ -8120,9 +8489,9 @@ document.addEventListener('DOMContentLoaded', () => {
             state.availablePlayers = state.availablePlayers.filter(p => !childrenNames.includes(p.name));
             
             if (checkedOutChildren.length > 0) {
-                playCustomTTS(`${childrenNames.join(' and ')} checked out due to payment.`);
+                // playCustomTTS(`${childrenNames.join(' and ')} checked out due to payment.`);
             } else {
-                playCustomTTS(`Payment marked for ${entry.parentName}'s children. They were not currently checked in.`);
+                // playCustomTTS(`Payment marked for ${entry.parentName}'s children. They were not currently checked in.`);
             }
 
         } else {
@@ -8163,15 +8532,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (childrenToReCheckIn.length > 0) {
                     const names = childrenToReCheckIn.map(c => c.name).join(' and ');
-                    playCustomTTS(`${names} checked back in as ${entry.parentName}'s session is marked unpaid.`);
+                    // playCustomTTS(`${names} checked back in as ${entry.parentName}'s session is marked unpaid.`);
                 } else {
-                    playCustomTTS(`${entry.parentName}'s children are already checked in.`);
+                    // playCustomTTS(`${entry.parentName}'s children are already checked in.`);
                 }
             }
         }
         
         updateDetailModalButton(entry);
-        playCustomTTS(`${entry.parentName}'s session on ${new Date(entry.id).toLocaleDateString('en-ZA')} marked as ${entry.isPaid ? 'paid' : 'unpaid'}.`);
+        // playCustomTTS(`${entry.parentName}'s session on ${new Date(entry.id).toLocaleDateString('en-ZA')} marked as ${entry.isPaid ? 'paid' : 'unpaid'}.`);
         saveState();
         renderJuniorClubHistory();
         updateGameModeBasedOnPlayerCount();
@@ -8327,12 +8696,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     modalPlayerList.addEventListener("click",handleModalPlayerClick);
+
     historyBtn.addEventListener("click", () => {
         state.historyViewMode = 'games'; // Always start on the game history view
         renderHistory();
         historyPage.classList.remove("hidden");
     });
-    historyCloseBtn.addEventListener("click",()=>historyPage.classList.add("hidden"));
+
+    historyCloseBtn.addEventListener("click", () => {
+        historyPage.classList.add("hidden");
+    });
+
     historyToggleViewBtn.addEventListener("click", () => {
         if (state.historyViewMode === 'stats') {
             state.historyViewMode = "games";
@@ -8522,14 +8896,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    juniorClubList.addEventListener('click', (e) => {
+    juniorClubModal.addEventListener('click', (e) => {
+        
+        // 1. Handle Header Icon Clicks (Roster and History)
+        if (e.target.closest('#junior-club-roster-btn')) {
+            showJuniorClubRosterModal();
+            return;
+        }
+        if (e.target.closest('#junior-club-history-btn')) {
+            showJuniorClubStatsModal();
+            return;
+        }
+        
+        // 2. Handle List Item Clicks (Check-In/Edit)
         const checkInTarget = e.target.closest('.action-icon.add');
         const editTarget = e.target.closest('.action-icon.edit');
         
-        const listItem = e.target.closest('li'); 
+        const listItem = e.target.closest('#junior-club-list li'); 
         if (!listItem) return;
 
-        // --- Logic for the 'Add' (+) button ---
+        // --- Logic for the 'Add' (+) button (Check In) ---
         if (checkInTarget) {
             const parentId = checkInTarget.dataset.parentId;
             const parent = state.juniorClub.parents.find(p => p.id === parentId);
@@ -8538,7 +8924,188 @@ document.addEventListener('DOMContentLoaded', () => {
             if (parent && checkInTarget.style.opacity !== '0.5') {
                 const displayMode = state.juniorClub.checkInFilter.displayMode;
                 
-                // If in 'Child Name' view, check in the specific child directly
+                // If in 'Child Name' view, check in the specific child directly (This part was already working)
+                if (displayMode === 'child') {
+                    const childFullName = listItem.querySelector('span:first-child span:first-child').textContent.trim();
+                    const attendingChildren = parent.registeredChildren
+                        .filter(child => `${child.name} ${child.surname}`.trim() === childFullName)
+                        .map(child => ({
+                            name: `${child.name} ${child.surname}`.trim(), 
+                            gender: child.gender,
+                            guest: true,
+                            isJunior: true, 
+                            parentName: parent.name + ' ' + parent.surname
+                        }));
+                    
+                    if (attendingChildren.length > 0) {
+                        const newChildren = attendingChildren;
+                        state.juniorClub.activeChildren.push(...newChildren);
+
+                        const newHistoryEntry = {
+                            id: Date.now(),
+                            parentId: parent.id,
+                            parentName: `${parent.name} ${parent.surname}`,
+                            childNames: newChildren.map(c => c.name),
+                            date: new Date().toISOString().split('T')[0],
+                            isPaid: false, 
+                        };
+                        state.juniorClub.history.push(newHistoryEntry);
+                        
+                        // playCustomTTS(`${newChildren.length} child checked in for ${parent.name}.`);
+                        saveState();
+                        renderJuniorClubCheckInList(); // Refresh the list
+                        return;
+                    }
+                }
+                
+                // --- THIS IS THE MISSING LOGIC FOR THE PLUS ICON IN PARENT VIEW ---
+                // If in 'Parent Name' view, show the child selection modal
+                showChildSelectionModal(parent);
+            }
+        } 
+        // --- THIS IS THE MISSING LOGIC for the 'Edit' (✎) button ---
+        else if (editTarget) {
+            const parentId = editTarget.dataset.parentId;
+            const parentToEdit = state.juniorClub.parents.find(p => p.id === parentId);
+            if (parentToEdit) {
+                // This now correctly calls the function to open the edit modal
+                showEditParentModal(parentToEdit);
+            }
+        }
+    });
+
+    // Child Selection Modal
+    childSelectionBackBtn.addEventListener('click', () => {
+        childSelectionModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden');
+    });
+    childSelectionConfirmBtn.addEventListener('click', handleChildSelectionConfirm);
+
+
+    // New Parent Registration Flow (Corrected Cancel Listener)
+    newParentBtn.addEventListener('click', () => {
+        // showNewParentModal is called here, which handles all clearing and initial setup
+        showNewParentModal(); 
+    });
+
+    newParentCancelBtn.addEventListener('click', () => {
+        // --- CANCEL ACTION: Aggressively clear all fields and state ---
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        parentPhoneInput.value = ''; 
+        document.getElementById('parent-collapsed-display').innerHTML = '';
+        
+        // Reset flow state before closing
+        state.juniorClub.registrationFlow = {
+            parentCollapsed: false,
+            childrenExpanded: false,
+        };
+
+        newParentModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden'); // Return to main junior club list
+    });
+    newParentConfirmBtn.addEventListener('click', registerNewParent);
+
+    rosterDetailCloseBtn.addEventListener('click', () => {
+        rosterDetailModal.classList.add('hidden');
+        juniorClubRosterModal.classList.remove('hidden'); // Return to the roster list
+    });
+
+    // --- NEW LISTENER: Click delegation for Roster Items ---
+    juniorClubRosterList.addEventListener('click', (e) => {
+        const itemEl = e.target.closest('.roster-item');
+        const sortBtn = e.target.closest('.roster-sort-btn');
+        
+        // Ignore clicks on the sort buttons
+        if (sortBtn) return;
+        if (!itemEl) return;
+        
+        const index = parseInt(itemEl.dataset.rosterIndex, 10);
+        const rosterData = juniorClubRosterList.rosterData; // Retrieve stored data
+        
+        if (rosterData && rosterData[index]) {
+            showRosterDetailModal(rosterData[index]);
+        }
+    });
+
+    // NEW LISTENER: Filter toggle
+    if (juniorClubNameFilterGroup) {
+        juniorClubNameFilterGroup.addEventListener('change', handleJuniorClubNameFilterChange);
+    }
+
+    // New Parent Registration Flow
+    newParentBtn.addEventListener('click', () => {
+        juniorClubModal.classList.add('hidden');
+        newParentModal.classList.remove('hidden');
+        childrenContainer.innerHTML = '';
+        parentNameInput.value = '';
+        parentSurnameInput.value = '';
+        addChild();
+        validateNewParentForm();
+    });
+    newParentCancelBtn.addEventListener('click', () => {
+        newParentModal.classList.add('hidden');
+        juniorClubModal.classList.remove('hidden');
+    });
+    newParentConfirmBtn.addEventListener('click', registerNewParent);
+
+    // Parent Name Fields
+    wireAlphaKeypadToInput(parentNameInput, validateNewParentForm);
+    wireAlphaKeypadToInput(parentSurnameInput, validateNewParentForm);
+    parentNameInput.addEventListener('input', validateNewParentForm); 
+    parentSurnameInput.addEventListener('input', () => {
+        // Update the data-autofill-surname attribute on all existing child fields
+        const newSurname = parentSurnameInput.value.trim();
+        childrenContainer.querySelectorAll('[name="childSurname"]').forEach(input => {
+            // Also update the hidden data attribute for the autofill logic
+            input.dataset.autofillSurname = newSurname; 
+            // Do NOT automatically fill existing child fields unless the user clicks the child name input again
+        });
+        validateNewParentForm();
+    });
+
+
+
+    // Child Fields
+    addChildBtn.addEventListener('click', addChild);
+    newParentModal.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action="match-surname"]')) {
+            handleMatchSurname(e);
+        } else if (e.target.closest('[data-action="remove-child"]')) {
+            removeChild(e);
+        }
+    });
+
+    juniorClubModal.addEventListener('click', (e) => {
+        
+        // 1. Handle Header Icon Clicks (Roster and History)
+        if (e.target.closest('#junior-club-roster-btn')) {
+            showJuniorClubRosterModal();
+            return;
+        }
+        if (e.target.closest('#junior-club-history-btn')) {
+            showJuniorClubStatsModal();
+            return;
+        }
+        
+        // 2. Handle List Item Clicks (Check-In/Edit)
+        const checkInTarget = e.target.closest('.action-icon.add');
+        const editTarget = e.target.closest('.action-icon.edit');
+        
+        const listItem = e.target.closest('#junior-club-list li'); 
+        if (!listItem) return;
+
+        // --- Logic for the 'Add' (+) button (Check In) ---
+        if (checkInTarget) {
+            const parentId = checkInTarget.dataset.parentId;
+            const parent = state.juniorClub.parents.find(p => p.id === parentId);
+            
+            // Proceed only if the parent is found and the button is not disabled
+            if (parent && checkInTarget.style.opacity !== '0.5') {
+                const displayMode = state.juniorClub.checkInFilter.displayMode;
+                
+                // If in 'Child Name' view, check in the specific child directly (This part was already working)
                 if (displayMode === 'child') {
                     const childFullName = listItem.querySelector('span:first-child span:first-child').textContent.trim();
                     const attendingChildren = parent.registeredChildren
@@ -8572,11 +9139,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
+                // --- THIS IS THE MISSING LOGIC FOR THE PLUS ICON IN PARENT VIEW ---
                 // If in 'Parent Name' view, show the child selection modal
                 showChildSelectionModal(parent);
             }
         } 
-        // --- Logic for the 'Edit' (✎) button ---
+        // --- THIS IS THE MISSING LOGIC for the 'Edit' (✎) button ---
         else if (editTarget) {
             const parentId = editTarget.dataset.parentId;
             const parentToEdit = state.juniorClub.parents.find(p => p.id === parentId);
@@ -8619,7 +9187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showJuniorClubModal(); // <-- MODIFIED: Ensure list is re-rendered on return
     });
     juniorClubHistoryList.addEventListener('click', handleJuniorClubHistoryClick);
-    document.getElementById('payment-filter-group').addEventListener('change', handlePaymentFilterChange);
+    // NOTE: document.getElementById('payment-filter-group').addEventListener('change', handlePaymentFilterChange); is now handled inside renderJuniorClubHistory
     juniorClubStatsDetailsBtn.addEventListener('click', showJuniorClubDetailModal);
 
     // Junior Club Detail Modal Listeners
@@ -8684,6 +9252,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // NEW: Listener for the branded checkout modal confirmation
+
+    // On the Thank You (with stats) modal, go back to the Check-out list
+    document.getElementById('checkout-thanks-back-btn').addEventListener('click', () => {
+        document.getElementById('checkout-thanks-modal').classList.add('hidden');
+        checkOutModal.classList.remove('hidden');
+    });
+
+    // On the Thank You (no stats) modal, go back to the Check-out list
+    document.getElementById('checkout-thanks-no-stats-back-btn').addEventListener('click', () => {
+        document.getElementById('checkout-thanks-no-stats-modal').classList.add('hidden');
+        checkOutModal.classList.remove('hidden');
+    });
     document.getElementById('checkout-thanks-confirm-btn').addEventListener('click', () => {
         const modal = document.getElementById('checkout-thanks-modal');
         const playerToCheckOutName = modal.dataset.player;
@@ -8993,7 +9573,7 @@ document.addEventListener('DOMContentLoaded', () => {
         parentPhoneInput.addEventListener('input', validateNewParentForm);
     }
 
-    // --- ROSTER MODAL LISTENERS ---
+    // --- ROSTER MODAL LISTENERS (RE-VERIFIED AND ENSURED) ---
     if (juniorClubRosterBtn) {
         juniorClubRosterBtn.addEventListener('click', showJuniorClubRosterModal);
     }
@@ -9041,6 +9621,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // EVENT LISTENER FOR GAME HISTORY
     historyList.addEventListener('click', (e) => {
+         // --- ADD THIS BLOCK ---
+        if (e.target.closest('.sort-btn')) {
+            return; // Do nothing if a sort button was clicked
+        }
+        // --- END BLOCK ---
         const historyItem = e.target.closest('.history-item');
         if (!historyItem || !historyItem.dataset.gameId) return;
 
@@ -9057,6 +9642,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // EVENT LISTENERS FOR LEADERBOARD AND DISCLAIMER MODALS
+
+    // On the Rules/Leaderboard modal, go back to the Check-in list
+    document.getElementById('leaderboard-back-btn').addEventListener('click', () => {
+        leaderboardConfirmModal.classList.add('hidden');
+        checkInModal.classList.remove('hidden');
+    });
     document.getElementById('leaderboard-btn-yes').addEventListener('click', () => {
         const player = JSON.parse(leaderboardConfirmModal.dataset.player);
         player.onLeaderboard = true;
@@ -9186,11 +9777,11 @@ document.addEventListener('DOMContentLoaded', () => {
     signOutOptions.addEventListener('click', handleSignOut);
     
     // FIX: Individual listener binding to guarantee button functionality
-    document.querySelectorAll('.sign-out-btn').forEach(button => {
+    //document.querySelectorAll('.sign-out-btn').forEach(button => {
         // Ensure we don't double-bind if the script is reloaded
-        button.removeEventListener('click', handleSignOut);
-        button.addEventListener('click', handleSignOut);
-    });
+    //    button.removeEventListener('click', handleSignOut);
+    //    button.addEventListener('click', handleSignOut);
+    //});
 
     // NEW EVENT LISTENERS FOR SIGN-OUT MEMBER MODAL
     signOutMemberConfirmBtn.addEventListener('click', handleMemberSelectionConfirm);
