@@ -660,13 +660,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { passive: true });
     }
 
-    // --- NEW: ACTIVE CARD STYLING ON HORIZONTAL SCROLL ---
+    // --- MODIFIED: ACTIVE CARD STYLING ON HORIZONTAL SCROLL ---
     const scrollSnapContainer = document.getElementById('courtsSection');
     if (scrollSnapContainer) {
-        let activeCardIdentifier = null;
         let scrollTimeout;
 
-        const setActiveCard = () => {
+        // Set the active card on initial load
+        setTimeout(setActiveCardForMobileScroll, 200); 
+
+        scrollSnapContainer.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            // Run the logic only after the user has stopped scrolling (snapped to a card)
+            scrollTimeout = setTimeout(setActiveCardForMobileScroll, 150);
+        });
+    }
+
+    // --- NEW: REUSABLE FUNCTION TO SET THE ACTIVE SCROLLING CARD ---
+        function setActiveCardForMobileScroll() {
+            const scrollSnapContainer = document.getElementById('courtsSection');
+            if (!scrollSnapContainer) return;
+
+            // Check if the screen is in mobile view (where this feature is active)
+            if (window.innerWidth >= 900) {
+                // On desktop, ensure all cards are reset to their normal state
+                const cards = scrollSnapContainer.querySelectorAll('.summary-card, .court-card');
+                cards.forEach(card => card.classList.remove('is-active-card'));
+                return;
+            }
+
             const containerRect = scrollSnapContainer.getBoundingClientRect();
             const containerCenter = containerRect.left + containerRect.width / 2;
             
@@ -685,26 +706,139 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            const newIdentifier = closestCard ? (closestCard.dataset.courtId || closestCard.dataset.cardType) : null;
-
-            if (closestCard && newIdentifier !== activeCardIdentifier) {
-                // Remove active class from all cards
+            if (closestCard) {
+                // Remove active class from all other cards
                 cards.forEach(card => card.classList.remove('is-active-card'));
                 
                 // Add active class to the new card
                 closestCard.classList.add('is-active-card');
-                activeCardIdentifier = newIdentifier;
             }
-        };
+        }
 
-        // Set the first card as active on initial load
-        setTimeout(setActiveCard, 200); 
+    // --- NEW FUNCTION: Scrolls to the first available court ---
+    function scrollToFirstAvailableCourt() {
+        // Only run this logic on mobile view where horizontal scrolling is active
+        if (window.innerWidth >= 900) {
+            return;
+        }
 
-        scrollSnapContainer.addEventListener('scroll', () => {
-            // Use a timeout to run logic only after scrolling has stopped (snapped)
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(setActiveCard, 150);
-        });
+        const courtId = findNextAvailableCourtId(); // Uses your existing hierarchy logic
+        if (courtId) {
+            const courtCard = document.querySelector(`.court-card[data-court-id="${courtId}"]`);
+            if (courtCard) {
+                // Smoothly scroll the found court card to the center of the view
+                courtCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }
+
+
+    function scrollToSummaryCard() {
+        // Only run this logic on mobile view
+        if (window.innerWidth < 900) {
+            const summaryCard = document.querySelector('.summary-card');
+            if (summaryCard) {
+                // Smoothly scroll the summary card to the start of the view
+                summaryCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+            }
+        }
+    }
+
+    // --- NEW FUNCTION: Automatically expands the player list on mobile ---
+    function expandPlayerListOnMobile() {
+        // Only run this logic on mobile view if the list is currently collapsed
+        if (window.innerWidth < 900 && !state.mobileControls.isPlayersExpanded) {
+            state.mobileControls.isPlayersExpanded = true; // Update the state
+
+            // Directly manipulate the DOM to trigger the expansion
+            const playersSection = document.getElementById('availablePlayersSection');
+            const playersToggleIcon = document.querySelector('#players-toggle-btn i');
+
+            if (playersSection) {
+                playersSection.classList.remove('is-collapsed');
+            }
+            if (playersToggleIcon) {
+                playersToggleIcon.className = 'mdi mdi-chevron-up';
+            }
+            saveState(); // Save the new expanded state
+        }
+    }
+
+    // --- NEW FUNCTION: Automatically collapses the player list on mobile when selection is complete ---
+    function collapsePlayerListOnMobile() {
+        // Only run this logic on mobile view
+        if (window.innerWidth < 900 && state.mobileControls.isPlayersExpanded) {
+            state.mobileControls.isPlayersExpanded = false; // Update the state
+            
+            // Directly manipulate the DOM to trigger the collapse
+            const playersSection = document.getElementById('availablePlayersSection');
+            const playersToggleIcon = document.querySelector('#players-toggle-btn i');
+            
+            if (playersSection) {
+                playersSection.classList.add('is-collapsed');
+            }
+            if (playersToggleIcon) {
+                playersToggleIcon.className = 'mdi mdi-chevron-down';
+            }
+            saveState(); // Save the new collapsed state
+        }
+    }
+
+    // --- NEW: Central function to enforce all queue logic (Duty & Gender) ---
+    function enforceQueueLogic() {
+        if (state.availablePlayers.length < 2) {
+            return; // Not enough players for any logic to apply.
+        }
+
+        const players = state.availablePlayers;
+
+        // --- PART 1: On-Duty Member Logic (Existing Logic) ---
+        if (state.onDuty !== 'None') {
+            const firstActiveIndex = players.findIndex(p => !p.isPaused);
+            if (firstActiveIndex !== -1 && players[firstActiveIndex].name === state.onDuty) {
+                const targetSwapIndex = players.findIndex((p, index) => 
+                    index > firstActiveIndex && !p.isPaused && p.name !== state.onDuty
+                );
+                if (targetSwapIndex !== -1) {
+                    // Perform the swap
+                    [players[firstActiveIndex], players[targetSwapIndex]] = [players[targetSwapIndex], players[firstActiveIndex]];
+                }
+            }
+        }
+
+        // --- PART 2: Gender Balancing Logic (New & Improved Logic) ---
+        const selectorPlayer = players.find(p => !p.isPaused);
+        if (!selectorPlayer) return; // No active selector
+
+        const selectableGroupBaseSize = 7;
+        const selectorIndex = players.indexOf(selectorPlayer);
+
+        // Check if there are enough players after the selector to form a group
+        if ((players.length - 1 - selectorIndex) >= selectableGroupBaseSize) {
+            const playersAfterSelector = players.slice(selectorIndex + 1);
+            const availableInSelectableRange = playersAfterSelector.filter(p => !p.isPaused).slice(0, selectableGroupBaseSize);
+            
+            const sameGenderCountInRange = availableInSelectableRange.filter(p => p.gender === selectorPlayer.gender).length;
+
+            // IF a gender imbalance is detected (0 or 1 same-gender players in the next 7)...
+            if (sameGenderCountInRange <= 1) {
+                const endOfRangeIndex = players.indexOf(availableInSelectableRange[availableInSelectableRange.length - 1]);
+                
+                // Search for the next available, non-paused, same-gender player *after* the current selection box
+                const searchPool = players.slice(endOfRangeIndex + 1);
+                const nextSuitablePlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorPlayer.gender && !p.isPaused);
+
+                if (nextSuitablePlayerIndexInPool !== -1) {
+                    // We found a player to move!
+                    const originalIndexOfPlayerToMove = endOfRangeIndex + 1 + nextSuitablePlayerIndexInPool;
+                    const [playerToMove] = players.splice(originalIndexOfPlayerToMove, 1);
+
+                    // Insert them at the end of the orange selection box (position #8, which is index 7 relative to the selector)
+                    const insertionIndex = Math.min(selectorIndex + 1 + selectableGroupBaseSize, players.length);
+                    players.splice(insertionIndex, 0, playerToMove);
+                }
+            }
+        }
     }
 
 
@@ -1600,54 +1734,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Generalized Member Selection Modal
-function showMemberSelectionModal(action, category = null) {
-    signOutMemberList.innerHTML = '';
+    function showMemberSelectionModal(action, category = null) {
+        signOutMemberList.innerHTML = '';
 
-    // Set modal prompt based on the action
-    if (action === 'add') {
-        signOutMemberPrompt.textContent = 'Please select the member responsible for this stock addition.';
-    } else if (action === 'return') {
-        signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
-    } else if (action === 'return_used') {
-        signOutMemberPrompt.textContent = 'Please select the member responsible for this used ball return.';
-    } else { // signout
-        signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
+        // Set modal prompt based on the action
+        if (action === 'add') {
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock addition.';
+        } else if (action === 'return') {
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this stock return.';
+        } else if (action === 'return_used') {
+            signOutMemberPrompt.textContent = 'Please select the member responsible for this used ball return.';
+        } else { // signout
+            signOutMemberPrompt.textContent = `Please select the member for this ${category} sign-out.`;
+        }
+
+        // Store action context in the modal
+        signOutMemberModal.dataset.action = action;
+        if (category) {
+            signOutMemberModal.dataset.category = category;
+        } else {
+            delete signOutMemberModal.dataset.category;
+        }
+
+        const members = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
+
+        if (members.length === 0) {
+            signOutMemberList.innerHTML = '<li style="justify-content: center; color: var(--cancel-color);">No committee members found.</li>';
+            return;
+        }
+
+        signOutMemberConfirmBtn.disabled = true;
+
+        members.forEach(member => {
+            const li = document.createElement('li');
+            li.className = 'committee-member';
+            li.dataset.player = member.name;
+            li.innerHTML = `<label><input type="radio" name="signoutMember" value="${member.name}"><div class="member-details"><span class="member-name">${member.name}</span><span class="member-designation">${member.committee || 'Member'}</span></div></label>`;
+            signOutMemberList.appendChild(li);
+        });
+
+        signOutMemberList.querySelectorAll('input[name="signoutMember"]').forEach(radio => {
+            radio.removeEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+            radio.addEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
+        });
+
+        adminSettingsModal.classList.add('hidden');
+        ballManagementModal.classList.add('hidden');
+        signOutMemberModal.classList.remove('hidden');
     }
-
-    // Store action context in the modal
-    signOutMemberModal.dataset.action = action;
-    if (category) {
-        signOutMemberModal.dataset.category = category;
-    } else {
-        delete signOutMemberModal.dataset.category;
-    }
-
-    const members = MASTER_MEMBER_LIST.filter(m => m.committee).sort((a, b) => a.name.localeCompare(b.name));
-
-    if (members.length === 0) {
-        signOutMemberList.innerHTML = '<li style="justify-content: center; color: var(--cancel-color);">No committee members found.</li>';
-        return;
-    }
-
-    signOutMemberConfirmBtn.disabled = true;
-
-    members.forEach(member => {
-        const li = document.createElement('li');
-        li.className = 'committee-member';
-        li.dataset.player = member.name;
-        li.innerHTML = `<label><input type="radio" name="signoutMember" value="${member.name}"><div class="member-details"><span class="member-name">${member.name}</span><span class="member-designation">${member.committee || 'Member'}</span></div></label>`;
-        signOutMemberList.appendChild(li);
-    });
-
-    signOutMemberList.querySelectorAll('input[name="signoutMember"]').forEach(radio => {
-        radio.removeEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
-        radio.addEventListener('change', () => signOutMemberConfirmBtn.disabled = false);
-    });
-
-    adminSettingsModal.classList.add('hidden');
-    ballManagementModal.classList.add('hidden');
-    signOutMemberModal.classList.remove('hidden');
-}
 
     // 4. Generalized Member Confirmation and Keypad Trigger
     function handleMemberSelectionConfirm() {
@@ -1940,8 +2074,16 @@ function showMemberSelectionModal(action, category = null) {
         indexLetters.forEach(letterDiv => {
             letterDiv.classList.toggle('active', letterDiv.textContent === activeLetter);
         });
-    }
 
+        // --- THIS IS THE FIX ---
+        // Find the newly active letter element
+        const activeLetterEl = indexElement.querySelector('div.active');
+        if (activeLetterEl) {
+            // Automatically scroll the index list to make the active letter visible
+            activeLetterEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        // --- END OF FIX ---
+    }
     function setupListWithIndex(playerList, listElement, indexElement) {
         populateAbcIndex(playerList, listElement, indexElement);
 
@@ -2319,12 +2461,18 @@ function showMemberSelectionModal(action, category = null) {
             cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
         }
 
-        // --- THIS IS THE NEW LOGIC BLOCK ---
+        // --- THIS IS THE MODIFIED LOGIC BLOCK ---
         if (court.status === 'in_progress') {
-            // If the game is in progress, show the pencil icon to edit players.
-            editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
-        } else if (court.teamsSet === false) {
-            // If teams are not set, show the 'group' icon to set teams.
+            // If the game is in progress, check if teams have been set
+            if (court.teamsSet) {
+                // Teams are set, so show the pencil icon to edit them.
+                editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+            } else {
+                // Teams are NOT set (chose later), so show the 'group' icon to set them now.
+                editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
+            }
+        } else if (court.status === 'game_pending' && court.teamsSet === false) {
+            // If the game is pending and teams still need to be chosen, also show the 'group' icon.
             editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
         }
 
@@ -2523,6 +2671,17 @@ function showMemberSelectionModal(action, category = null) {
             }
         }
 
+        const light = state.lightSettings.courts[court.id];
+        const isLightManaged = light && light.isManaged;
+        const lightIconClass = isLightManaged && light.isActive ? 'mdi-lightbulb-on' : 'mdi-lightbulb-outline';
+        const lightDisabledAttr = isLightManaged ? '' : 'disabled';
+
+        const lightBtnHTML = `
+            <button class="light-toggle-btn on-court" title="Toggle Lights" data-action="toggle-light" data-court-id="${court.id}" ${lightDisabledAttr}>
+                <i class="mdi ${lightIconClass}"></i>
+            </button>
+        `;
+
         courtCard.innerHTML = `
             <div class="card-header header-status-${court.status}">
                 <h3>Court ${court.id}</h3>
@@ -2547,6 +2706,7 @@ function showMemberSelectionModal(action, category = null) {
                 ${cancelBtnHTML}
                 ${editBtnHTML}
                 ${moreOptionsBtnHTML}
+                ${lightBtnHTML}
             </div>`;
 
         return courtCard;
@@ -2882,7 +3042,7 @@ function showMemberSelectionModal(action, category = null) {
     function handleOnDutyChange(e) {
         state.onDuty = e.target.value;
         saveState();
-        enforceDutyPosition(); // --- ADDED LINE ---
+        enforceQueueLogic(); // --- THIS IS THE FIX ---
         render();
     }
 
@@ -3037,7 +3197,7 @@ function showMemberSelectionModal(action, category = null) {
         const starPlayers = calculateStarPlayers();
 
         autoAssignMatchMode();
-        runAutoMinimizeLogic(); // --- THIS IS THE FIX ---
+        runAutoMinimizeLogic(); 
         availablePlayersList.innerHTML = "";
 
         let sliceStart = 0;
@@ -3061,7 +3221,7 @@ function showMemberSelectionModal(action, category = null) {
             li.textContent = totalPlayersAtClub() > 0 ? "All players are on court." : "Waiting For Players To Check In...";
             availablePlayersList.appendChild(li);
         } else {
-            // --- CORE LOGIC: REWRITTEN FOR CORRECT GENDER BALANCING ---
+            // --- THIS IS THE CORRECTED LOGIC BLOCK ---
             let isSpecialCase = false;
             let specialHighlightIndex = -1;
             let nextPlayerSliceEnd = renderQueue.length;
@@ -3073,45 +3233,39 @@ function showMemberSelectionModal(action, category = null) {
                 const playersAfterSelector = renderQueue.slice(sliceStart + 1);
                 const availableInSelectableRange = playersAfterSelector.filter(p => !p.isPaused).slice(0, selectableGroupBaseSize);
                 
-                // This is the fix: Check for players of the SAME gender as the selector.
-                const sameGenderCountInRange = availableInSelectableRange.filter(p => p.gender === selectorGender).length;
+                // Only proceed if we actually have a group to evaluate
+                if (availableInSelectableRange.length > 0) {
+                    const sameGenderCountInRange = availableInSelectableRange.filter(p => p.gender === selectorGender).length;
+                    const lastPlayerInRange = availableInSelectableRange[availableInSelectableRange.length - 1];
+                    const endOfRangeIndex = renderQueue.findIndex(p => p.name === lastPlayerInRange.name);
 
-                const seventhAvailablePlayer = availableInSelectableRange[selectableGroupBaseSize - 1];
-                const endOfRangeIndex = renderQueue.findIndex(p => p.name === seventhAvailablePlayer.name);
-
-                // Case 1: TOTAL imbalance (0 players of selector's gender in the next 7)
-                if (sameGenderCountInRange === 0) {
-                    nextPlayerSliceEnd = endOfRangeIndex; // Shorten the orange box
-                    isSpecialCase = true;
-
-                    const searchPool = renderQueue.slice(endOfRangeIndex);
-                    const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
-                    if (foundPlayerIndexInPool !== -1) {
-                        specialHighlightIndex = endOfRangeIndex + foundPlayerIndexInPool;
-                    } else { // No one found, revert to normal
+                    // A special case is ONLY triggered if there are ZERO same-gender players in the selection box.
+                    if (sameGenderCountInRange === 0) {
+                        isSpecialCase = true;
+                        nextPlayerSliceEnd = endOfRangeIndex; // Shorten the main orange box
+                        
+                        // Search for the next suitable player after the shortened box
+                        const searchPool = renderQueue.slice(endOfRangeIndex);
+                        const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
+                        
+                        if (foundPlayerIndexInPool !== -1) {
+                            specialHighlightIndex = endOfRangeIndex + foundPlayerIndexInPool;
+                        } else {
+                            // If no one is found, revert to a normal case to avoid errors
+                            isSpecialCase = false;
+                            nextPlayerSliceEnd = endOfRangeIndex + 1;
+                        }
+                    } else {
+                        // If there is 1 or more same-gender players, it's a normal case.
+                        // The orange box includes all 7 players.
+                        isSpecialCase = false;
+                        specialHighlightIndex = -1;
                         nextPlayerSliceEnd = endOfRangeIndex + 1;
-                        isSpecialCase = false;
                     }
-                }
-                // Case 2: SCARCE imbalance (exactly 1 player of selector's gender in the next 7)
-                else if (sameGenderCountInRange === 1) {
-                    nextPlayerSliceEnd = endOfRangeIndex + 1; // Do NOT shorten the orange box
-                    isSpecialCase = true;
-
-                    const searchPool = renderQueue.slice(nextPlayerSliceEnd);
-                    const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
-                    if (foundPlayerIndexInPool !== -1) {
-                        specialHighlightIndex = nextPlayerSliceEnd + foundPlayerIndexInPool;
-                    } else { // No one else found, revert to normal
-                        isSpecialCase = false;
-                    }
-                }
-                // Default Case: Balanced (2 or more players of selector's gender)
-                else {
-                    nextPlayerSliceEnd = endOfRangeIndex + 1;
                 }
             }
-            // --- END OF REWRITTEN LOGIC ---
+            // --- END OF CORRECTED LOGIC ---
+
 
             if (renderQueue.length > 0) {
                 const playersBeforeSelector = renderQueue.slice(0, sliceStart);
@@ -3227,10 +3381,12 @@ function showMemberSelectionModal(action, category = null) {
 
         availablePlayersSection.classList.toggle("locked", !!courtInSetup || (selectedPlayerNames.length === 0 && allCourtsBusy));
         
-        updateTimers(); // <-- THIS IS THE FIX
+        updateTimers(); 
         
         initSummaryCardElements();
         setTimeout(setPlayerListHeight, 0);
+        
+        setTimeout(setActiveCardForMobileScroll, 50); 
     }
 
     // NEW FUNCTION: Resets collapse state when screen is wide (desktop/tablet)
@@ -3386,6 +3542,11 @@ function showMemberSelectionModal(action, category = null) {
             showManageCourtPlayersModal(courtId);
             return;
         }
+
+        if (action === 'toggle-light') {
+            handleLightToggleChange(e);
+            return;
+        }
         
         if (action === 'randomize-teams') {
             handleRandomizeTeams(courtId);
@@ -3396,7 +3557,15 @@ function showMemberSelectionModal(action, category = null) {
             return;
         }
         if (action === 'choose-teams') {
-            handleChooseTeams(courtId);
+            // --- THIS IS THE FIX ---
+            const court = state.courts.find(c => c.id === courtId);
+            // If the game is already in progress, pass a special context.
+            if (court && court.status === 'in_progress') {
+                handleChooseTeams(courtId, 'in_progress');
+            } else {
+                handleChooseTeams(courtId);
+            }
+            // --- END OF FIX ---
             return;
         }
         if (action === 'cancel-game-setup') {
@@ -3989,60 +4158,70 @@ function showMemberSelectionModal(action, category = null) {
         }
     }
     function handlePlayerClick(e){
-    // 1. Check for the Pause button click first
-    const pauseButton = e.target.closest(".pause-toggle-btn");
-    if (pauseButton) {
-        handlePauseToggleClick(pauseButton);
-        return;
-    }
-    
-    const li = e.target.closest("li");
-    
-    let firstAvailablePlayer = state.availablePlayers[0] ? state.availablePlayers[0].name : null;
-    if (state.availablePlayers[0] && state.availablePlayers[0].isPaused) {
-        const firstUnpaused = state.availablePlayers.find(p => !p.isPaused);
-        firstAvailablePlayer = firstUnpaused ? firstUnpaused.name : null;
-    }
-    
-    if (li && li.dataset.playerName === firstAvailablePlayer) return; 
-    if (!li || li.classList.contains("disabled") || li.classList.contains("waiting-message") || state.availablePlayers.length === 0) return;
-    
-    const playerName = li.dataset.playerName; 
-    const {players: selectedPlayerNames, gameMode} = state.selection; 
-    const requiredPlayers = gameMode === "doubles" ? 4 : 2; 
+        // 1. Check for the Pause button click first
+        const pauseButton = e.target.closest(".pause-toggle-btn");
+        if (pauseButton) {
+            handlePauseToggleClick(pauseButton);
+            return;
+        }
+        
+        const li = e.target.closest("li");
+        
+        let firstAvailablePlayer = state.availablePlayers[0] ? state.availablePlayers[0].name : null;
+        if (state.availablePlayers[0] && state.availablePlayers[0].isPaused) {
+            const firstUnpaused = state.availablePlayers.find(p => !p.isPaused);
+            firstAvailablePlayer = firstUnpaused ? firstUnpaused.name : null;
+        }
+        
+        if (li && li.dataset.playerName === firstAvailablePlayer) return; 
+        if (!li || li.classList.contains("disabled") || li.classList.contains("waiting-message") || state.availablePlayers.length === 0) return;
+        
+        const playerName = li.dataset.playerName; 
+        const {players: selectedPlayerNames, gameMode} = state.selection; 
+        const requiredPlayers = gameMode === "doubles" ? 4 : 2; 
 
-    // Player selection logic (no changes here)
-    if (selectedPlayerNames.length === 0) { 
-        if (playerName !== firstAvailablePlayer) { 
-            selectedPlayerNames.push(firstAvailablePlayer, playerName); 
-        } else { 
-            selectedPlayerNames.push(playerName); 
-        } 
-    } else { 
-        if (selectedPlayerNames.includes(playerName)) { 
-            selectedPlayerNames.splice(selectedPlayerNames.indexOf(playerName), 1); 
-            if (selectedPlayerNames.length === 1) { 
-                state.selection.players = []; 
+        // Player selection logic
+        if (selectedPlayerNames.length === 0) { 
+            if (playerName !== firstAvailablePlayer) { 
+                selectedPlayerNames.push(firstAvailablePlayer, playerName); 
+            } else { 
+                selectedPlayerNames.push(playerName); 
             } 
-        } else if (selectedPlayerNames.length < requiredPlayers) { 
-            selectedPlayerNames.push(playerName); 
-        } 
-    }
+        } else { 
+            if (selectedPlayerNames.includes(playerName)) { 
+                selectedPlayerNames.splice(selectedPlayerNames.indexOf(playerName), 1); 
+                if (selectedPlayerNames.length === 1) { 
+                    state.selection.players = []; 
+                } 
+            } else if (selectedPlayerNames.length < requiredPlayers) { 
+                selectedPlayerNames.push(playerName); 
+            } 
+        }
 
-    // First, render the UI to add the '.selectable' class to the courts
-    render(); 
-    saveState();
+        // First, render the UI to add the '.selectable' class to the courts
+        render(); 
+        saveState();
 
-    // NEW LOGIC: If selection is now complete, trigger the sequential animation
-    if (state.selection.players.length === requiredPlayers) {
-        const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
-        selectableCourts.forEach((button, index) => {
+        // --- THIS IS THE MODIFIED LOGIC ---
+        // If selection is now complete...
+        if (state.selection.players.length === requiredPlayers) {
+            // 1. Immediately scroll to the best available court.
+            scrollToFirstAvailableCourt();
+
+            // 2. Collapse the player list to reveal the courts.
+            collapsePlayerListOnMobile(); // <-- ADD THIS LINE
+
+            // 3. Wait for the scroll to finish, then trigger the ball animations.
             setTimeout(() => {
-                button.classList.add('serve-in');
-            }, index * 200); // Stagger each animation by 200ms
-        });
+                const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
+                selectableCourts.forEach((button, index) => {
+                    setTimeout(() => {
+                        button.classList.add('serve-in');
+                    }, index * 200); // Stagger each animation
+                });
+            }, 600); // 600ms delay to allow the smooth scroll to complete
+        }
     }
-}
 
     function handleConfirmSelection(){
         const {players: selectedPlayerNames, courtId, gameMode} = state.selection;
@@ -4172,14 +4351,17 @@ function showMemberSelectionModal(action, category = null) {
                 court.matchMode = state.matchSettings.matchMode;
                 court.fastPlayGames = state.matchSettings.fastPlayGames;
 
-                if (openedFrom === 'endgame') {
+                if (openedFrom === 'in_progress') {
+                    // If teams were set during an active game, just re-render.
+                    render();
+                } else if (openedFrom === 'endgame') {
                     handleEndGame(courtId); // Re-enter to show results modal
-                } else { // Normal live game
+                } else { // Normal pre-game setup
                     court.status = "game_pending";
                     court.autoStartTimeTarget = Date.now() + 60000;
                     court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
+                    render(); // <-- THIS IS THE FIX
                 }
-                render();
                 saveState();
             }
         }
@@ -4292,7 +4474,14 @@ function showMemberSelectionModal(action, category = null) {
             }
             
             playAlertSound(announcementMessage, null);
+            // --- THIS IS THE MODIFIED LOGIC ---
+            // 1. Scroll back to the summary card on mobile.
+            scrollToSummaryCard();
 
+            // 2. Expand the player list so it's ready for the next selection.
+            expandPlayerListOnMobile(); // <-- ADD THIS LINE
+
+            // 3. Render the final UI state.
             render(); 
             court.isNewGame = false;
             saveState();
@@ -4301,7 +4490,7 @@ function showMemberSelectionModal(action, category = null) {
         }, 2000);
     }
 
-// ADD THIS NEW FUNCTION
+    // ADD THIS NEW FUNCTION
     function renderManualSelectedPlayers(container) {
         container.innerHTML = '';
         const { players } = state.manualEntry;
@@ -5289,21 +5478,39 @@ function showMemberSelectionModal(action, category = null) {
 
         if (now >= alertScheduleTime) {
             if (state.currentAlertCount >= 2) {
-                if (state.availablePlayers.length > 1) {
-                    const playerToMove = state.availablePlayers.shift();
-                    const insertionIndex = Math.min(8, state.availablePlayers.length);
-                    state.availablePlayers.splice(insertionIndex, 0, playerToMove);
+            // Find the index of the first active (not paused) player. This is our target.
+            const playerToMoveIndex = state.availablePlayers.findIndex(p => !p.isPaused);
 
-                    const newFirstPlayerName = getFirstAvailablePlayerName();
-                    const swapMessage = `${playerToMove.name.split(' ')[0]} has been moved down. ${newFirstPlayerName.split(' ')[0]}, please select your match on court ${formattedCourtId}.`;
-                    
-                    playAlertSound(swapMessage);
-                    render();
-                    saveState();
-                    resetAlertSchedule();
-                    return;
-                }
+            if (playerToMoveIndex !== -1 && state.availablePlayers.length > 1) {
+                // Remove that specific player from their current position in the array.
+                const [playerToMove] = state.availablePlayers.splice(playerToMoveIndex, 1);
+                
+                // --- THIS IS THE FIX ---
+                // We want to insert them at position #9.
+                // We calculate how many paused players are "in front of" our target insertion point.
+                const targetPosition = 8; 
+                const pausedPlayersBeforeTarget = state.availablePlayers.slice(0, targetPosition).filter(p => p.isPaused).length;
+                
+                // The actual index in the array is the target position plus the number of paused players.
+                const insertionIndex = Math.min(targetPosition + pausedPlayersBeforeTarget, state.availablePlayers.length);
+                // --- END OF FIX ---
+                
+                state.availablePlayers.splice(insertionIndex, 0, playerToMove);
+
+                enforceQueueLogic(); // Re-apply all queue rules after the move
+
+                const newFirstPlayerName = getFirstAvailablePlayerName();
+                const swapMessage = `${playerToMove.name.split(' ')[0]} has been moved down. ${newFirstPlayerName.split(' ')[0]}, please select your match on court ${formattedCourtId}.`;
+                
+                playAlertSound(swapMessage);
+                render();
+                saveState();
+                resetAlertSchedule();
+                return;
             }
+        
+            // --- END OF FIX ---
+        }
 
             // --- THIS IS THE FIX ---
             // If this is the second alert (count is 1 before increment), add the "last call" message.
@@ -6321,7 +6528,7 @@ function showMemberSelectionModal(action, category = null) {
         checkAndPlayAlert(false);
     }
 
-    function handleOnDutyChange(e) { state.onDuty = e.target.value; saveState(); render(); }
+
     
     function handleKeypadClick(e) {
         const key = e.target.dataset.key;
@@ -6623,16 +6830,17 @@ function showMemberSelectionModal(action, category = null) {
     function populateCheckInModal() {
         checkInList.innerHTML = "";
 
-        // --- THIS IS THE NEW LOGIC ---
-        // 1. Get a list of all player names currently at the club (available or on court)
         const checkedInPlayerNames = new Set([
             ...state.availablePlayers.map(p => p.name),
             ...state.courts.flatMap(c => c.players).map(p => p.name)
         ]);
 
-        // 2. Filter the master list to exclude those already checked in
         const membersAvailableToCheckIn = state.clubMembers.filter(member => !checkedInPlayerNames.has(member.name));
-        // --- END OF NEW LOGIC ---
+        
+        // --- THIS IS THE FIX ---
+        // Sort the members alphabetically by name before rendering.
+        membersAvailableToCheckIn.sort((a, b) => a.name.localeCompare(b.name));
+        // --- END OF FIX ---
 
         if (membersAvailableToCheckIn.length === 0) {
             const li = document.createElement("li");
@@ -6659,15 +6867,21 @@ function showMemberSelectionModal(action, category = null) {
             li.style.justifyContent = "center";
             checkOutList.appendChild(li);
         } else {
-            state.availablePlayers.forEach(player => {
+            // --- THIS IS THE FIX ---
+            // Create a sorted copy of the array for display purposes only.
+            // This does NOT change the actual queue order in state.availablePlayers.
+            const sortedPlayers = [...state.availablePlayers].sort((a, b) => a.name.localeCompare(b.name));
+            // --- END OF FIX ---
+            
+            sortedPlayers.forEach(player => {
                 const li = document.createElement("li");
                 const displayName = player.guest ? `${player.name} (Guest)` : player.name;
                 li.innerHTML = ` <span style="flex-grow: 1;">${displayName}</span> <span style="margin-right: 1rem; color: #6c757d;">${player.gender}</span> <span class="action-icon remove" data-player="${player.name}">&times;</span> `;
                 li.dataset.playerName = player.name;
                 checkOutList.appendChild(li);
             });
+            setupListWithIndex(sortedPlayers, checkOutList, document.getElementById('check-out-abc-index'));
         }
-        setupListWithIndex(state.availablePlayers, checkOutList, document.getElementById('check-out-abc-index'));
     }
 
 
@@ -6930,7 +7144,7 @@ function showMemberSelectionModal(action, category = null) {
                 }
             }
             
-            enforceDutyPosition();
+            enforceQueueLogic(); // --- THIS IS THE FIX ---
 
             const fullName = playerObj.name;
             let firstMessage = '';
@@ -9850,7 +10064,10 @@ function showMemberSelectionModal(action, category = null) {
 
     reorderSaveBtn.addEventListener('click', () => {
         state.availablePlayers = tempPlayerOrder;
-        
+
+        // --- THIS IS THE FIX ---
+        enforceQueueLogic(); // Re-apply all queue rules after the admin reorder
+
         if (tempPlayerOrder.sessionLog && Object.keys(tempPlayerOrder.sessionLog).length > 0) {
             const movedPlayers = Object.fromEntries(
                 Object.entries(tempPlayerOrder.sessionLog).filter(([name, log]) => log.startPosition !== log.currentPosition)

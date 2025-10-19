@@ -4,6 +4,7 @@
 :root {
     --primary-blue: #0A0A57;
     --primary-green: #28a745; /* Green */
+    --yellow: #e5db80; /* Green */
     --light-blue: #e7f3ff;
     --dark-text: #343a3d;
     --background-color: var(--primary-blue);
@@ -992,6 +993,7 @@ header h1 { margin: 0; }
 
 /* 2. Available Players Card Collapse */
 #availablePlayersSection.is-collapsed .card-body {
+    flex: initial; /* ADD THIS LINE */
     max-height: 80px; /* Safe height for only check-in/out buttons */
     overflow: hidden;
     transition: max-height 0.3s ease-out;
@@ -1454,50 +1456,12 @@ header h1 { margin: 0; }
 }
 
 
-.cancel-game-btn.on-court {
-    position: absolute;
-    top: 2.25rem;
-    right: 2.5rem;
-    transform: translate(50%, -50%);
-    z-index: 6;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 4px solid white;
-    border-radius: 50%;
-    width: 35px;
-    height: 35px;
-    font-size: calc(1.2rem * var(--font-size-multiplier));
-    font-weight: bold;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
+
 .cancel-game-btn.on-court:hover {
     background-color: var(--cancel-color);
 }
 
-.edit-game-btn.on-court {
-    position: absolute;
-    top: 2.25rem;
-    left: 2.5rem; /* Positioned on the left, opposite the cancel button */
-    transform: translate(-50%, -50%);
-    z-index: 6;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 4px solid white;
-    border-radius: 50%;
-    width: 35px;
-    height: 35px;
-    font-size: calc(1.2rem * var(--font-size-multiplier));
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: flex; /* For centering the icon */
-    align-items: center;
-    justify-content: center;
-}
+
 
 .edit-game-btn.on-court:hover {
     background-color: var(--inactive-color); /* This is the orange/yellow color */
@@ -3207,13 +3171,20 @@ input:checked + .slider:before {
 .abc-index {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
-    min-height: 250px;
+    justify-content: flex-start; /* Changed from space-around */
+    gap: 2px; /* Add a small gap between letters */
+    overflow-y: auto; /* Enable vertical scrolling when needed */
     padding-right: 10px;
-    /*margin-top: 1.5rem;     <--- DELETE THIS LINE */
-    /*margin-bottom: 1rem;   <--- DELETE THIS LINE */
     box-sizing: border-box;
     flex-shrink: 0;
+    
+    /* --- Hide the scrollbar --- */
+    scrollbar-width: none; /* For Firefox */
+    -ms-overflow-style: none; /* For Internet Explorer and Edge */
+}
+
+.abc-index::-webkit-scrollbar {
+    display: none; /* For Chrome, Safari, and Opera */
 }
 
 .abc-index div {
@@ -3277,6 +3248,18 @@ input:checked + .slider:before {
     }
 
     
+    /* --- Compact Player List for Mobile --- */
+    #availablePlayersList li {
+        padding-top: 0.0rem;
+        padding-bottom: 0.0rem;
+    }
+
+    #availablePlayersList li.first-player,
+    #availablePlayersList li.disabled {
+        padding-top: 0.0rem;
+        padding-bottom: 0.0rem;
+    }
+
 
     .content-columns {
         grid-template-columns: 1fr;
@@ -3295,13 +3278,15 @@ input:checked + .slider:before {
     
     #availablePlayersSection {
         max-width: 100%; 
+        min-height: 45rem; /* ADD THIS LINE */
     }
 
     /* ADD THIS NEW RULE */
-    #availablePlayersSection.is-collapsed h4 {
-        /* Hide the 'MODE' and 'Players' headings in collapsed state */
-        display: none;
-    } 
+    #availablePlayersSection.is-collapsed {
+        min-height: auto; 
+        flex-grow: 0; 
+        height: auto !important; /* ADD THIS LINE */
+    }
     
     .court-grid {
         display: flex;
@@ -3456,6 +3441,10 @@ input:checked + .slider:before {
         opacity: 1;
     }
 
+    #courtsSection .court-card .card-body {
+        justify-content: center; /* This will vertically center the court diagram */
+    }
+
     
 }
 
@@ -3605,7 +3594,6 @@ input:checked + .slider:before {
         display: flex;
         flex-direction: row;
         width: 100%;
-        align-items: start; /* Add this line */
     }
 
     .card-header > h3 {
@@ -4458,27 +4446,7 @@ input:checked + .slider:before {
     ================================= */
 
 /* General style for the new bottom button, reusing common properties from other on-court buttons */
-.more-options-btn.on-court {
-    position: absolute;
-    bottom: 2.25rem;
-    left: 2.5rem;
-    transform: translate(-50%, 50%);
-    z-index: 6;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 4px solid white;
-    border-radius: 50%;
-    width: 35px;
-    height: 35px;
-    font-size: calc(1.2rem * var(--font-size-multiplier));
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+
 
 .action-btn,
 .modal-actions button {
@@ -4499,12 +4467,7 @@ input:checked + .slider:before {
     background-color: var(--primary-green); /* Distinct neutral hover color */
 }
 
-/* Bottom Left Position (Mirror of edit-game-btn.on-court) */
-.more-options-btn.on-court.bottom-left-btn {
-    bottom: 3.2rem; /* Positioned 2.25rem from the bottom */
-    left: 2.5rem;    /* Positioned 2.5rem from the left */
-    transform: translate(-50%, 50%); /* Corrects the position relative to the corner, pushing it up and right */
-}
+
 
 /* =================================
     Mode Selection Overlay Styles (NEW)
@@ -4590,6 +4553,58 @@ input:checked + .slider:before {
 
 /* --- Re-Apply the requested border thickness changes --- */
 /* The final code used 3.5px border, increasing to 4px as requested for *thicker* */
+
+
+/* =================================
+    On-Court Icon Buttons
+   ================================= */
+
+/* --- Base styles for all circular on-court buttons --- */
+.cancel-game-btn.on-court,
+.edit-game-btn.on-court,
+.more-options-btn.on-court,
+.light-toggle-btn.on-court {
+    position: absolute;
+    z-index: 6;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 4px solid white;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    font-size: calc(1.2rem * var(--font-size-multiplier));
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Positioning --- */
+.cancel-game-btn.on-court    { top: 2.25rem; right: 2.5rem; transform: translate(50%, -50%); }
+.edit-game-btn.on-court      { top: 2.25rem; left: 2.5rem;  transform: translate(-50%, -50%); }
+.more-options-btn.on-court   { bottom: 3.2rem; left: 2.5rem;  transform: translate(-50%, 50%); }
+.light-toggle-btn.on-court   { bottom: 3.2rem; right: 2.5rem; transform: translate(50%, 50%); }
+
+/* --- Hover Effects --- */
+.cancel-game-btn.on-court:hover         { background-color: var(--cancel-color); }
+.edit-game-btn.on-court:hover           { background-color: var(--inactive-color); }
+.more-options-btn.on-court:hover        { background-color: var(--primary-green); }
+.light-toggle-btn.on-court:hover:not(:disabled) { background-color: var(--yellow); }
+
+/* --- Light Toggle Specifics --- */
+.light-toggle-btn.on-court:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.light-toggle-btn.on-court .mdi-lightbulb-on {
+    color: white; /* Changed from var(--inactive-color) */
+}
+.light-toggle-btn.on-court .mdi-lightbulb-outline {
+    color: white;
+}
 
 .cancel-game-btn.on-court {
     /* ... existing styles ... */
@@ -5790,3 +5805,34 @@ header:not(.header-hidden) ~ .header-pull-tab {
         margin-top: 0;
     }
 }
+
+/* ===================================================
+    HIDE SCROLLBARS (Cross-Browser)
+   =================================================== */
+
+/* For Chrome, Safari, and newer versions of Edge */
+body::-webkit-scrollbar {
+    display: none;
+}
+
+/* For Firefox */
+body {
+    scrollbar-width: none;  
+}
+
+/* For Internet Explorer and older versions of Edge */
+body {
+    -ms-overflow-style: none;  
+}
+
+    /* --- Compact Player List for Mobile --- */
+    #availablePlayersList li {
+        padding-top: 0.0rem;
+        padding-bottom: 0.0rem;
+    }
+
+    #availablePlayersList li.first-player,
+    #availablePlayersList li.disabled {
+        padding-top: 0.0rem;
+        padding-bottom: 0.0rem;
+    }
