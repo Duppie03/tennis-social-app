@@ -3221,9 +3221,7 @@ input:checked + .slider:before {
     Responsive Adjustments
 ================================= */
 @media (max-width: 900px) {
-    header {
-        padding: 1rem 1rem;
-    }
+
 
     #check-in-modal .modal-content,
     #check-out-modal .modal-content,
@@ -3247,6 +3245,10 @@ input:checked + .slider:before {
         padding: 0.5rem 0.5rem 0.5rem 0.5rem;
     }
 
+    #header-logo {
+        height: 40px;
+        width: auto;
+    }
     
     /* --- Compact Player List for Mobile --- */
     #availablePlayersList li {
@@ -3278,7 +3280,8 @@ input:checked + .slider:before {
     
     #availablePlayersSection {
         max-width: 100%; 
-        max-height: 45rem; /* ADD THIS LINE */
+        max-height: 50rem !important; /* ADD THIS LINE */
+
     }
 
     /* ADD THIS NEW RULE */
@@ -3286,6 +3289,10 @@ input:checked + .slider:before {
         min-height: auto; 
         flex-grow: 0; 
         height: auto !important; /* ADD THIS LINE */
+    }
+
+    #availablePlayersSection .card-body {
+        flex: initial; /* Prevents the card body from growing and stretching its parent */
     }
     
     .court-grid {
@@ -3364,8 +3371,8 @@ input:checked + .slider:before {
         gap: 0.5rem;
         margin: 0.5rem 0;
     }
-    .weather-temp-large { font-size: 2.5rem; }
-    .weather-icon-large { font-size: 2rem; }
+    .weather-temp-large { font-size: 1.0rem; }
+    .weather-icon-large { font-size: 0.75rem; }
 
     #ball-management-modal .modal-content {
         height: auto; /* Allows modal to resize with content */
@@ -5639,12 +5646,12 @@ input:checked + .slider:before {
         min-height: 0;
     }
 
-    #availablePlayersSection {
+    /*#availablePlayersSection {
         flex: 1;
         display: flex;
         flex-direction: column;
         min-height: 0;
-    }
+    }*/
 
     #availablePlayersSection .card-body {
         flex: 1;
