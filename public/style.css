@@ -3278,7 +3278,7 @@ input:checked + .slider:before {
     
     #availablePlayersSection {
         max-width: 100%; 
-        min-height: 45rem; /* ADD THIS LINE */
+        max-height: 45rem; /* ADD THIS LINE */
     }
 
     /* ADD THIS NEW RULE */
