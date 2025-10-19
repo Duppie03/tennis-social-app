@@ -230,6 +230,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    //NEW SLIDE HEADER
+    // --- HEADER & TIME OVERLAY SLIDE-DOWN FUNCTIONALITY ---
+    let headerTimeout = null;
+    const header = document.querySelector('header');
+    const timeOverlay = document.getElementById('time-overlay');
+    const headerPullTab = document.getElementById('header-pull-tab');
+    let touchStartY = 0;
+    let isDragging = false;
+    let lastScrollY = 0;
+    //NEW PAUSE COOLDOWN TIMER
+    let cooldownTimerInterval = null;
+
     // NEW/ADJUSTED STATE VARIABLES FOR ALERT SCHEDULING
     let alertScheduleTime = 0; // Timestamp of the next alert fire time
     let currentAudio = null; // Track the currently playing audio object
@@ -461,18 +473,241 @@ document.addEventListener('DOMContentLoaded', () => {
     const signOutMemberCancelBtn = document.getElementById('sign-out-member-cancel-btn');
     const returnStockBtn = document.getElementById('return-stock-btn');
     const returnUsedBallsBtn = document.getElementById('return-used-balls-btn'); // <-- ADD THIS
-    console.log('Add Stock Button:', addStockBtn);
-    console.log('Return Stock Button:', returnStockBtn);
-    console.log('Return Used Balls Button:', returnUsedBallsBtn);
     const ballHistoryBtn = document.getElementById('ball-history-btn');
     const ballHistoryModal = document.getElementById('ball-history-modal');
     const ballHistoryList = document.getElementById('ball-history-list');
     const ballHistoryCloseBtn = document.getElementById('ball-history-close-btn'); 
     const signOutMemberPrompt = document.getElementById('sign-out-member-prompt');
 
+    const cooldownModal = document.getElementById('cooldown-modal');
+    const cooldownTimer = document.getElementById('cooldown-timer');
+    const cooldownCloseBtn = document.getElementById('cooldown-close-btn');
+
+    console.log('Time overlay element:', timeOverlay);
+    console.log('Time overlay exists:', timeOverlay !== null);
+
+    // --- SLIDE DOWN HEADER ---
+    // Auto-hide header (and time overlay) after 3 seconds of no interaction
+
+    function hideHeader() {
+        header.classList.add('header-hidden');
+        timeOverlay.classList.add('header-hidden'); // Add this line
+        clearTimeout(headerTimeout);
+    }
+
+    function startHeaderHideTimer() {
+        clearTimeout(headerTimeout);
+        headerTimeout = setTimeout(hideHeader, 3000); // Correctly calls the function
+    }
+
+    // Show header (and time overlay)
+    function showHeader() {
+        header.classList.remove('header-hidden');
+        timeOverlay.classList.remove('header-hidden'); // Add this line
+        startHeaderHideTimer();
+    }
 
 
-    
+
+    // Handle scroll to show/hide header
+    let ticking = false;
+    function handleScroll() {
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+                
+                // Scrolling up - show header
+                if (currentScrollY < lastScrollY) {
+                    showHeader();
+                }
+                // Scrolling down - hide header (after delay)
+                else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+                    clearTimeout(headerTimeout);
+                    headerTimeout = setTimeout(hideHeader, 1000); // Correctly calls the function
+                }
+                
+                lastScrollY = currentScrollY;
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }
+
+    // Touch/drag functionality for mobile
+    function handleTouchStart(e) {
+        touchStartY = e.touches[0].clientY;
+        isDragging = true;
+    }
+
+    function handleTouchMove(e) {
+        if (!isDragging) return;
+        
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchY - touchStartY;
+        
+        // Dragging down from top - show header
+        if (deltaY > 50 && touchStartY < 50) {
+            showHeader();
+            isDragging = false;
+        }
+    }
+
+    function handleTouchEnd() {
+        isDragging = false;
+    }
+
+    // Mouse drag functionality for desktop
+    let mouseStartY = 0;
+    let isMouseDragging = false;
+
+    function handleMouseDown(e) {
+        mouseStartY = e.clientY;
+        isMouseDragging = true;
+    }
+
+    function handleMouseMove(e) {
+        if (!isMouseDragging) return;
+        
+        const mouseY = e.clientY;
+        const deltaY = mouseY - mouseStartY;
+        
+        // Dragging down from top - show header
+        if (deltaY > 50 && mouseStartY < 50) {
+            showHeader();
+            isMouseDragging = false;
+        }
+    }
+
+    function handleMouseUp() {
+        isMouseDragging = false;
+    }
+
+    // Pull tab click
+    if (headerPullTab) {
+        headerPullTab.addEventListener('click', showHeader);
+    }
+
+    // Header mouse enter - keep visible
+    if (header) {
+        header.addEventListener('mouseenter', () => {
+            clearTimeout(headerTimeout);
+            header.classList.remove('header-hidden');
+        });
+        
+        header.addEventListener('mouseleave', startHeaderHideTimer);
+    }
+
+    // Time overlay mouse enter - keep visible
+    if (timeOverlay) {
+        timeOverlay.addEventListener('mouseenter', () => {
+            clearTimeout(headerTimeout);
+            header.classList.remove('header-hidden');
+        });
+        
+        timeOverlay.addEventListener('mouseleave', startHeaderHideTimer);
+    } 
+
+    // --- NEW: DRAG-TO-SCROLL FOR HORIZONTAL COURT LIST ---
+    const scrollContainer = document.getElementById('courtsSection');
+
+    if (scrollContainer) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        // Mouse Events for Desktop
+        scrollContainer.addEventListener('mousedown', (e) => {
+            isDown = true;
+            scrollContainer.style.cursor = 'grabbing';
+            startX = e.pageX - scrollContainer.offsetLeft;
+            scrollLeft = scrollContainer.scrollLeft;
+        });
+
+        scrollContainer.addEventListener('mouseleave', () => {
+            isDown = false;
+            scrollContainer.style.cursor = 'grab';
+        });
+
+        scrollContainer.addEventListener('mouseup', () => {
+            isDown = false;
+            scrollContainer.style.cursor = 'grab';
+        });
+
+        scrollContainer.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - scrollContainer.offsetLeft;
+            const walk = (x - startX) * 2; // The multiplier '2' makes the scroll faster
+            scrollContainer.scrollLeft = scrollLeft - walk;
+        });
+
+        // Touch Events for Mobile
+        scrollContainer.addEventListener('touchstart', (e) => {
+            isDown = true;
+            startX = e.touches[0].pageX - scrollContainer.offsetLeft;
+            scrollLeft = scrollContainer.scrollLeft;
+        }, { passive: true }); // Use passive listener for better scroll performance
+
+        scrollContainer.addEventListener('touchend', () => {
+            isDown = false;
+        });
+
+        scrollContainer.addEventListener('touchmove', (e) => {
+            if (!isDown) return;
+            const x = e.touches[0].pageX - scrollContainer.offsetLeft;
+            const walk = (x - startX) * 2;
+            scrollContainer.scrollLeft = scrollLeft - walk;
+        }, { passive: true });
+    }
+
+    // --- NEW: ACTIVE CARD STYLING ON HORIZONTAL SCROLL ---
+    const scrollSnapContainer = document.getElementById('courtsSection');
+    if (scrollSnapContainer) {
+        let activeCardIdentifier = null;
+        let scrollTimeout;
+
+        const setActiveCard = () => {
+            const containerRect = scrollSnapContainer.getBoundingClientRect();
+            const containerCenter = containerRect.left + containerRect.width / 2;
+            
+            let closestCard = null;
+            let minDistance = Infinity;
+
+            const cards = scrollSnapContainer.querySelectorAll('.summary-card, .court-card');
+            cards.forEach(card => {
+                const cardRect = card.getBoundingClientRect();
+                const cardCenter = cardRect.left + cardRect.width / 2;
+                const distance = Math.abs(containerCenter - cardCenter);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestCard = card;
+                }
+            });
+            
+            const newIdentifier = closestCard ? (closestCard.dataset.courtId || closestCard.dataset.cardType) : null;
+
+            if (closestCard && newIdentifier !== activeCardIdentifier) {
+                // Remove active class from all cards
+                cards.forEach(card => card.classList.remove('is-active-card'));
+                
+                // Add active class to the new card
+                closestCard.classList.add('is-active-card');
+                activeCardIdentifier = newIdentifier;
+            }
+        };
+
+        // Set the first card as active on initial load
+        setTimeout(setActiveCard, 200); 
+
+        scrollSnapContainer.addEventListener('scroll', () => {
+            // Use a timeout to run logic only after scrolling has stopped (snapped)
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(setActiveCard, 150);
+        });
+    }
+
+
     // --- DYNAMIC HEIGHT FUNCTION ---
     function setPlayerListHeight() {
         const courtGridEl = document.getElementById('court-grid');
@@ -757,10 +992,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     const seconds = Math.floor((remaining % 60000) / 1000);
                     timerEl.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 } else {
-                    timerEl.textContent = ''; // Clear timer if not in progress or pending
+                    timerEl.textContent = '';
                 }
             }
         });
+
+        document.querySelectorAll('.player-pause-cooldown').forEach(timerEl => {
+            const pauseTime = parseInt(timerEl.dataset.pauseTime, 10);
+            if (pauseTime) {
+                const TEN_MINUTES_MS = 10 * 60 * 1000;
+                const elapsed = Date.now() - pauseTime;
+                const remaining = Math.max(0, TEN_MINUTES_MS - elapsed);
+                
+                if (remaining === 0) {
+                    timerEl.textContent = "00m00s";
+                    timerEl.classList.remove('player-pause-cooldown');
+                } else {
+                    const minutes = Math.floor(remaining / 60000);
+                    const seconds = Math.floor((remaining % 60000) / 1000);
+                    // --- THIS IS THE FORMAT CHANGE ---
+                    timerEl.textContent = `${String(minutes).padStart(2, "0")}m${String(seconds).padStart(2, "0")}s`;
+                }
+            }
+        });
+
         updateAlertStatusTimer();
     }
 
@@ -2109,8 +2364,8 @@ function showMemberSelectionModal(action, category = null) {
         // --- Singles Pong Animation HTML Structure ---
         const pongAnimationSinglesHTML = `
             <div class="pong-animation-container" data-mode="singles">
-                <div class="pong-paddle top-paddle" style="${delayStyle}"></div>
-                <div class="pong-paddle bottom-paddle" style="${delayStyle}"></div>
+                <div class="pong-paddle top-paddle" style="animation-name: pong-top-move; ${delayStyle}"></div>
+                <div class="pong-paddle bottom-paddle" style="animation-name: pong-bottom-move; ${delayStyle}"></div>
                 <div class="pong-ball" style="${delayStyle}"></div>
             </div>
         `;
@@ -2379,7 +2634,7 @@ function showMemberSelectionModal(action, category = null) {
         const iconClass = isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down';
 
         return `
-            <div class="summary-card ${bodyClass}">
+            <div class="summary-card ${bodyClass}" data-card-type="summary">
                 <div class="card-header">
                     <h3>Information</h3>
                     <div class="header-controls">
@@ -2413,11 +2668,20 @@ function showMemberSelectionModal(action, category = null) {
                     </div>
 
                     <div class="summary-stats">
-                        <p>Total Players: <strong style="float: right;">${total}</strong></p>
-                        <p>Available Queue: <strong style="float: right; color: var(--confirm-color);">${available}</strong></p>
-                        <p>On Court: <strong style="float: right; color: var(--cancel-color);">${onCourt}</strong></p>
-                        <p>Available Courts: <strong style="float: right;">${availableCourtsCount} / ${totalVisibleCourts}</strong></p>
-                        <p>Court Availability: <strong style="float: right;">D:${doublesAvailable} S:${singlesAvailable} R:${rookieAvailable}</strong></p>
+                        <div class="summary-stats-grid">
+                            <span>Players:</span>
+                            <strong>${total}</strong>
+                            <span>Courts:</span>
+                            <strong>${availableCourtsCount} / ${totalVisibleCourts}</strong>
+
+                            <span>Queueing:</span>
+                            <strong class="available-value">${available}</strong>
+                            <span>Availability:</span>
+                            <strong>D:${doublesAvailable} S:${singlesAvailable} R:${rookieAvailable}</strong>
+
+                            <span>On Court:</span>
+                            <strong class="on-court-value">${onCourt}</strong>
+                            <span></span> <span></span> </div>
                     </div>
 
                     <div class="summary-extra-stats">
@@ -2503,18 +2767,14 @@ function showMemberSelectionModal(action, category = null) {
         const li = document.createElement("li");
         const playerName = player.name;
         
-        // --- THIS IS THE UPDATED LOGIC BLOCK ---
         let statusText;
         if (player.guest) {
             statusText = 'Guest';
         } else if (player.committee) {
-            // This is the new line for committee members
             statusText = `Committee ${player.committee}`;
         } else {
-            // This is the change for regular members
             statusText = player.type ? `${player.type} Member` : 'Member';
         }
-        // --- END OF UPDATED LOGIC ---
 
         let priorityText = '';
         let priorityClass = '';
@@ -2525,19 +2785,33 @@ function showMemberSelectionModal(action, category = null) {
         }
 
         let iconHtml = '';
-        if (playerName === starPlayers.bestMaleWP || playerName === starPlayers.bestFemaleWP) {
-            iconHtml += '<span style="color: gold; margin-left: 5px;">🏆</span>';
+        if (playerName === starPlayers.kingOfTheCourt) {
+            iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>';
         }
-        if (playerName === starPlayers.mostTimePlayed) {
-            iconHtml += '<span style="color: #007bff; margin-left: 5px;">⏱️</span>';
+        if (playerName === starPlayers.queenOfTheCourt) {
+            iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>';
         }
         
         const isPaused = player.isPaused;
         const pauseIcon = isPaused ? 'mdi-play' : 'mdi-pause';
         const pauseAction = isPaused ? 'resume' : 'pause';
 
-        const playtime = playerStats[playerName] ? formatDuration(playerStats[playerName].totalDurationMs) : '00h00m';
+        let playtimeHTML;
+        if (isPaused && player.pauseTime) {
+            const TEN_MINUTES_MS = 10 * 60 * 1000;
+            const elapsed = Date.now() - player.pauseTime;
+            const remaining = Math.max(0, TEN_MINUTES_MS - elapsed);
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+            const timeString = `${String(minutes).padStart(2, "0")}m${String(seconds).padStart(2, "0")}s`;
+            
+            playtimeHTML = `<span class="player-playtime player-pause-cooldown" data-pause-time="${player.pauseTime}">${timeString}</span>`;
+        } else {
+            const playtime = playerStats[playerName] ? formatDuration(playerStats[playerName].totalDurationMs) : '00h00m';
+            playtimeHTML = `<span class="player-playtime">${playtime}</span>`;
+        }
         
+        // --- THIS IS THE UPDATED (FLATTENED) HTML STRUCTURE ---
         li.innerHTML = `
             <div class="player-details">
                 <div class="player-name-container">
@@ -2546,15 +2820,13 @@ function showMemberSelectionModal(action, category = null) {
                 </div>
                 ${priorityText ? `<span class="${priorityClass}">${priorityText}</span>` : `<span class="player-status">${statusText}</span>`}
             </div>
-            <div class="player-stats">
-                <button class="pause-toggle-btn" data-player-name="${playerName}" data-action="${pauseAction}" title="${isPaused ? 'Resume Game Play' : 'Pause Game Play'}">
-                    <i class="mdi ${pauseIcon}"></i>
-                </button>
-                <div class="gender-container gender-${player.gender}">
-                    <span class="player-gender">${player.gender}</span>
-                </div>
-                <span class="player-playtime">${playtime}</span>
+            <button class="pause-toggle-btn" data-player-name="${playerName}" data-action="${pauseAction}" title="${isPaused ? 'Resume Game Play' : 'Pause Game Play'}">
+                <i class="mdi ${pauseIcon}"></i>
+            </button>
+            <div class="gender-container gender-${player.gender}">
+                <span class="player-gender">${player.gender}</span>
             </div>
+            ${playtimeHTML}
         `;
         li.dataset.playerName = playerName;
 
@@ -6619,37 +6891,36 @@ function showMemberSelectionModal(action, category = null) {
 
         if (playerObj) {
             
-            // --- 1. DETERMINE CURRENT SELECTOR NAME ---
             const currentSelectorName = getFirstAvailablePlayerName(); 
             
-            // Save the current state of the flag for logic in Step 2
             const wasPlayerHoldingSwapFlag = playerObj.isHoldingDutySwap;
             const isPlayerPausing = (verb === 'pause');
             
-            // --- 2. PERFORM UNDO SWAP (ON RESUME, IF THEY CAUSED THE SWAP) ---
             if (verb === 'resume' && wasPlayerHoldingSwapFlag) {
                 
                 const cmIndex = state.availablePlayers.findIndex(p => p.name === state.onDuty);
                 const playerAtPos2Index = 1;
 
-                // If CM is somewhere in the queue (index > 1)
                 if (cmIndex > playerAtPos2Index) {
-                    // Swap the CM (from cmIndex) with the player currently at Position #2 (index 1).
                     const playerToSwapWith = state.availablePlayers[playerAtPos2Index];
 
-                    state.availablePlayers[playerAtPos2Index] = state.availablePlayers[cmIndex]; // CM moves to #2
-                    state.availablePlayers[cmIndex] = playerToSwapWith;                           // Old #2 moves to CM's old spot
+                    state.availablePlayers[playerAtPos2Index] = state.availablePlayers[cmIndex];
+                    state.availablePlayers[cmIndex] = playerToSwapWith;
                 }
                 
-                // Clear the flag regardless of whether the swap was successful, as the player is unpaused
                 playerObj.isHoldingDutySwap = false;
             }
             
-            // --- 3. APPLY PAUSE STATE ---
+            // --- THIS IS THE NEW/MODIFIED LOGIC ---
             playerObj.isPaused = isPlayerPausing;
 
-            // --- 4. SET SWAP FLAG (If pausing, set flag on the now-paused player) ---
-            // Set flag only if the player is pausing and they were the effective selector
+            if (isPlayerPausing) {
+                playerObj.pauseTime = Date.now(); // Set the pause timestamp
+            } else {
+                delete playerObj.pauseTime; // Remove timestamp on resume
+            }
+            // --- END OF NEW LOGIC ---
+            
             if (verb === 'pause') {
                 const firstActiveIndex = state.availablePlayers.findIndex(p => !p.isPaused);
                 if (firstActiveIndex === state.availablePlayers.indexOf(playerObj)) {
@@ -6659,10 +6930,8 @@ function showMemberSelectionModal(action, category = null) {
                 }
             }
             
-            // --- 5. ENFORCE ORDER/DUTY NOW (The main duty logic runs after resume is processed) ---
             enforceDutyPosition();
 
-            // --- 6. CONSTRUCT MESSAGES ---
             const fullName = playerObj.name;
             let firstMessage = '';
             let secondMessage = null;
@@ -6670,7 +6939,6 @@ function showMemberSelectionModal(action, category = null) {
             if (playerObj.isPaused) {
                 firstMessage = `${fullName} is now taking a well-deserved break.`;
                 
-                // Only play the second announcement if the player being paused was the current active selector.
                 if (playerName === currentSelectorName) {
                     const nextSelectorName = getFirstAvailablePlayerName(); 
                     if (nextSelectorName) {
@@ -6681,7 +6949,6 @@ function showMemberSelectionModal(action, category = null) {
                 firstMessage = `${fullName} is back on court and ready to play.`;
             }
             
-            // --- 7. PLAY SEQUENCED ALERT ---
             playAlertSound(firstMessage, secondMessage); 
 
             cancelConfirmModal.classList.add("hidden");
@@ -6692,17 +6959,53 @@ function showMemberSelectionModal(action, category = null) {
         }
     }
 
+    function showCooldownModal(remainingMs) {
+        if (cooldownTimerInterval) {
+            clearInterval(cooldownTimerInterval);
+        }
+
+        const endTime = Date.now() + remainingMs;
+
+        function updateCountdown() {
+            const now = Date.now();
+            const timeLeft = endTime - now;
+
+            if (timeLeft <= 0) {
+                clearInterval(cooldownTimerInterval);
+                cooldownModal.classList.add('hidden');
+                return;
+            }
+
+            const minutes = Math.floor(timeLeft / 60000);
+            const seconds = Math.floor((timeLeft % 60000) / 1000);
+            cooldownTimer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        updateCountdown(); // Initial call to display time immediately
+        cooldownTimerInterval = setInterval(updateCountdown, 1000);
+        cooldownModal.classList.remove('hidden');
+    }
+
     function handlePauseToggleClick(button) {
-        // We use the button element passed directly from the main click handler
         const playerName = button.dataset.playerName;
         const action = button.dataset.action; // 'pause' or 'resume'
         const playerObj = state.availablePlayers.find(p => p.name === playerName);
 
         if (!playerObj) return;
 
+        if (action === 'resume') {
+            const TEN_MINUTES_MS = 10 * 60 * 1000;
+            if (playerObj.pauseTime && (Date.now() - playerObj.pauseTime) < TEN_MINUTES_MS) {
+                const remainingMs = TEN_MINUTES_MS - (Date.now() - playerObj.pauseTime);
+                showCooldownModal(remainingMs); // <-- This is the change
+                return;
+            }
+        }
+        
         const verb = action === 'pause' ? 'pause' : 'resume';
+        
         const message = action === 'pause' 
-            ? `Are you sure you want to pause your game play? You will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
+            ? `Are you sure you want to pause your game play? You will be paused for a minimum of 10 minutes and will remain in position #${state.availablePlayers.indexOf(playerObj) + 1} until you resume.` 
             : `Are you sure you want to resume your game play? You will be immediately restored to position #${state.availablePlayers.indexOf(playerObj) + 1}.`;
 
         cancelConfirmModal.querySelector("h3").textContent = `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`;
@@ -8668,6 +8971,20 @@ function showMemberSelectionModal(action, category = null) {
 
 
 // BIND ALL INITIAL DOM LISTENERS
+
+    // --- LISTENERS FOR PULL DOWN HEADER ---
+    // Attach event listeners
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // Start the auto-hide timer on page load
+    startHeaderHideTimer();
+
     
     updateOverlaySpacers();
     window.addEventListener('resize', setPlayerListHeight);
@@ -9197,6 +9514,13 @@ function showMemberSelectionModal(action, category = null) {
     });
     detailTogglePaidBtn.addEventListener('click', handleDetailTogglePaid);
 
+    cooldownCloseBtn.addEventListener('click', () => {
+        if (cooldownTimerInterval) {
+            clearInterval(cooldownTimerInterval);
+        }
+        cooldownModal.classList.add('hidden');
+    });
+
 
     // ADDED WINDOW RESIZE LISTENER FOR AUTOMATIC EXPANSION
     window.addEventListener('resize', resetCollapseOnResize);
@@ -9695,6 +10019,8 @@ function showMemberSelectionModal(action, category = null) {
     
     // In resetCourtAfterGame() -> right before saveState()
     runAutoMinimizeLogic();
+
+
 
     // EVENT LISTENERS FOR SOUND SELECTION
     selectSoundBtn.addEventListener('click', handleSoundSelectionModal);
