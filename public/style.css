@@ -2,7 +2,8 @@
     Global Styles & Color Variables
     ================================= */
 :root {
-    --primary-blue: #0A0A57;
+    --primary-blue: #1e1e5c;
+    --secondary-blue: #29489c;
     --primary-green: #28a745; /* Green */
     --yellow: #e5db80; /* Green */
     --light-blue: #e7f3ff;
@@ -67,6 +68,43 @@ header h1 { margin: 0; }
     gap: 0; /* Set gap to 0 */
     justify-content: flex-end;
 }
+
+/* Mobile Menu Bar */
+.mobile-menu-bar {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--secondary-blue);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 2000;
+    padding: 0.5rem 0;
+    height: 40px; /* Fixed height for consistency */
+}
+
+.mobile-menu-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.4rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-menu-btn:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-menu-btn i {
+    font-size: 1.4rem;
+}
+
 .container {
     display: flex;
     flex-direction: column; /* Stack children vertically (info-bar, content-columns) */
@@ -211,7 +249,7 @@ header h1 { margin: 0; }
     left: 0;
     right: 0;
     width: 100%;
-    height: 85px;
+    height: 75px;
     padding: 0 var(--gap);
     box-sizing: border-box;
     display: flex;
@@ -322,14 +360,44 @@ header h1 { margin: 0; }
     transition: background-color 0.2s;
     border: 3px solid transparent;
     margin: 2px 0;
+    min-height: 54px;
+    line-height: 1.2;
+    box-sizing: border-box; /* Ensures padding and border are included in the height */
+    
 }
 
 .player-stats {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    margin-left: auto; /* Pushes the block to the right */
     flex-shrink: 0;
-    margin-left: var(--gap);
+}
+
+.player-stats > * {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Define fixed widths for each column to guarantee alignment */
+.suggestion-icon-wrapper {
+    width: 35px;
+}
+.pause-toggle-btn {
+    width: 35px;
+}
+.gender-container {
+    width: 40px;
+}
+.player-playtime {
+    width: 65px;
+    justify-content: center;
+    padding-right: 0.5rem; /* <-- ADD THIS LINE */
+}
+
+/* NEW RULE to add padding to the playtime for the first player */
+#availablePlayersList li.first-player .player-playtime {
+    padding-right: 1.1rem;
 }
 
 #availablePlayersList .next-players-group li.disabled {
@@ -788,14 +856,28 @@ header h1 { margin: 0; }
 }
 
 .summary-stats-grid {
-    display: grid;
-    /* Defines 4 columns: Label, Value, Label, Value */
-    grid-template-columns: auto max-content auto max-content;
-    justify-content: space-between;
-    align-items: center;
-    row-gap: 0.5rem;
-    padding: 0;
+    display: flex;
+    flex-wrap: wrap; /* Allows columns to wrap onto the next line */
+    gap: 0.25rem 50px; /* Vertical gap of 1rem, Horizontal gap of 10px */
+    align-items: start;
 }
+
+.stats-column {
+    flex: 1; /* Each column will try to take up equal space */
+    min-width: 150px; /* The column will wrap if it becomes narrower than this */
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem; /* Space between rows inside a column */
+}
+
+.stats-column > div {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Specific color styling for values */
+.summary-stats-grid .available-value { color: var(--confirm-color); }
+.summary-stats-grid .on-court-value { color: var(--cancel-color); }
 
 .summary-stats-grid strong {
     font-weight: bold;
@@ -1398,6 +1480,10 @@ header h1 { margin: 0; }
     text-transform: uppercase;
 }
 
+.player-spot.single-player > span {
+    left: 50%;
+}
+
 .player-spot.top-row > span {
     top: 31%;
 }
@@ -1500,7 +1586,6 @@ header h1 { margin: 0; }
     color: #aaa;
     background-color: #f9f9f9;
     cursor: not-allowed;
-    padding: 0.6rem 1.3rem;
 }
 
 .court-card.selectable:hover,
@@ -2209,14 +2294,40 @@ header h1 { margin: 0; }
     border-color: var(--primary-blue);
 }
 #availablePlayersList li.first-player {
-    background-color: transparent;
+    background-color: transparent; /* Reverted to transparent background */
     color: var(--dark-text);
-    border: 3px solid var(--confirm-color);
+    border: 3px solid var(--confirm-color); /* Restored the solid border */
     border-radius: 5px;
-    animation: pulse-green 2s infinite;
-    padding: 0.6rem 1.3rem;
+    /* This animation now calls the new inset border pulse */
+    animation: pulse-inset-border 2s infinite; 
     cursor: default;
     border-bottom: 3px solid var(--confirm-color);
+    
+}
+
+@keyframes pulse-background-green {
+    0% {
+        background-color: #f0fdf4; /* A very light green */
+    }
+    50% {
+        background-color: #dcfce7; /* A slightly darker green */
+    }
+    100% {
+        background-color: #f0fdf4; /* Return to light green */
+    }
+}
+
+@keyframes pulse-inset-border {
+    0% {
+        box-shadow: inset 0 0 0 0 rgba(40, 167, 69, 0.4);
+    }
+    50% {
+        /* The '5px' value controls how far the glow expands inside the border */
+        box-shadow: inset 0 0 0 2px rgba(40, 167, 69, 0.8);
+    }
+    100% {
+        box-shadow: inset 0 0 0 0 rgba(40, 167, 69, 0.4);
+    }
 }
 
 #availablePlayersList .next-players-group {
@@ -3222,6 +3333,39 @@ input:checked + .slider:before {
 ================================= */
 @media (max-width: 900px) {
 
+    .mobile-menu-bar {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+    
+    /* Add bottom padding to main content to account for fixed menu */
+    body {
+        padding-bottom: 80px; /* Increased from 60px */
+        padding-top: 65px; /* <-- ADD THIS LINE */
+    }
+    
+    /* Ensure main content area has proper spacing */
+    #app {
+        min-height: calc(100vh - 80px);
+    }
+    
+    /* Add extra margin to the last court card */
+    .court-card:last-child,
+    .summary-card:last-child {
+        margin-bottom: 20px;
+    }
+    
+    /* Hide card header action buttons on mobile */
+    .summary-card .header-controls .settings-btn:not(.summary-toggle-btn),
+    #availablePlayersSection .section-header .settings-btn:not(.summary-toggle-btn) {
+        display: none !important;
+    }
+
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }   
+
 
     #check-in-modal .modal-content,
     #check-out-modal .modal-content,
@@ -3251,10 +3395,12 @@ input:checked + .slider:before {
     }
     
     /* --- Compact Player List for Mobile --- */
-    #availablePlayersList li {
-        padding-top: 0.0rem;
-        padding-bottom: 0.0rem;
-    }
+    /* --- Compact Player List for Mobile --- */
+        #availablePlayersList li {
+            padding-top: 0.2rem;    /* Use a small, consistent padding */
+            padding-bottom: 0.2rem;
+            min-height: 48px;       /* Enforce a slightly smaller fixed height */
+        }
 
     #availablePlayersList li.first-player,
     #availablePlayersList li.disabled {
@@ -3300,6 +3446,7 @@ input:checked + .slider:before {
         flex-direction: row;
         width: 100%;
         align-items: start; /* Add this line */
+        padding-bottom: 20px;
     }
     
     .card-header > h3 {
@@ -3415,6 +3562,7 @@ input:checked + .slider:before {
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        padding-bottom: 20px;
     }
 
     #courtsSection::-webkit-scrollbar {
@@ -3451,6 +3599,7 @@ input:checked + .slider:before {
     #courtsSection .court-card .card-body {
         justify-content: center; /* This will vertically center the court diagram */
     }
+
 
     
 }
@@ -3687,6 +3836,8 @@ input:checked + .slider:before {
         flex-grow: 1; /* Makes this area fill available vertical space */
         justify-content: center; /* Centers the number and label vertically */
     }
+
+    
 
 }
 
@@ -4948,6 +5099,12 @@ input:checked + .slider:before {
     #ball-management-modal .admin-settings-panel {
         flex-shrink: 0;
     }
+
+
+
+
+
+
 }
 
 /* =================================
@@ -5144,17 +5301,21 @@ input:checked + .slider:before {
 .summary-extra-stats {
     border-top: 1px solid var(--border-color);
     margin-top: 1rem;
-    padding-top: 0.25rem;
+    padding-top: 1rem;
     padding-bottom: 0.1rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0rem 10px; /* Vertical gap, Horizontal gap */
+    align-items: start;
 }
 
 .summary-extra-stats > div {
+    flex: 1; /* Each item will try to take up equal space */
+    min-width: 150px; /* The item will wrap if it becomes narrower than this */
     display: flex;
     flex-direction: column;
     text-align: center;
+    gap: 0; /* Small gap between label and value */
 }
 
 .summary-extra-stats .stat-label {
@@ -5624,9 +5785,7 @@ input:checked + .slider:before {
 /* Main container flex layout for large screens */
 @media (min-width: 900px) {
     .container {
-        height: calc(100vh - var(--header-height) - var(--time-overlay-height));
-        display: flex;
-        flex-direction: column;
+        padding: 65px 0.5rem 0.5rem 0.5rem; /* MODIFIED THIS LINE */
     }
 
     .content-columns {
@@ -5717,6 +5876,8 @@ input:checked + .slider:before {
         position: relative;
         overflow: hidden;
     }
+
+
 }
 
 /* Remove any fixed heights that might conflict */
@@ -5800,11 +5961,7 @@ header:not(.header-hidden) ~ .header-pull-tab {
 
 /* Adjust main container to account for header space */
 @media (min-width: 900px) {
-    .container {
-        height: calc(100vh - var(--header-height) - var(--time-overlay-height));
-        margin-top: calc(var(--header-height) + var(--time-overlay-height));
-        transition: all 0.3s ease-in-out;
-    }
+
     
     /* When header is hidden, give more space to container */
     header.header-hidden ~ main.container {
@@ -5812,6 +5969,73 @@ header:not(.header-hidden) ~ .header-pull-tab {
         margin-top: 0;
     }
 }
+
+/* Slide-down header and time overlay together */
+@media (max-width: 900px) {
+    header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        transition: transform 0.3s ease-in-out;
+        transform: translateY(0);
+    }
+
+    .container {
+        padding: 65px 0.5rem 0.5rem 0.5rem; /* MODIFIED THIS LINE */
+    }
+
+    /* Hidden state - both hide together */
+    header.header-hidden {
+        transform: translateY(-100%);
+    }
+
+    #time-overlay.header-hidden {
+        transform: translateY(-100%);
+        opacity: 0;
+        visibility: hidden;
+        z-index: 1001;
+    }
+
+    /* Pull tab to reveal header */
+    .header-pull-tab {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 20px;
+        background: rgba(10, 10, 87, 0.3);
+        border-radius: 0 0 10px 10px;
+        z-index: 999;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .header-pull-tab:hover {
+        background: rgba(10, 10, 87, 0.6);
+        height: 25px;
+    }
+
+    .header-pull-tab::after {
+        content: '▼';
+        color: white;
+        font-size: 12px;
+        opacity: 0.6;
+    }
+
+    /* When header is visible, hide the tab */
+    header:not(.header-hidden) ~ .header-pull-tab {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+
 
 /* ===================================================
     HIDE SCROLLBARS (Cross-Browser)
@@ -5832,14 +6056,394 @@ body {
     -ms-overflow-style: none;  
 }
 
-    /* --- Compact Player List for Mobile --- */
-    #availablePlayersList li {
-        padding-top: 0.0rem;
-        padding-bottom: 0.0rem;
+
+
+
+/* =================================
+    Comparison Modal Styles
+   ================================= */
+
+.comparison-content {
+    display: flex; /* Changed to flex for scrolling */
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+    padding: 1rem 0;
+}
+
+.comparison-grid-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.comparison-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.comparison-header {
+    text-align: center;
+    font-size: 1.1em; /* Reduced font size */
+    font-weight: bold;
+    color: var(--primary-blue);
+    margin-bottom: 0.25rem; /* Reduced margin */
+}
+
+.comparison-stat-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 0.75rem; /* Reduced padding */
+    text-align: center;
+}
+
+.comparison-stat-card .label {
+    font-size: 0.8em; /* Reduced font size */
+    color: var(--neutral-color);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+}
+
+.comparison-stat-card .value {
+    font-size: 1.5em; /* Reduced font size */
+    font-weight: bold;
+    color: var(--dark-text);
+}
+
+.comparison-stat-card .win-percentage {
+    font-size: 0.9em; /* Reduced font size */
+    font-weight: normal;
+    color: var(--neutral-color);
+}
+
+.comparison-summary-card {
+    text-align: center;
+    padding: 0.75rem; /* Reduced padding */
+    background-color: var(--light-blue);
+    border-radius: 8px;
+}
+
+.comparison-grid-content > .comparison-summary-card {
+    grid-column: 1 / -1; /* Span full width */
+}
+
+.comparison-summary-row {
+    grid-column: 1 / -1; /* Span full width */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .comparison-grid-content {
+        display: block; /* Stack items vertically */
+        overflow-y: auto; /* Enable scrolling */
+        flex-grow: 1;
+        padding-right: 0.5rem; /* Space for scrollbar */
     }
 
-    #availablePlayersList li.first-player,
-    #availablePlayersList li.disabled {
-        padding-top: 0.0rem;
-        padding-bottom: 0.0rem;
+    .comparison-column,
+    .comparison-summary-card {
+        margin-bottom: 1rem; /* Space between stacked items */
     }
+}
+
+/* --- NEW: Winner Highlighting --- */
+.comparison-header.h2h-winner-text {
+    color: var(--confirm-color);
+}
+
+.comparison-header.h2h-loser-text {
+    color: var(--cancel-color);
+}
+
+.comparison-stat-card.h2h-winner-bg {
+    background-color: rgba(40, 167, 69, 0.25); /* Translucent Green */
+}
+
+.comparison-stat-card.h2h-loser-bg {
+    background-color: rgba(220, 53, 69, 0.25); /* Translucent Red */
+}
+
+/* Selection styles for history lists */
+#history-list .history-item.selected-for-comparison,
+#team-history-list .history-item.selected-for-comparison {
+    background-color: var(--light-blue);
+    border-left: 4px solid var(--primary-blue);
+}
+
+/* =================================
+    "On a Roll" Text Animation
+   ================================= */
+
+.player-status-fader {
+    position: relative;
+    /* This height ensures the container has a stable size, fixing the layout */
+    height: 1.2em; 
+    /* ADD THESE LINES to match the original .player-status style */
+    font-size: calc(0.8rem * var(--font-size-multiplier));
+    color: var(--neutral-color);
+}
+
+.player-status-fader .status-text {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%; /* Ensures both text lines occupy the same space */
+    transition: opacity 0.5s ease-in-out;
+}
+
+.player-status-fader .status-text.is-visible {
+    opacity: 1;
+}
+
+.player-status-fader .status-text:not(.is-visible) {
+    opacity: 0;
+}
+
+/* =================================
+    Game Suggestion Feature
+   ================================= */
+
+/* This is required for the button's overlay positioning */
+#availablePlayersList li {
+    position: relative;
+}
+
+.suggestion-btn-container {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+}
+
+.suggestion-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: transform 0.2s ease-in-out;
+}
+
+.suggestion-btn:hover {
+    transform: scale(1.2);
+}
+
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 3px 6px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+@keyframes pulse-blue {
+    0% {
+        box-shadow: 0 0 0 0 rgba(41, 72, 156, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 3px 6px rgba(41, 72, 156, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(41, 72, 156, 0);
+    }
+}
+
+#availablePlayersList li.suggested-partner {
+    background-color: #eafaf1 !important;
+    border-radius: 5px;
+    animation: pulse-green 2s infinite;
+}
+
+#availablePlayersList li.suggested-opponent {
+    background-color: #e7f3ff !important;
+    border-radius: 5px;
+    animation: pulse-blue 2s infinite;
+}
+
+.suggestion-btn-container {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+}
+
+
+/* =================================
+    Custom Announcements
+   ================================= */
+
+/* Styles for the configuration modal (unchanged) */
+#announcement-list li {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+}
+
+#announcement-list input[type="text"] {
+    flex-grow: 1;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: calc(1rem * var(--font-size-multiplier));
+}
+
+#announcement-list .tts-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+#announcement-list .add-announcement-btn {
+    font-size: 1.5rem;
+    color: var(--confirm-color);
+    cursor: pointer;
+}
+
+/* --- CORRECTED HEADER SCROLLING ANIMATION --- */
+#header-clock, .scrolling-announcement {
+    transition: opacity 0.5s ease-in-out;
+}
+
+#announcement-container {
+    position: absolute;
+    top: 0;
+    left: 250px;  /* Space for the logo */
+    right: 200px; /* Space for the weather display */
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    /* ADD THESE TWO LINES FOR THE FADE EFFECT */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+.scrolling-announcement {
+    position: absolute;
+    white-space: nowrap;
+    opacity: 0;
+    will-change: transform;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    /* The animation itself is now controlled by script.js */
+}
+
+.scrolling-announcement.is-visible {
+    opacity: 1;
+}
+
+#announcement-list .action-icon.remove {
+    font-size: 1.5rem;
+    color: var(--cancel-color);
+    cursor: pointer;
+}
+
+.announcement-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+}
+
+.announcement-controls label {
+    font-weight: 500;
+}
+
+.interval-adjuster {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.interval-adjuster button {
+    font-size: 1.5rem;
+    font-weight: bold;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+#tts-interval-display {
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* =================================
+    Power Score Modal
+   ================================= */
+
+.power-score-grid-row {
+    display: grid;
+    /* Player Name | Historical | Today | Final Score */
+    grid-template-columns: 2.5fr 1fr 1fr 1fr; 
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+}
+
+.power-score-grid-row > * {
+    text-align: center; /* Right-align all by default */
+}
+
+.power-score-grid-row > *:first-child {
+    text-align: left; /* Left-align the first column (Player Name) */
+}
+
+#power-score-list .sort-btn {
+    background: none;
+    border: none;
+    font-weight: bold;
+    color: var(--dark-text);
+    font-size: inherit;
+    padding: 0;
+    cursor: pointer;
+    text-align: inherit; /* Inherit alignment from the parent grid */
+}
+
+/* Target all sortable buttons and the non-sortable teams header */
+#power-score-list .sort-btn, /* <-- ADD THIS LINE */
+.stats-grid-row .sort-btn,
+.game-history-grid .sort-btn,
+.game-history-grid .teams-header {
+    /* Use the desired smaller font size */
+    font-size: calc(0.8em * var(--font-size-multiplier)) !important;
+    /* !important is used here to override the button's inherited font size */
+}
+
+#power-score-list .sort-btn {
+    background: none;
+    border: none;
+    font-weight: bold;
+    color: var(--dark-text);
+    font-size: inherit;
+    padding: 0;
+    cursor: pointer;
+    /* The text alignment is now explicitly set */
+    text-align: center; 
+}
+
+/* This specifically targets the first header button ("Player") to be left-aligned */
+#power-score-list .power-score-grid-row > .sort-btn:first-child {
+    text-align: left;
+}

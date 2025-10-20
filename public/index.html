@@ -24,11 +24,27 @@
             <div id="weather-display"></div>
         </div>
     </header>
+    <div id="mobile-menu-bar" class="mobile-menu-bar">
+        <button class="mobile-menu-btn" id="mobile-junior-club-btn" title="Junior Club">
+            <i class="mdi mdi-account-child"></i>
+        </button>
+        <button class="mobile-menu-btn" id="mobile-history-btn" title="Game History">
+            <i class="mdi mdi-history"></i>
+        </button>
+        <button class="mobile-menu-btn" id="mobile-notify-btn" title="Force Announcement">
+            <i class="mdi mdi-bullhorn"></i>
+        </button>
+        <button class="mobile-menu-btn" id="mobile-settings-btn" title="Admin Settings">
+            <i class="mdi mdi-cog"></i>
+        </button>
+    </div>
+
     <div class="header-pull-tab" id="header-pull-tab"></div>
     <div id="time-overlay">
         <div id="left-spacer"></div>
         <h1 id="header-clock" class="header-title">Social Day Manager</h1>
         <div id="right-spacer"></div>
+        <div id="announcement-container"></div>
     </div>
 
     <main class="container">
@@ -204,6 +220,8 @@
             <div class="modal-header-with-actions">
                 <h3>Admin Settings</h3>
                 <div class="modal-header-icons">
+                    <button id="power-score-btn" class="admin-icon-btn" title="Power Score Stats">📈</button>
+                    <button id="custom-announcement-btn" class="admin-icon-btn" title="Custom Announcements">💬</button>
                     <button id="edit-styles-btn" class="admin-icon-btn" title="Edit Styles">
                         <i class="mdi mdi-format-font"></i>
                     </button>
@@ -951,7 +969,7 @@
         </div>
     </div>
     
-<div id="manual-entry-modal" class="modal-overlay hidden">
+    <div id="manual-entry-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
                 <h3>Select Checked In Players</h3>
@@ -987,43 +1005,98 @@
                 </div>
             </div>
         </div>
-<div id="temp-duty-handover-modal" class="modal-overlay hidden">
-    <div class="modal-content">
-        <div class="modal-header-with-actions">
-            <h3>Temporary Duty Handover</h3>
-        </div>
-        <p id="temp-duty-handover-prompt" style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">
-            Who is going to take over from <strong><span id="temp-duty-current-member">Member Name</span></strong>?<br>
-            Please inform them before heading to court.
-        </p>
-        <div class="admin-settings-panel" style="max-height: 400px;">
-            <ul id="temp-duty-handover-list" class="modal-action-list scrollable">
-            </ul>
-        </div>
-        <div class="modal-actions">
-            <button id="temp-duty-cancel-btn" class="action-btn cancel">Cancel</button>
-            <button id="temp-duty-confirm-btn" class="action-btn confirm" disabled>Confirm Handover</button>
-        </div>
-    </div>
-</div>
-
-<div id="cooldown-modal" class="modal-overlay hidden">
+    <div id="temp-duty-handover-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
-                <h3>Cooldown Period Active</h3>
+                <h3>Temporary Duty Handover</h3>
             </div>
-            <p style="text-align: center; font-size: 1.1em; margin: 1.5rem 0;">
-                You cannot resume yet. Please wait for the cooldown to end.
-                <br><br>
-                Time remaining: 
-                <strong id="cooldown-timer" style="font-size: 1.5em; color: var(--primary-blue);">10:00</strong>
+            <p id="temp-duty-handover-prompt" style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">
+                Who is going to take over from <strong><span id="temp-duty-current-member">Member Name</span></strong>?<br>
+                Please inform them before heading to court.
             </p>
+            <div class="admin-settings-panel" style="max-height: 400px;">
+                <ul id="temp-duty-handover-list" class="modal-action-list scrollable">
+                </ul>
+            </div>
             <div class="modal-actions">
-                <button id="cooldown-close-btn" class="action-btn">Close</button>
+                <button id="temp-duty-cancel-btn" class="action-btn cancel">Cancel</button>
+                <button id="temp-duty-confirm-btn" class="action-btn confirm" disabled>Confirm Handover</button>
             </div>
         </div>
     </div>
 
+    <div id="cooldown-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header-with-actions">
+                    <h3>Cooldown Period Active</h3>
+                </div>
+                <p style="text-align: center; font-size: 1.1em; margin: 1.5rem 0;">
+                    You cannot resume yet. Please wait for the cooldown to end.
+                    <br><br>
+                    Time remaining: 
+                    <strong id="cooldown-timer" style="font-size: 1.5em; color: var(--primary-blue);">10:00</strong>
+                </p>
+                <div class="modal-actions">
+                    <button id="cooldown-close-btn" class="action-btn">Close</button>
+                </div>
+            </div>
+        </div>
+
+    <div id="comparison-modal" class="modal-overlay hidden">
+            <div class="modal-content wide">
+                <div class="modal-header-with-actions">
+                    <h3 id="comparison-title">Head-to-Head</h3>
+                </div>
+
+                <div class="game-history-filter-container" id="comparison-filter-container">
+                    </div>
+
+                <div id="comparison-content" class="comparison-content">
+                    </div>
+
+                <div class="modal-actions">
+                    <button id="comparison-close-btn" class="action-btn cancel">Close</button>
+                </div>
+            </div>
+        </div> 
+
+    <div id="custom-announcement-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <div class="modal-header-with-actions">
+                <h3>Custom Announcements</h3>
+            </div>
+            <p>Create scrolling messages for the header. Check the box to also announce them with Text-to-Speech (TTS).</p>
+
+            <div class="announcement-controls">
+                <label>TTS Interval:</label>
+                <div class="interval-adjuster">
+                    <button id="tts-interval-decrease">-</button>
+                    <span id="tts-interval-display">30 min</span>
+                    <button id="tts-interval-increase">+</button>
+                </div>
+            </div>
+            <ul id="announcement-list" class="modal-action-list scrollable">
+                </ul>
+            <div class="modal-actions">
+                <button id="announcement-cancel-btn" class="action-btn cancel">Close</button>
+                <button id="announcement-save-btn" class="action-btn confirm">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="power-score-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <div class="modal-header-with-actions">
+                <h3>Player Power Score Stats</h3>
+            </div>
+            <p>This list shows the calculated scores used for the game suggestion feature.</p>
+            <div id="power-score-list" class="history-list scrollable">
+            </div>
+            <div class="modal-actions">
+                <button id="power-score-close-btn" class="action-btn cancel">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>

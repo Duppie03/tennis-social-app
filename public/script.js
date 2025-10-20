@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 parent: 'all',
                 paid: 'all', // 'all', 'paid', 'unpaid'
             }, // <-- CORRECTED CLOSING BRACE
+
+            
             rosterFilter: { // This is for the new Roster modal
                 sortKey: 'name',         // 'name' or 'last_checkin'
                 sortOrder: 'asc',        // 'asc' or 'desc'
@@ -146,6 +148,27 @@ document.addEventListener('DOMContentLoaded', () => {
             sortKey: 'totalDurationMs',
             sortOrder: 'desc'
         },
+        // NEW COMPARISON MODAL STATE
+        comparison: {
+            active: false,
+            type: null, // 'player' or 'team'
+            items: [], // Names of the two players/teams
+            timeFrame: 'Total',
+            opponents: new Set() // <-- ADD THIS LINE
+        },
+        // NEW ANNOUNCEMENT STATE
+        announcements: [], // { text: "message", tts: true }
+        customAnnouncementState: {
+            scheduler: null,
+            nextAnnouncementTime: 0,
+            currentIndex: 0,
+            isPaused: false,
+            ttsIntervalMins: 30 // <-- ADD THIS LINE (default is 30 mins)
+        },
+        powerScoreSort: {
+                key: 'finalScore',
+                order: 'desc'
+            },
         onDuty: 'None',
         selectedAlertSound: 'Alert1.mp3', // Default sound
         // NEW NOTIFICATION CONTROL STATES
@@ -458,6 +481,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // NEW: Reference to the modal-actions div for setting the data-card-mode
     const manageModalActions = manageCourtPlayersModal.querySelector('.modal-actions'); 
 
+    // NEW ELEMENTS CUSTOM ANNOUNCEMENTS
+    const customAnnouncementModal = document.getElementById('custom-announcement-modal');
+    const announcementList = document.getElementById('announcement-list');
+    const announcementSaveBtn = document.getElementById('announcement-save-btn');
+    const announcementCancelBtn = document.getElementById('announcement-cancel-btn');
+    const customAnnouncementBtn = document.getElementById('custom-announcement-btn');
+
 
     // NEW ELEMENTS: Ball Management (ADD THIS BLOCK)
     const ballManagementBtn = document.getElementById('ball-management-btn');
@@ -483,29 +513,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const cooldownTimer = document.getElementById('cooldown-timer');
     const cooldownCloseBtn = document.getElementById('cooldown-close-btn');
 
+    // NEW: Comparison Modal Elements
+    const comparisonModal = document.getElementById('comparison-modal');
+    const comparisonTitle = document.getElementById('comparison-title');
+    const comparisonContent = document.getElementById('comparison-content');
+    const comparisonFilterContainer = document.getElementById('comparison-filter-container');
+    const comparisonCloseBtn = document.getElementById('comparison-close-btn');
+
+    // NEW: Powerscore modal elements
+    const powerScoreModal = document.getElementById('power-score-modal');
+    const powerScoreList = document.getElementById('power-score-list');
+    const powerScoreBtn = document.getElementById('power-score-btn');
+    const powerScoreCloseBtn = document.getElementById('power-score-close-btn');
+
     console.log('Time overlay element:', timeOverlay);
     console.log('Time overlay exists:', timeOverlay !== null);
 
     // --- SLIDE DOWN HEADER ---
     // Auto-hide header (and time overlay) after 3 seconds of no interaction
 
-    function hideHeader() {
-        header.classList.add('header-hidden');
-        timeOverlay.classList.add('header-hidden'); // Add this line
-        clearTimeout(headerTimeout);
-    }
+        function hideHeader() {
+            if (window.innerWidth > 900) return; // <-- ADD THIS LINE
+            header.classList.add('header-hidden');
+            timeOverlay.classList.add('header-hidden'); // Add this line
+            clearTimeout(headerTimeout);
+        }
 
-    function startHeaderHideTimer() {
-        clearTimeout(headerTimeout);
-        headerTimeout = setTimeout(hideHeader, 3000); // Correctly calls the function
-    }
+        function startHeaderHideTimer() {
+            if (window.innerWidth > 900) return; // <-- ADD THIS LINE
+            clearTimeout(headerTimeout);
+            headerTimeout = setTimeout(hideHeader, 3000); // Correctly calls the function
+        }
 
-    // Show header (and time overlay)
-    function showHeader() {
-        header.classList.remove('header-hidden');
-        timeOverlay.classList.remove('header-hidden'); // Add this line
-        startHeaderHideTimer();
-    }
+        // Show header (and time overlay)
+        function showHeader() {
+            if (window.innerWidth > 900) return; // <-- ADD THIS LINE
+            header.classList.remove('header-hidden');
+            timeOverlay.classList.remove('header-hidden'); // Add this line
+            startHeaderHideTimer();
+        }
 
 
 
@@ -659,6 +705,20 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollContainer.scrollLeft = scrollLeft - walk;
         }, { passive: true });
     }
+
+    function setActiveMobileMenuItem(buttonId) {
+        if (window.innerWidth > 900) return; // Only on mobile
+        
+        document.querySelectorAll('.mobile-menu-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeBtn = document.getElementById(buttonId);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+        }
+    }
+
 
     // --- MODIFIED: ACTIVE CARD STYLING ON HORIZONTAL SCROLL ---
     const scrollSnapContainer = document.getElementById('courtsSection');
@@ -954,6 +1014,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedState = localStorage.getItem("tennisSocialAppState");
         if (savedState) {
             const loaded = JSON.parse(savedState);
+            
+            // --- THIS IS THE FIX ---
+            // Merge the loaded announcement state with the default to ensure new properties exist
+            if (loaded.customAnnouncementState) {
+                loaded.customAnnouncementState = { ...state.customAnnouncementState, ...loaded.customAnnouncementState };
+            }
+            // --- END OF FIX ---
+
             state = { ...state, ...loaded };
 
             if (!state.uiSettings) {
@@ -965,21 +1033,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     visibleCourts: ['A', 'B', 'C', 'D', 'E']
                 };
             }
-
-            // ADD THIS 'if' BLOCK
+            
             if (state.courtSettings.showGameModeSelector === undefined) {
                 state.courtSettings.showGameModeSelector = true;
             }
             
-            // Ensure matchSettings exists and has defaults
             if (!state.matchSettings) {
                 state.matchSettings = {
                     matchMode: '1set',
                     fastPlayGames: 4
                 };
-            } // <-- THIS CLOSING BRACE WAS MISSING
+            } 
 
-            // Load new Junior Club Check-In filter state
             if (!state.juniorClub.checkInFilter) {
                 state.juniorClub.checkInFilter = { displayMode: 'parent' };
             }
@@ -989,12 +1054,10 @@ document.addEventListener('DOMContentLoaded', () => {
             state.statsFilter = state.statsFilter || { gender: 'all', sortKey: 'totalDurationMs', sortOrder: 'desc' };
             state.selectedAlertSound = state.selectedAlertSound || 'Alert1.mp3';
             
-            // Initialize new mobile controls
             if (!state.mobileControls) {
                 state.mobileControls = { isSummaryExpanded: true, isPlayersExpanded: true };
             }
             
-            // Ensure the new notification state exists on load
             if (!state.notificationControls) {
                 state.notificationControls = {
                     isMuted: false,        
@@ -1003,7 +1066,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
 
-            // Ensure the new adminCourtManagement state exists on load
             if (!state.adminCourtManagement) {
                 state.adminCourtManagement = {
                     mode: 'card1_select_court',
@@ -1018,8 +1080,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.guestHistory = [];
             }
             
-            // --- THIS IS THE CORRECTED BLOCK ---
-            // Safely initialize the entire ball management state if it's missing or incomplete
             if (!state.ballManagement) {
                 state.ballManagement = {
                     stock: 0,
@@ -1028,7 +1088,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     historyFilter: 'all'
                 };
             } else {
-                // Handle older states that have ballManagement but might be missing new properties
                 if (state.ballManagement.usedStock === undefined) {
                     state.ballManagement.usedStock = 0;
                 }
@@ -1036,8 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     state.ballManagement.historyFilter = 'all';
                 }
             }
-            // --- END OF CORRECTION ---
-
+            
             const ensurePlayerObjects = (playerList, defaultList) => { return playerList.map(player => { if (typeof player === 'string') { const defaultPlayer = defaultList.find(p => p.name === player); return defaultPlayer || { name: player, gender: '?', guest: true }; } return player; }); };
             const checkedInNames = new Set(getPlayerNames(state.availablePlayers));
             state.courts.forEach(court => court.players.forEach(p => checkedInNames.add(p.name)));
@@ -1046,16 +1104,12 @@ document.addEventListener('DOMContentLoaded', () => {
             state.availablePlayers = ensurePlayerObjects(state.availablePlayers, MASTER_MEMBER_LIST);
             state.availablePlayers.forEach(p => p.isPaused = p.isPaused || false);
             state.courts.forEach(court => {
-                // FIXED: Ensure becameAvailableAt is set on old state data for consistency
                 if (court.status === 'available' && court.becameAvailableAt === undefined) {
                     court.becameAvailableAt = Date.now();
                 }
-                // Initialize court-specific collapse state
                 court.isCollapsed = court.isCollapsed === undefined ? false : court.isCollapsed;
-                // NEW: Initialize mode overlay state
-                court.isModeOverlayActive = court.isModeOverlayActive === undefined ? false : court.isModeOverlayActive; // <--- INSERTED HERE
-                // NEW: Initialize court mode
-                court.courtMode = court.courtMode || 'doubles'; // <--- INSERTED HERE
+                court.isModeOverlayActive = court.isModeOverlayActive === undefined ? false : court.isModeOverlayActive; 
+                court.courtMode = court.courtMode || 'doubles'; 
 
                 court.players = ensurePlayerObjects(court.players, MASTER_MEMBER_LIST);
                 court.teams.team1 = ensurePlayerObjects(court.teams.team1, MASTER_MEMBER_LIST);
@@ -2192,7 +2246,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const gameDuration = (parseInt(hStr, 10) * 3600000) + (parseInt(mStr, 10) * 60000);
 
             const processTeam = (team, isWinner) => {
-                if (team.length === 0) return;
+                // A team must consist of exactly 2 players. This excludes singles.
+                if (team.length !== 2) return;
                 
                 // Create a unique key for the team by sorting player names
                 const teamKey = [...team].sort().join(' & ');
@@ -2227,6 +2282,411 @@ document.addEventListener('DOMContentLoaded', () => {
         return teamStats;
     }
 
+    function calculateWinningStreaks() {
+        const streaks = {};
+        const lastGameResult = {}; // Tracks if the last game was a win for a player
+
+        // Sort games by end time, oldest to newest, to correctly track streaks
+        const sortedHistory = [...state.gameHistory].sort((a, b) => a.endTime - b.endTime);
+
+        sortedHistory.forEach(game => {
+            if (game.winner === 'skipped') {
+                // If a game was skipped, it breaks all streaks for players involved
+                [...game.teams.team1, ...game.teams.team2].forEach(playerName => {
+                    lastGameResult[playerName] = 'loss'; // Treat skip as a loss for streak purposes
+                });
+                return;
+            }
+
+            const winnerTeam = game.winner === 'team1' ? game.teams.team1 : game.teams.team2;
+            const loserTeam = game.winner === 'team1' ? game.teams.team2 : game.teams.team1;
+
+            winnerTeam.forEach(playerName => {
+                if (lastGameResult[playerName] === 'win') {
+                    streaks[playerName] = (streaks[playerName] || 1) + 1;
+                } else {
+                    streaks[playerName] = 1; // Start a new streak
+                }
+                lastGameResult[playerName] = 'win';
+            });
+
+            loserTeam.forEach(playerName => {
+                streaks[playerName] = 0; // Reset streak on loss
+                lastGameResult[playerName] = 'loss';
+            });
+        });
+
+        // Return only players with an active streak
+        const activeStreaks = {};
+        for (const player in streaks) {
+            if (streaks[player] > 0) {
+                activeStreaks[player] = streaks[player];
+            }
+        }
+        return activeStreaks;
+    }
+
+
+    function calculateHeartbreaker() {
+        const closeLossCounts = {};
+        const today = new Date().toISOString().split('T')[0];
+
+        const todaysGames = state.gameHistory.filter(game => {
+            const gameDate = new Date(game.endTime).toISOString().split('T')[0];
+            return gameDate === today && game.winner !== 'skipped' && game.score;
+        });
+
+        todaysGames.forEach(game => {
+            const winnerScore = Math.max(game.score.team1, game.score.team2);
+            const loserScore = Math.min(game.score.team1, game.score.team2);
+
+            // Define a "close loss" as a score of 7-5, 7-6, or a close Fast Play game
+            const isCloseLoss = (winnerScore === 7 && (loserScore === 5 || loserScore === 6));
+
+            if (isCloseLoss) {
+                const loserTeam = (game.score.team1 < game.score.team2) ? game.teams.team1 : game.teams.team2;
+                loserTeam.forEach(playerName => {
+                    closeLossCounts[playerName] = (closeLossCounts[playerName] || 0) + 1;
+                });
+            }
+        });
+
+        let heartbreakerName = null;
+        let maxCloseLosses = 0;
+
+        for (const playerName in closeLossCounts) {
+            if (closeLossCounts[playerName] > maxCloseLosses) {
+                maxCloseLosses = closeLossCounts[playerName];
+                heartbreakerName = playerName;
+            }
+        }
+
+        // Only return a heartbreaker if they have at least one close loss
+        return maxCloseLosses > 0 ? heartbreakerName : null;
+    }
+
+
+    function calculatePlayerPowerScore(player, allGames, returnDetailed = false) {
+        // 1. Establish Baseline Ranking (no changes here)
+        const baselineStats = {};
+        allGames.forEach(game => {
+            [...game.teams.team1, ...game.teams.team2].forEach(pName => {
+                if (!baselineStats[pName]) baselineStats[pName] = { played: 0, won: 0 };
+            });
+            if (game.winner !== 'skipped' && game.score) {
+                const winnerTeam = game.winner === 'team1' ? game.teams.team1 : game.teams.team2;
+                const loserTeam = game.winner === 'team1' ? game.teams.team2 : game.teams.team1;
+                winnerTeam.forEach(pName => { baselineStats[pName].played++; baselineStats[pName].won++; });
+                loserTeam.forEach(pName => { baselineStats[pName].played++; });
+            }
+        });
+        const baselineRank = {};
+        for (const pName in baselineStats) {
+            baselineRank[pName] = (baselineStats[pName].played > 0) ? (baselineStats[pName].won / baselineStats[pName].played) : 0;
+        }
+        const avgRank = Object.values(baselineRank).reduce((a, b) => a + b, 0) / Object.values(baselineRank).length || 0.5;
+
+        // 2. Calculate Strength-of-Schedule Score (no changes here)
+        let historicalScore = 0;
+        let gamesPlayedHistorical = 0;
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const historicalGames = allGames.filter(game => new Date(game.endTime) > thirtyDaysAgo && (game.teams.team1.includes(player.name) || game.teams.team2.includes(player.name)));
+        historicalGames.forEach(game => {
+            if (game.winner === 'skipped' || !game.score) return;
+            const isPlayerInTeam1 = game.teams.team1.includes(player.name);
+            const opponentTeam = isPlayerInTeam1 ? game.teams.team2 : game.teams.team1;
+            const isWinner = (isPlayerInTeam1 && game.winner === 'team1') || (!isPlayerInTeam1 && game.winner === 'team2');
+            const opponentAvgRank = opponentTeam.reduce((sum, pName) => sum + (baselineRank[pName] || avgRank), 0) / opponentTeam.length;
+            let weight = 1.0;
+            if (isWinner) {
+                if (opponentAvgRank > avgRank) weight = 1 + (opponentAvgRank - avgRank);
+            } else {
+                if (opponentAvgRank < avgRank) weight = 1 + (avgRank - opponentAvgRank);
+            }
+            historicalScore += isWinner ? weight : -weight;
+            gamesPlayedHistorical++;
+        });
+        const finalHistoricalScore = gamesPlayedHistorical > 0 ? historicalScore / gamesPlayedHistorical : 0;
+
+        // 3. Today's Form (no changes here)
+        const today = new Date().toISOString().split('T')[0];
+        const todaysGames = historicalGames.filter(game => new Date(game.endTime).toISOString().split('T')[0] === today);
+        let todaysWins = 0;
+        todaysGames.forEach(game => {
+            const isWinner = (game.teams.team1.includes(player.name) && game.winner === 'team1') || (game.teams.team2.includes(player.name) && game.winner === 'team2');
+            if (isWinner) todaysWins++;
+        });
+        const todaysWinPct = todaysGames.length > 0 ? (todaysWins / todaysGames.length) - 0.5 : 0;
+
+        // --- THIS IS THE REFINED ADAPTIVE WEIGHTING LOGIC ---
+        const totalGamesInHistory = allGames.length;
+        let historicalWeight;
+
+        if (totalGamesInHistory >= 20) {
+            historicalWeight = 0.7;
+        } else if (totalGamesInHistory >= 15) {
+            historicalWeight = 0.525; // 75% of the way to 0.7
+        } else if (totalGamesInHistory >= 10) {
+            historicalWeight = 0.35;  // 50% of the way to 0.7
+        } else if (totalGamesInHistory >= 5) {
+            historicalWeight = 0.175; // 25% of the way to 0.7
+        } else {
+            historicalWeight = 0.0;   // 0% historical weight for the first few games
+        }
+        
+        const todayWeight = 1 - historicalWeight;
+        let blendedScore = (finalHistoricalScore * historicalWeight) + (todaysWinPct * todayWeight);
+        // --- END OF REFINED LOGIC ---
+
+        // 5. Apply Player Type Modifiers (no changes here)
+        if (player.type === 'Veteran') blendedScore -= 0.1;
+        if (player.type === 'Junior') blendedScore -= 0.2;
+        if (player.guest && gamesPlayedHistorical === 0) blendedScore = 0;
+
+        if (returnDetailed) {
+            return {
+                historicalScore: finalHistoricalScore,
+                todayForm: todaysWinPct,
+                finalScore: blendedScore
+            };
+        }
+        
+        return blendedScore;
+    }
+
+    // --- POWER SCORE MODAL FUNCTIONS ---
+
+    function showPowerScoreModal() {
+        renderPowerScoreList();
+        adminSettingsModal.classList.add('hidden');
+        powerScoreModal.classList.remove('hidden');
+    }
+
+    function renderPowerScoreList() {
+        powerScoreList.innerHTML = "";
+
+        const playersOnCourt = state.courts.flatMap(c => c.players);
+        const allPlayersAtClub = [...state.availablePlayers, ...playersOnCourt];
+        const uniquePlayers = Array.from(new Map(allPlayersAtClub.map(p => [p.name, p])).values());
+
+        if (uniquePlayers.length === 0) {
+            powerScoreList.innerHTML = '<p style="text-align: center; color: #6c757d;">No players are currently checked in.</p>';
+            return;
+        }
+
+        const playerScores = uniquePlayers.map(player => {
+            const scores = calculatePlayerPowerScore(player, state.gameHistory, true); // Get detailed scores
+            return {
+                name: player.name,
+                ...scores
+            };
+        });
+
+        const { key, order } = state.powerScoreSort;
+        playerScores.sort((a, b) => {
+            let valA = a[key];
+            let valB = b[key];
+            if (key === 'name') {
+                return order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return order === 'asc' ? valA - valB : valB - valA;
+        });
+
+        const getSortIcon = (sortKey) => (state.powerScoreSort.key !== sortKey) ? ' ' : (state.powerScoreSort.order === 'asc' ? ' 🔼' : ' 🔽');
+
+        const headerHTML = `
+            <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
+                <div class="power-score-grid-row">
+                    <button class="sort-btn" data-sort-key="name">Player ${getSortIcon('name')}</button>
+                    <button class="sort-btn" data-sort-key="historicalScore">Historical ${getSortIcon('historicalScore')}</button>
+                    <button class="sort-btn" data-sort-key="todayForm">Today ${getSortIcon('todayForm')}</button>
+                    <button class="sort-btn" data-sort-key="finalScore">Score ${getSortIcon('finalScore')}</button>
+                </div>
+            </div>
+        `;
+
+        const playerRows = playerScores.map(p => `
+            <div class="history-item">
+                <div class="power-score-grid-row">
+                    <span>${p.name}</span>
+                    <span>${p.historicalScore.toFixed(2)}</span>
+                    <span>${p.todayForm.toFixed(2)}</span>
+                    <span style="font-weight: bold;">${p.finalScore.toFixed(2)}</span>
+                </div>
+            </div>
+        `).join('');
+
+        powerScoreList.innerHTML = headerHTML + playerRows;
+
+        // Attach listeners to new sort buttons
+        powerScoreList.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', handlePowerScoreSortClick);
+        });
+    }
+
+    function handlePowerScoreSortClick(e) {
+        const key = e.target.dataset.sortKey;
+        if (!key) return;
+
+        if (state.powerScoreSort.key === key) {
+            state.powerScoreSort.order = state.powerScoreSort.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            state.powerScoreSort.key = key;
+            state.powerScoreSort.order = 'desc'; // Default to desc for new columns
+        }
+        renderPowerScoreList();
+    }
+
+    // --- POWER SCORE MODAL EVENT LISTENERS ---
+    powerScoreBtn.addEventListener('click', showPowerScoreModal);
+    powerScoreCloseBtn.addEventListener('click', () => {
+        powerScoreModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');
+    }); 
+
+    function findMostBalancedGame(selector, available) {
+        const allPlayersInvolved = [selector, ...available.slice(0, 7)];
+        const playerPlaytimes = calculatePlayerPlaytime();
+
+        // --- NEW LOGIC: PRIORITIZE PLAYERS WITH NO PLAYTIME ---
+        const playersWithNoPlaytime = allPlayersInvolved.filter(p => {
+            const stats = playerPlaytimes[p.name];
+            return !stats || stats.totalDurationMs === 0;
+        });
+
+        let selectionPool;
+        // If there are 4 or more players who haven't played, the suggestion MUST come from this group.
+        if (playersWithNoPlaytime.length >= 4) {
+            selectionPool = playersWithNoPlaytime;
+        } 
+        // If there's at least one new player, but not enough for a full game,
+        // prioritize them and fill the rest of the spots from the main queue.
+        else if (playersWithNoPlaytime.length > 0) {
+            const needed = 4 - playersWithNoPlaytime.length;
+            const otherPlayers = allPlayersInvolved.filter(p => !playersWithNoPlaytime.some(np => np.name === p.name));
+            selectionPool = [...playersWithNoPlaytime, ...otherPlayers.slice(0, needed)];
+        }
+        // If everyone has played, use the original pool.
+        else {
+            selectionPool = allPlayersInvolved;
+        }
+        // --- END OF NEW LOGIC ---
+
+        const playerScores = selectionPool.map(p => ({ 
+            player: p, 
+            score: calculatePlayerPowerScore(p, state.gameHistory) 
+        }));
+
+        // Gender-based rule for ladies' matches (now operates on the prioritized pool)
+        const isSelectorFemale = selector.gender === 'F';
+        const availableLadies = selectionPool.filter(p => p.gender === 'F' && p.name !== selector.name);
+        if (isSelectorFemale && availableLadies.length >= 3 && Math.random() < 0.5) {
+            const ladiesFourScores = [playerScores.find(p => p.player.name === selector.name), ...playerScores.filter(p => availableLadies.some(al => al.name === p.player.name)).slice(0, 3)];
+            return findBestCombination(ladiesFourScores);
+        }
+
+        const men = playerScores.filter(p => p.player.gender === 'M');
+        const women = playerScores.filter(p => p.player.gender === 'F');
+        let potentialFoursomes = [];
+
+        // Find gender-balanced foursomes within the prioritized pool
+        if (men.length >= 2 && women.length >= 2) {
+            for (let i = 0; i < men.length; i++) {
+                for (let j = i + 1; j < men.length; j++) {
+                    for (let k = 0; k < women.length; k++) {
+                        for (let l = k + 1; l < women.length; l++) {
+                            potentialFoursomes.push([men[i], men[j], women[k], women[l]]);
+                        }
+                    }
+                }
+            }
+        }
+        if (men.length >= 4) {
+            for (let i = 0; i < men.length; i++) {
+                for (let j = i + 1; j < men.length; j++) {
+                    for (let k = j + 1; k < men.length; k++) {
+                        for (let l = k + 1; l < men.length; l++) {
+                            potentialFoursomes.push([men[i], men[j], men[k], men[l]]);
+                        }
+                    }
+                }
+            }
+        }
+        
+        potentialFoursomes = potentialFoursomes.filter(foursome => foursome.some(p => p.player.name === selector.name));
+
+        if (potentialFoursomes.length > 0) {
+            let bestGame = null;
+            let minDiff = Infinity;
+            
+            potentialFoursomes.forEach(foursome => {
+                const bestCombinationInFoursome = findBestCombination(foursome);
+                const team1Score = bestCombinationInFoursome.team1.reduce((sum, p) => sum + playerScores.find(ps => ps.player.name === p.name).score, 0);
+                const team2Score = bestCombinationInFoursome.team2.reduce((sum, p) => sum + playerScores.find(ps => ps.player.name === p.name).score, 0);
+                const diff = Math.abs(team1Score - team2Score);
+
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestGame = bestCombinationInFoursome;
+                }
+            });
+
+            if (bestGame) {
+                if (!bestGame.team1.some(p => p.name === selector.name)) {
+                    [bestGame.team1, bestGame.team2] = [bestGame.team2, bestGame.team1];
+                }
+                return bestGame;
+            }
+        }
+        
+        // Fallback: If no other combination is possible, take the top 4 from the prioritized pool
+        return findBestCombination(playerScores.slice(0, 4));
+    }
+
+    // Helper function to find the best team combination within a group of 4 players
+    function findBestCombination(fourPlayers) {
+        let bestCombination = null;
+        let minDiff = Infinity;
+        const combinations = [
+            [[0, 1], [2, 3]],
+            [[0, 2], [1, 3]],
+            [[0, 3], [1, 2]]
+        ];
+
+        combinations.forEach(combo => {
+            const team1 = combo[0].map(i => fourPlayers[i]);
+            const team2 = combo[1].map(i => fourPlayers[i]);
+            const team1Score = team1.reduce((sum, p) => sum + p.score, 0);
+            const team2Score = team2.reduce((sum, p) => sum + p.score, 0);
+            const diff = Math.abs(team1Score - team2Score);
+
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestCombination = {
+                    team1: team1.map(p => p.player),
+                    team2: team2.map(p => p.player)
+                };
+            }
+        });
+        return bestCombination;
+    }
+
+    function clearSuggestionHighlights() {
+        // Clear the active suggestion from the state
+        delete state.activeSuggestion;
+        
+        // THIS IS THE FIX: Clear the player selection array
+        state.selection.players = [];
+
+        // Re-render the UI to remove all highlights and deactivate court selection
+        render();
+        
+        // After rendering, ensure the animations are correctly hidden
+        ensureCourtSelectionAnimation();
+    }
+
+
     function renderTeamHistory() {
         const teamStats = calculateTeamStats(state.gameHistory);
         const teamHistoryList = document.getElementById('team-history-list');
@@ -2236,6 +2696,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.statsFilter.teamGender === 'all') return true;
             return team.type.toLowerCase() === state.statsFilter.teamGender;
         });
+
+        // --- H2H FILTERING LOGIC ---
+        if (state.comparison.active && state.comparison.items.length === 1) {
+            const selectedTeamKey = state.comparison.items[0];
+            teamsWithStats = teamsWithStats.filter(team => {
+                const teamKey = [...team.players].sort().join(' & ');
+                // Filter the list to only include the selected team and its opponents
+                return teamKey === selectedTeamKey || state.comparison.opponents.has(teamKey);
+            });
+        }
+        // --- END H2H FILTERING ---
 
         teamsWithStats.sort((a, b) => {
             const statA = a;
@@ -2258,13 +2729,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label> <input type="radio" name="team-gender-filter" value="mixed" ${state.statsFilter.teamGender === 'mixed' ? 'checked' : ''}> Mixed </label>
                 </div>
             </div>`;
-        
+
         if (teamsWithStats.length === 0) {
             teamHistoryList.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No team stats available for the selected filter.</p>';
         } else {
             const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
 
-            // --- THIS IS THE FIX ---
             const tableHeader = `
                 <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
                     <div class="stats-grid-row">
@@ -2274,37 +2744,279 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
                     </div>
                 </div>`;
-            
+
             const teamRows = teamsWithStats.map(team => {
                 const winPercentage = formatWinPercentage(team.played, team.won);
-                    // --- THIS IS THE FIX ---
-                    const teamNameHTML = team.players.map(name => `<span>${name}</span>`).join('');
+                const teamNameHTML = team.players.map(name => `<span>${name}</span>`).join('');
 
-                    return `
-                        <div class="history-item">
-                            <div class="stats-grid-row">
-                                <span class="team-name-stacked">${teamNameHTML}</span>
-                                <span>${team.played}</span>
-                                <span>${winPercentage}</span>
-                                <span>${formatDuration(team.totalDurationMs)}</span>
-                            </div>
-                        </div>`;
-                    // --- END OF FIX ---
+                const teamKey = [...team.players].sort().join(' & ');
+                let rowClass = '';
+                if(state.comparison.items.includes(teamKey)) {
+                    rowClass = 'selected-for-comparison';
+                }
+
+                return `
+                    <div class="history-item ${rowClass}" data-name="${teamKey}" data-type="team">
+                        <div class="stats-grid-row">
+                            <span class="team-name-stacked">${teamNameHTML}</span>
+                            <span>${team.played}</span>
+                            <span>${winPercentage}</span>
+                            <span>${formatDuration(team.totalDurationMs)}</span>
+                        </div>
+                    </div>`;
             }).join('');
-            // --- END OF FIX ---
 
             teamHistoryList.innerHTML = genderFilterHTML + tableHeader + teamRows;
         }
 
         teamHistoryList.querySelectorAll('input[name="team-gender-filter"]').forEach(radio => radio.addEventListener('change', handleTeamStatsFilterChange));
         teamHistoryList.querySelectorAll('.sort-btn').forEach(btn => btn.addEventListener('click', handleSortClick));
+
+        // Apply comparison styling immediately after render
+        if (state.comparison.active && state.comparison.type === 'team') {
+            const teamItems = teamHistoryList.querySelectorAll('.history-item[data-type="team"]');
+            teamItems.forEach(item => {
+                const teamKey = item.dataset.name;
+                if (state.comparison.items.includes(teamKey)) {
+                    item.classList.add('selected-for-comparison');
+                }
+            });
+        }
     }
+
 
     function handleTeamStatsFilterChange(e) {
         state.statsFilter.teamGender = e.target.value;
         saveState();
         renderTeamHistory();
     }
+
+    // --- NEW COMPARISON MODAL FUNCTIONS ---
+
+    function calculateComparisonStats() {
+        const { type, items, timeFrame } = state.comparison;
+        if (items.length < 2) return null;
+
+        const item1Name = items[0];
+        const item2Name = items[1];
+
+        const games = state.gameHistory.filter(game => isGameInTimeFrame(game, timeFrame));
+
+        let headToHeadGames = [];
+
+        if (type === 'player') {
+            headToHeadGames = games.filter(game => {
+                const team1Players = game.teams.team1;
+                const team2Players = game.teams.team2;
+                const item1OnTeam1 = team1Players.includes(item1Name);
+                const item2OnTeam1 = team1Players.includes(item2Name);
+                const item1OnTeam2 = team2Players.includes(item1Name);
+                const item2OnTeam2 = team2Players.includes(item2Name);
+                return (item1OnTeam1 && item2OnTeam2) || (item1OnTeam2 && item2OnTeam1);
+            });
+        } else { // 'team'
+            headToHeadGames = games.filter(game => {
+                const team1Key = [...game.teams.team1].sort().join(' & ');
+                const team2Key = [...game.teams.team2].sort().join(' & ');
+                return (team1Key === item1Name && team2Key === item2Name) || (team1Key === item2Name && team2Key === item1Name);
+            });
+        }
+
+        const uniqueDays = new Set(headToHeadGames.map(game => new Date(game.endTime).toISOString().split('T')[0]));
+        const totalDaysPlayed = uniqueDays.size;
+
+        if (headToHeadGames.length === 0) {
+            return {
+                totalSets: 0,
+                totalTimeMs: 0,
+                totalDaysPlayed: 0,
+                item1: { name: item1Name, setsWon: 0, gamesWon: 0 },
+                item2: { name: item2Name, setsWon: 0, gamesWon: 0 },
+            };
+        }
+
+        let totalTimeMs = 0;
+        let item1SetsWon = 0;
+        let item2SetsWon = 0;
+        let item1GamesWon = 0;
+        let item2GamesWon = 0;
+
+        headToHeadGames.forEach(game => {
+            const [h, m] = game.duration.split('h').map(s => parseInt(s.replace('m', ''), 10));
+            totalTimeMs += (h * 3600000) + (m * 60000);
+
+            if (game.winner === 'skipped') return;
+
+            const isItem1Winner = (game.winner === 'team1' && (type === 'player' ? game.teams.team1.includes(item1Name) : [...game.teams.team1].sort().join(' & ') === item1Name)) || (game.winner === 'team2' && (type === 'player' ? game.teams.team2.includes(item1Name) : [...game.teams.team2].sort().join(' & ') === item1Name));
+
+            if(isItem1Winner) item1SetsWon++;
+            else item2SetsWon++;
+
+            if (game.score) {
+                const team1Score = game.score.team1 || 0;
+                const team2Score = game.score.team2 || 0;
+
+                const isItem1OnTeam1 = type === 'player' ? game.teams.team1.includes(item1Name) : [...game.teams.team1].sort().join(' & ') === item1Name;
+
+                if (isItem1OnTeam1) {
+                    item1GamesWon += team1Score;
+                    item2GamesWon += team2Score;
+                } else {
+                    item1GamesWon += team2Score;
+                    item2GamesWon += team1Score;
+                }
+            }
+        });
+
+        return {
+            totalSets: headToHeadGames.length,
+            totalTimeMs: totalTimeMs,
+            totalDaysPlayed: totalDaysPlayed,
+            item1: { name: item1Name, setsWon: item1SetsWon, gamesWon: item1GamesWon },
+            item2: { name: item2Name, setsWon: item2SetsWon, gamesWon: item2GamesWon },
+        };
+    }
+
+    function renderComparisonModal() {
+        const stats = calculateComparisonStats();
+        if (!stats) {
+            comparisonContent.innerHTML = "<p>Error calculating stats.</p>";
+            return;
+        }
+
+        const { totalSets, totalTimeMs, totalDaysPlayed, item1, item2 } = stats;
+
+        const item1WinPct = totalSets > 0 ? Math.round((item1.setsWon / totalSets) * 100) : 0;
+        const item2WinPct = totalSets > 0 ? Math.round((item2.setsWon / totalSets) * 100) : 0;
+
+        const totalGamesPlayed = item1.gamesWon + item2.gamesWon;
+        const item1GamesWinPct = totalGamesPlayed > 0 ? Math.round((item1.gamesWon / totalGamesPlayed) * 100) : 0;
+        const item2GamesWinPct = totalGamesPlayed > 0 ? Math.round((item2.gamesWon / totalGamesPlayed) * 100) : 0;
+        
+        // --- UPDATED: Determine winner and loser classes for styling ---
+        let item1SetsNameClass = '', item2SetsNameClass = '';
+        if (item1.setsWon > item2.setsWon) {
+            item1SetsNameClass = 'h2h-winner-text';
+            item2SetsNameClass = 'h2h-loser-text'; // Loser
+        } else if (item2.setsWon > item1.setsWon) {
+            item1SetsNameClass = 'h2h-loser-text'; // Loser
+            item2SetsNameClass = 'h2h-winner-text';
+        }
+
+        let item1SetsBgClass = '', item2SetsBgClass = '';
+        if (item1.setsWon > item2.setsWon) {
+            item1SetsBgClass = 'h2h-winner-bg';
+            item2SetsBgClass = 'h2h-loser-bg';
+        } else if (item2.setsWon > item1.setsWon) {
+            item1SetsBgClass = 'h2h-loser-bg';
+            item2SetsBgClass = 'h2h-winner-bg';
+        }
+
+        let item1GamesBgClass = '', item2GamesBgClass = '';
+        if (item1.gamesWon > item2.gamesWon) {
+            item1GamesBgClass = 'h2h-winner-bg';
+            item2GamesBgClass = 'h2h-loser-bg';
+        } else if (item2.gamesWon > item1.gamesWon) {
+            item1GamesBgClass = 'h2h-loser-bg';
+            item2GamesBgClass = 'h2h-winner-bg';
+        }
+        
+        comparisonTitle.textContent = `Head-to-Head: ${state.comparison.type === 'player' ? 'Players' : 'Teams'}`;
+
+        comparisonFilterContainer.innerHTML = createGameHistoryFilters();
+        comparisonFilterContainer.querySelectorAll('input[name="game-time-filter"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.comparison.timeFrame = e.target.value;
+                renderComparisonModal();
+            });
+        });
+        const activeRadio = comparisonFilterContainer.querySelector(`input[value="${state.comparison.timeFrame}"]`);
+        if(activeRadio) activeRadio.checked = true;
+
+        comparisonContent.innerHTML = `
+            <div class="comparison-grid-content">
+                <div class="comparison-column">
+                    <div class="comparison-header ${item1SetsNameClass}">${item1.name.replace(/ \& /g, '<br>')}</div>
+                    <div class="comparison-stat-card ${item1SetsBgClass}">
+                        <div class="label">Sets Won</div>
+                        <div class="value">${item1.setsWon}</div>
+                        <div class="win-percentage">${item1WinPct}% of sets</div>
+                    </div>
+                    <div class="comparison-stat-card ${item1GamesBgClass}">
+                        <div class="label">Games Won</div>
+                        <div class="value">${item1.gamesWon}</div>
+                        <div class="win-percentage">${item1GamesWinPct}% of games</div>
+                    </div>
+                </div>
+
+                <div class="comparison-column">
+                    <div class="comparison-header ${item2SetsNameClass}">${item2.name.replace(/ \& /g, '<br>')}</div>
+                    <div class="comparison-stat-card ${item2SetsBgClass}">
+                        <div class="label">Sets Won</div>
+                        <div class="value">${item2.setsWon}</div>
+                        <div class="win-percentage">${item2WinPct}% of sets</div>
+                    </div>
+                    <div class="comparison-stat-card ${item2GamesBgClass}">
+                        <div class="label">Games Won</div>
+                        <div class="value">${item2.gamesWon}</div>
+                        <div class="win-percentage">${item2GamesWinPct}% of games</div>
+                    </div>
+                </div>
+
+                <div class="comparison-summary-row">
+                    <div class="comparison-summary-card">
+                        <div class="label">Total Days Played</div>
+                        <div class="value">${totalDaysPlayed}</div>
+                    </div>
+                    <div class="comparison-summary-card">
+                        <div class="label">Total Time on Court</div>
+                        <div class="value">${formatDuration(totalTimeMs)}</div>
+                    </div>
+                </div>
+
+                <div class="comparison-summary-row">
+                    <div class="comparison-summary-card">
+                        <div class="label">Total Sets Played</div>
+                        <div class="value">${totalSets}</div>
+                    </div>
+                    <div class="comparison-summary-card">
+                        <div class="label">Total Games Played</div>
+                        <div class="value">${totalGamesPlayed}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        historyPage.classList.add('hidden');
+        comparisonModal.classList.remove('hidden');
+    }
+
+    function resetComparisonState() {
+        state.comparison = { active: false, type: null, items: [], timeFrame: 'Total', opponents: new Set() };
+        document.querySelectorAll('.selected-for-comparison').forEach(el => el.classList.remove('selected-for-comparison'));
+        document.querySelectorAll('.not-a-match').forEach(el => el.classList.remove('not-a-match'));
+        saveState(); // Add this line
+    }
+
+    // --- NEW FUNCTION TO RESET FILTERS ---
+    function resetStatsFilters() {
+        state.statsFilter = {
+            gender: 'all',
+            teamGender: 'all',
+            sortKey: 'totalDurationMs',
+            sortOrder: 'desc'
+        };
+        state.gameHistoryFilter = {
+            timeFrame: 'Total',
+            gameType: 'all'
+        };
+        state.historySort = {
+            key: 'endTime',
+            order: 'desc'
+        };
+        saveState(); // Save the reset state
+    }
+
 
     // Helper function to check if a game falls within the selected time frame
     function isGameInTimeFrame(game, timeFrame) {
@@ -2381,17 +3093,16 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (courtMode === 'singles' && playersSelected === 4) {
                 isReservedSelectable = true;
             }
-            // NEW CRITERIA: Block Doubles/League courts when Singles is selected (requiredPlayers = 2)
-            else if (requiredPlayers === 2 && (courtMode === 'doubles' || courtMode === 'league')) {
+            // Block Doubles, League, AND Rookie courts when Singles is selected
+            else if (requiredPlayers === 2 && (courtMode === 'doubles' || courtMode === 'league' || courtMode === 'rookie')) {
                 isReservedSelectable = true;
             }
 
             // CRITERIA FOR GREEN BALL (Selectable for Play)
-            // FIX: Only allow selection if 'selectionComplete' is true, and then check compatibility.
             if (!isReservedSelectable && selectionComplete) {
                 if (requiredPlayers === 2) {
                     // User selected 2 players (Singles Mode)
-                    if (courtMode === 'singles' || courtMode === 'rookie') {
+                    if (courtMode === 'singles') {
                         isGreenBallSelectable = true;
                     }
                 } else if (requiredPlayers === 4) {
@@ -2403,30 +3114,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Final check for the 'selectable' class on the card (applies to both colors)
         const isSelectable = isGreenBallSelectable || isReservedSelectable;
-
-        // FIX: Only apply the 'selectable' class if the selection is active AND at least 2 players are selected.
-        // This prevents any shading effect from activating when only 1 player is selected.
         const selectionMinimumMet = playersSelected >= 2;
         const finalIsSelectable = selectionMinimumMet && isSelectable;
-
-        // Class to mark the card itself as reserved only
         const reservedClass = isReservedSelectable && !isGreenBallSelectable ? 'is-reserved-only' : '';
-
         const isSelected = court.id === state.selection.courtId;
 
-        // --- UPDATED STATUS TEXT AND CLASS LOGIC ---
         let statusText;
         let isLeagueReserved = false;
-        let isRookieMode = courtMode === 'rookie'; // Flag for Rookie mode
+        let isRookieMode = courtMode === 'rookie';
 
         if (isSelected) {
             statusText = 'SELECTED';
         } else if (court.status === 'available' && courtMode === 'league') {
             statusText = 'League';
             isLeagueReserved = true;
-        } else if (court.status === 'available' && isRookieMode) { // Status text for available Rookie court
+        } else if (court.status === 'available' && isRookieMode) {
             statusText = 'Rookie';
         } else {
             statusText = court.status.replace(/_/g, ' ');
@@ -2434,9 +3137,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const courtCard = document.createElement('div');
 
-        // --- START OF FIX ---
-        // Only apply special mode classes if the court is available.
-        // If a game is in progress, no special mode class should be added.
         let modeClass = '';
         if (court.status === 'available') {
             if (isLeagueReserved) {
@@ -2445,7 +3145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 modeClass = 'is-rookie-mode';
             }
         }
-        // --- END OF FIX ---
 
         courtCard.className = `court-card status-${court.status} ${isSelected ? 'selected' : ''} ${finalIsSelectable ? 'selectable' : ''} ${bodyClass} ${reservedClass} ${modeClass}`;
         
@@ -2461,23 +3160,26 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelBtnHTML = `<button class="cancel-game-btn on-court" title="Cancel Game" data-action="cancel-game-setup">X</button>`;
         }
 
-        // --- THIS IS THE MODIFIED LOGIC BLOCK ---
+        // --- THIS IS THE FIX ---
         if (court.status === 'in_progress') {
-            // If the game is in progress, check if teams have been set
-            if (court.teamsSet) {
-                // Teams are set, so show the pencil icon to edit them.
-                editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
-            } else {
-                // Teams are NOT set (chose later), so show the 'group' icon to set them now.
-                editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
+            // For singles games, always show the 'edit' pencil icon.
+            if (court.gameMode === 'singles') {
+                 editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+            } else { // For doubles games, check if teams have been set.
+                if (court.teamsSet) {
+                    editBtnHTML = `<button class="edit-game-btn on-court" title="Edit Players" data-action="edit-game"><i class="mdi mdi-pencil"></i></button>`;
+                } else {
+                    editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
+                }
             }
         } else if (court.status === 'game_pending' && court.teamsSet === false) {
-            // If the game is pending and teams still need to be chosen, also show the 'group' icon.
+            // This is for pending doubles games that need teams chosen.
             editBtnHTML = `<button class="edit-game-btn on-court" title="Set Teams" data-action="choose-teams"><i class="mdi mdi-account-group-outline"></i></button>`;
         }
+        // --- END OF FIX ---
 
         const moreOptionsBtnHTML = `
-            <button class="more-options-btn on-court bottom-left-btn" title="More Options" data-action="more-options" data-court-id="${court.id}">
+            <button class="more-options-btn on-court" title="More Options" data-action="more-options" data-court-id="${court.id}">
                 <i class="mdi mdi-dots-horizontal"></i>
             </button>
         `;
@@ -2491,25 +3193,18 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // --- ANIMATION DELAY LOGIC (Dynamic Offset for Continuous Play) ---
-        const COURT_HIERARCHY = ['B', 'C', 'D', 'A', 'E']; // Assuming this is the order
         const courtIndex = COURT_HIERARCHY.indexOf(court.id);
         const staticStaggerMs = courtIndex >= 0 ? courtIndex * 500 : 0;
 
-        // Base animation duration is 4s (4000ms). Double for Rookie mode.
         let animationDurationMs = 4000;
         if (courtMode === 'rookie') {
-            animationDurationMs = 8000; // DOUBLE DURATION FOR ROOKIE MODE
+            animationDurationMs = 8000;
         }
 
-        // Calculate how far into the cycle we should be
         const elapsedTime = Date.now() - state.pongAnimationOffset;
         const currentOffsetMs = (elapsedTime + staticStaggerMs) % animationDurationMs;
-
-        // Use a negative delay to force the animation to start at the correct mid-cycle point
         const delayStyle = `animation-delay: -${(currentOffsetMs / 1000).toFixed(3)}s;`;
 
-        // --- Singles Pong Animation HTML Structure ---
         const pongAnimationSinglesHTML = `
             <div class="pong-animation-container" data-mode="singles">
                 <div class="pong-paddle top-paddle" style="animation-name: pong-top-move; ${delayStyle}"></div>
@@ -2518,7 +3213,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // --- Doubles Pong Animation HTML Structure (Applying unique vertical keyframes) ---
         const pongAnimationDoublesHTML = `
             <div class="pong-animation-container" data-mode="doubles">
                 <div class="pong-paddle double dl top-paddle" style="animation-name: pong-move-tl; ${delayStyle}"></div>
@@ -2529,7 +3223,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // --- Red Ball Animation HTML Structure (Only the Ball for in_progress) ---
         const pongAnimationRedBallHTML = `
             <div class="pong-animation-container" data-mode="in_progress">
                 <div class="pong-ball red-ball-in-progress" style="${delayStyle}"></div>
@@ -2548,8 +3241,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let animationHTML = '';
         let matchModeDisplayHTML = '';
 
-        // --- THIS IS THE FIX ---
-        // Display match mode for games that are PENDING or IN PROGRESS
         if ((court.status === 'in_progress' || court.status === 'game_pending') && court.matchMode) {
             let text = '';
             if (court.matchMode === 'fast') {
@@ -2563,10 +3254,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchModeDisplayHTML = `<div class="match-mode-display">${text}</div>`;
             }
         }
-        // --- END OF FIX ---
 
-
-        // Logic for player names (when status is NOT available)
         if (court.status !== 'available') {
             if (court.gameMode === 'singles') {
                 playerSpotsHTML = `
@@ -2574,9 +3262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="player-spot single-player bottom-row"><span>${formatName(court.teams.team2[0])}</span></div>
                 `;
             } else {
-                // Doubles/Rookie/League
                 if (court.teamsSet === false) {
-                    // Teams not set: Show player names from the general player list
                     playerSpotsHTML = `
                         <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.players[0])}</span></div>
                         <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.players[1])}</span></div>
@@ -2584,7 +3270,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="player-spot bottom-row" data-player-pos="bottom-right"><span>${formatName(court.players[3])}</span></div>
                     `;
                 } else {
-                    // Teams ARE set: Show player names from the teams list
                     playerSpotsHTML = `
                         <div class="player-spot top-row" data-player-pos="top-left"><span>${formatName(court.teams.team1[0])}</span></div>
                         <div class="player-spot top-row" data-player-pos="top-right"><span>${formatName(court.teams.team1[1])}</span></div>
@@ -2594,7 +3279,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Add the red ball animation alongside the player spots for in_progress
             if (court.status === 'in_progress') {
                 animationHTML = pongAnimationRedBallHTML;
             }
@@ -2611,14 +3295,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (finalIsSelectable) {
-
             const ballClass = isReservedSelectable ? 'reserved-ball' : '';
             const isEligibleForSelection = isGreenBallSelectable ? '' : 'data-reserved-only="true"';
-
-            // Disable the button if it's the reserved (red) ball OR if it's the permanent league reserved court
             const disabledAttr = isReservedSelectable || isLeagueReserved ? 'disabled' : '';
-
-            // Text content of the button is empty if it's a reserved ball
             const buttonText = isReservedSelectable || isLeagueReserved ? '' : `SELECT<br>COURT ${court.id}`;
 
             overlayHTML = `
@@ -2652,21 +3331,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let reserveTextHTML = coreReserveTextHTML;
 
-        // FINAL LOGIC: Overwrite the team status text if the court is AVAILABLE (Reserved For X).
         if (court.status === 'available') {
-            // Remove the 'Reserved For X' text as visual cues are now used.
             reserveTextHTML = '';
 
-            // 🟢 ANIMATION LOGIC: Show appropriate animation based on court mode
             if (courtMode === 'league') {
-                // If permanently reserved for League, add the static reserved icon
                 playerSpotsHTML = `<div class="league-reserved-icon-container"></div>`;
             } else if (courtMode === 'singles') {
                 playerSpotsHTML = pongAnimationSinglesHTML;
-            } else if (courtMode === 'doubles' || courtMode === 'rookie') { // Doubles and Rookie get the Doubles animation
+            } else if (courtMode === 'doubles' || courtMode === 'rookie') {
                 playerSpotsHTML = pongAnimationDoublesHTML;
             } else {
-                // For other AVAILABLE modes (e.g., if one was added), player spots are empty
                 playerSpotsHTML = '';
             }
         }
@@ -2772,7 +3446,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const onDutyName = state.onDuty === 'None' ? 'Nobody' : state.onDuty;
         const dutyLabel = state.onDuty === 'None' ? 'Call Any Committee Member!' : 'Is On Duty. Call Me!';
 
-        // New calculations for extra stats
         const { kingOfTheCourt, queenOfTheCourt } = calculateStarPlayers();
         let matchModeText = '';
         if (state.matchSettings.matchMode === '1set') {
@@ -2787,7 +3460,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const doublesAvailable = availableCourts.filter(c => c.courtMode === 'doubles').length;
         const singlesAvailable = availableCourts.filter(c => c.courtMode === 'singles').length;
         const rookieAvailable = availableCourts.filter(c => c.courtMode === 'rookie').length;
-
 
         const isExpanded = state.mobileControls.isSummaryExpanded;
         const bodyClass = isExpanded ? '' : 'is-collapsed';
@@ -2829,28 +3501,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="summary-stats">
                         <div class="summary-stats-grid">
-                            <span>Players:</span>
-                            <strong>${total}</strong>
-                            <span>Courts:</span>
-                            <strong>${availableCourtsCount} / ${totalVisibleCourts}</strong>
-
-                            <span>Queueing:</span>
-                            <strong class="available-value">${available}</strong>
-                            <span>Availability:</span>
-                            <strong>D:${doublesAvailable} S:${singlesAvailable} R:${rookieAvailable}</strong>
-
-                            <span>On Court:</span>
-                            <strong class="on-court-value">${onCourt}</strong>
-                            <span></span> <span></span> </div>
+                            <div class="stats-column">
+                                <div><span>Players:</span> <strong>${total}</strong></div>
+                                <div><span>Queueing:</span> <strong class="available-value">${available}</strong></div>
+                                <div><span>On Court:</span> <strong class="on-court-value">${onCourt}</strong></div>
+                            </div>
+                            <div class="stats-column">
+                                <div><span>Courts:</span> <strong>${availableCourtsCount} / ${totalVisibleCourts}</strong></div>
+                                <div><span>Availability:</span> <strong>D:${doublesAvailable} S:${singlesAvailable} R:${rookieAvailable}</strong></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="summary-extra-stats">
                         <div>
-                            <span class="stat-label">King of the Court</span>
+                            <span class="stat-label">King of the Court!</span>
                             <strong class="stat-value">👑 ${kingOfTheCourt || 'N/A'}</strong>
                         </div>
                         <div>
-                            <span class="stat-label">Queen of the Court</span>
+                            <span class="stat-label">Queen of the Court!</span>
                             <strong class="stat-value">👑 ${queenOfTheCourt || 'N/A'}</strong>
                         </div>
                     </div>
@@ -2883,6 +3552,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modeChanged || state.selection.players.length > requiredPlayers) {
             state.selection.players = [];
             state.selection.courtId = null;
+        }
+    }
+
+    // --- NEW FUNCTION: Dynamically sets game mode based on player selection ---
+    function updateGameModeBasedOnSelection() {
+        const { players: selectedPlayers } = state.selection;
+        const isSinglesCourtAvailable = state.courts.some(c => c.status === 'available' && c.courtMode === 'singles' && state.courtSettings.visibleCourts.includes(c.id));
+
+        // If 2 players are selected AND a singles court is free, switch to singles mode
+        if (selectedPlayers.length === 2 && isSinglesCourtAvailable) {
+            if (state.selection.gameMode !== 'singles') {
+                state.selection.gameMode = 'singles';
+            }
+        } else {
+            // In all other cases (more players selected, or no singles court), default to doubles
+            if (state.selection.gameMode !== 'doubles') {
+                state.selection.gameMode = 'doubles';
+            }
         }
     }
 
@@ -2923,7 +3610,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ADDED HELPER FUNCTION ---
-    function createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase = false, sliceEnd = 8, specialHighlightIndex = -1, isSelector = false, inGroup = false) {
+
+
+
+    function createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase = false, sliceEnd = 8, specialHighlightIndex = -1, isSelector = false, inGroup = false) {
         const li = document.createElement("li");
         const playerName = player.name;
         
@@ -2937,7 +3627,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let priorityText = '';
-        let priorityClass = '';
+        let priorityClass = 'player-status';
 
         if (playerName === state.onDuty) {
             priorityText = 'Low Priority';
@@ -2945,11 +3635,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let iconHtml = '';
-        if (playerName === starPlayers.kingOfTheCourt) {
+        const isKing = playerName === starPlayers.kingOfTheCourt;
+        const isQueen = playerName === starPlayers.queenOfTheCourt;
+        const isHeartbreaker = playerName === heartbreakerName;
+        const streak = winningStreaks[playerName] || 0;
+        
+        const statusFaderItems = [statusText];
+        let statusHTML;
+
+        if (isKing || isQueen) {
             iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>';
+            statusFaderItems.push(isKing ? "King of the Court" : "Queen of the Court");
         }
-        if (playerName === starPlayers.queenOfTheCourt) {
-            iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>';
+        if (streak >= 3) {
+            iconHtml += `<span title="${streak} wins in a row!" style="margin-left: 5px;">🎲</span>`;
+            statusFaderItems.push("On a roll!");
+        }
+        if (isHeartbreaker) {
+            iconHtml += `<span title="Heartbreaker!" style="margin-left: 5px;">💔</span>`;
+            statusFaderItems.push("So Close!");
+        }
+
+        if (statusFaderItems.length > 1) {
+            statusHTML = `<div class="player-status-fader">`;
+            statusFaderItems.forEach((text, i) => {
+                statusHTML += `<span class="status-text ${i === 0 ? 'is-visible' : ''}">${text}</span>`;
+            });
+            statusHTML += `</div>`;
+        } else {
+            statusHTML = `<span class="${priorityClass}">${priorityText || statusText}</span>`;
         }
         
         const isPaused = player.isPaused;
@@ -2964,77 +3678,63 @@ document.addEventListener('DOMContentLoaded', () => {
             const minutes = Math.floor(remaining / 60000);
             const seconds = Math.floor((remaining % 60000) / 1000);
             const timeString = `${String(minutes).padStart(2, "0")}m${String(seconds).padStart(2, "0")}s`;
-            
             playtimeHTML = `<span class="player-playtime player-pause-cooldown" data-pause-time="${player.pauseTime}">${timeString}</span>`;
         } else {
             const playtime = playerStats[playerName] ? formatDuration(playerStats[playerName].totalDurationMs) : '00h00m';
             playtimeHTML = `<span class="player-playtime">${playtime}</span>`;
         }
+
+        let suggestionButtonHTML = '<div class="suggestion-icon-wrapper"></div>'; // Placeholder for alignment
+        if (isSelector && state.availablePlayers.length >= 8) {
+            suggestionButtonHTML = `<div class="suggestion-icon-wrapper"><button class="suggestion-btn" title="Suggest a balanced game">💡</button></div>`;
+        }
         
-        // --- THIS IS THE UPDATED (FLATTENED) HTML STRUCTURE ---
         li.innerHTML = `
             <div class="player-details">
                 <div class="player-name-container">
                     <span class="player-name">${playerName}</span>
                     ${iconHtml}
                 </div>
-                ${priorityText ? `<span class="${priorityClass}">${priorityText}</span>` : `<span class="player-status">${statusText}</span>`}
+                ${statusHTML}
             </div>
-            <button class="pause-toggle-btn" data-player-name="${playerName}" data-action="${pauseAction}" title="${isPaused ? 'Resume Game Play' : 'Pause Game Play'}">
-                <i class="mdi ${pauseIcon}"></i>
-            </button>
-            <div class="gender-container gender-${player.gender}">
-                <span class="player-gender">${player.gender}</span>
+            <div class="player-stats">
+                ${suggestionButtonHTML}
+                <button class="pause-toggle-btn" data-player-name="${playerName}" data-action="${pauseAction}" title="${isPaused ? 'Resume Game Play' : 'Pause Game Play'}">
+                    <i class="mdi ${pauseIcon}"></i>
+                </button>
+                <div class="gender-container gender-${player.gender}">
+                    <span class="player-gender">${player.gender}</span>
+                </div>
+                ${playtimeHTML}
             </div>
-            ${playtimeHTML}
         `;
         li.dataset.playerName = playerName;
 
-        if (player.isPaused) {
-            li.classList.add("paused-player");
+        // Apply suggestion classes if a suggestion is active
+        if (state.activeSuggestion) {
+            const { team1, team2 } = state.activeSuggestion;
+            if (team1.some(p => p.name === playerName)) {
+                li.classList.add('suggested-partner');
+            } else if (team2.some(p => p.name === playerName)) {
+                li.classList.add('suggested-opponent');
+            }
         }
-        
-        const isSelected = selectedPlayerNames.includes(playerName);
-        if (isSelected) {
-            li.classList.add("selected");
-        } else {
-            const isSelectionFull = selectedPlayerNames.length === requiredPlayers;
+
+        if (player.isPaused) li.classList.add("paused-player");
+        if (selectedPlayerNames.includes(playerName)) li.classList.add("selected");
+        else {
+            const isSelectionFull = selectedPlayerNames.length >= 4;
             let isDisabled = false;
-
-            if (isSpecialCase) {
-                if (index >= sliceEnd) {
-                    isDisabled = true;
-                }
-            } else {
-                if (index >= sliceEnd) { 
-                    isDisabled = true;
-                }
-            }
-
-            if (player.isPaused) {
-                isDisabled = true;
-            }
-            
-            if (index === specialHighlightIndex) {
-                isDisabled = false; 
-            }
-            
-            if (isSelectionFull || isDisabled) {
-                li.classList.add("disabled");
-            }
+            if (isSpecialCase) { if (index >= sliceEnd) isDisabled = true; } 
+            else { if (index >= sliceEnd) isDisabled = true; }
+            if (player.isPaused) isDisabled = true;
+            if (index === specialHighlightIndex) isDisabled = false;
+            if (isSelectionFull || isDisabled) li.classList.add("disabled");
         }
         
-        if (isSelector) {
-            li.classList.add("first-player");
-        } 
-        
-        if (index === 0) { 
-            li.classList.add("first-player");
-        }
-        
-        if (!isSelector) {
-            li.classList.remove("first-player");
-        }
+        if (isSelector) li.classList.add("first-player");
+        if (index === 0) li.classList.add("first-player");
+        if (!isSelector) li.classList.remove("first-player");
         
         return li;
     }
@@ -3174,19 +3874,260 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+// --- CUSTOM ANNOUNCEMENT FUNCTIONS ---
+
+    function handleTtsIntervalChange(direction) {
+        // --- THIS IS THE FIX ---
+        // Ensure currentInterval is a number, defaulting to 30 if it's not.
+        const currentInterval = Number(state.customAnnouncementState.ttsIntervalMins) || 30;
+        // --- END OF FIX ---
+
+        let newInterval = currentInterval;
+        if (direction === 'increase') {
+            newInterval += 15;
+        } else if (direction === 'decrease') {
+            newInterval -= 15;
+        }
+        // Set a minimum of 15 minutes
+        state.customAnnouncementState.ttsIntervalMins = Math.max(15, newInterval);
+        document.getElementById('tts-interval-display').textContent = `${state.customAnnouncementState.ttsIntervalMins} min`;
+    }
+
+    function showAnnouncementsModal() {
+        announcementList.innerHTML = ''; // Clear existing list
+
+        // --- THIS IS THE FIX ---
+        // Ensure the interval defaults to 30 if it's not already a number.
+        const interval = Number(state.customAnnouncementState.ttsIntervalMins) || 30;
+        document.getElementById('tts-interval-display').textContent = `${interval} min`;
+        // --- END OF FIX ---
+
+        const renderItem = (announcement = { text: '', tts: false }, index, isLast = false) => {
+            const li = document.createElement('li');
+            const uniqueId = `tts-${Date.now()}-${Math.random()}`;
+            li.innerHTML = `
+                <input type="text" value="${announcement.text}" placeholder="Enter announcement text...">
+                <label for="${uniqueId}" class="tts-checkbox-label">
+                    <input type="checkbox" id="${uniqueId}" ${announcement.tts ? 'checked' : ''}> TTS
+                </label>
+                ${isLast ? '<span class="add-announcement-btn" title="Add another message">+</span>' : ''}
+                <span class="action-icon remove" data-index="${index}" title="Remove message">&times;</span>
+            `;
+            announcementList.appendChild(li);
+        };
+
+        if (state.announcements.length === 0) {
+            renderItem(undefined, 0, true);
+        } else {
+            state.announcements.forEach((ann, index) => {
+                renderItem(ann, index, index === state.announcements.length - 1);
+            });
+        }
+        
+        adminSettingsModal.classList.add('hidden');
+        customAnnouncementModal.classList.remove('hidden');
+    }
+
+    function handleAnnouncementsSave() {
+        const newAnnouncements = [];
+        announcementList.querySelectorAll('li').forEach(li => {
+            const textInput = li.querySelector('input[type="text"]');
+            const ttsCheckbox = li.querySelector('input[type="checkbox"]');
+            if (textInput && textInput.value.trim() !== '') {
+                newAnnouncements.push({
+                    text: textInput.value.trim(),
+                    tts: ttsCheckbox.checked
+                });
+            }
+        });
+
+        state.announcements = newAnnouncements;
+        saveState();
+        customAnnouncementModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');
+        
+        // --- THIS IS THE FIX ---
+        // Restart the animation and scheduler to apply all changes immediately.
+        startHeaderTextAnimation();
+        startCustomTtsScheduler();
+        // --- END OF FIX ---
+    }
+
+    function startHeaderTextAnimation() {
+        // 1. Stop any pending animation cycle
+        if (window.headerAnimationInterval) {
+            clearTimeout(window.headerAnimationInterval);
+        }
+        
+        // 2. Immediately reset the UI to a clean, default state
+        const announcementContainer = document.getElementById('announcement-container');
+        if (announcementContainer) {
+            announcementContainer.innerHTML = ''; // Remove any active scrolling elements
+        }
+        const clock = document.getElementById('header-clock');
+        if (clock) {
+            clock.style.opacity = 1; // Force the clock to be visible immediately
+        }
+
+        // 3. Exit if there's nothing to animate
+        if (!clock || !announcementContainer || state.announcements.length === 0) {
+            return;
+        }
+
+        let currentIndex = 0;
+
+        const cycleAnimation = () => {
+            const announcement = state.announcements[currentIndex];
+            if (!announcement) {
+                clock.style.opacity = 1;
+                window.headerAnimationInterval = setTimeout(cycleAnimation, 10000);
+                return;
+            }
+
+            clock.style.opacity = 0;
+
+            setTimeout(() => {
+                const announcementEl = document.createElement('h1');
+                announcementEl.className = 'scrolling-announcement';
+                announcementEl.textContent = announcement.text;
+                announcementContainer.appendChild(announcementEl);
+
+                const containerWidth = announcementContainer.offsetWidth;
+                const textWidth = announcementEl.offsetWidth;
+                const scrollDistance = containerWidth + textWidth;
+                const scrollSpeed = 100; // pixels per second
+                const duration = scrollDistance / scrollSpeed;
+
+                announcementEl.style.transform = `translateX(${containerWidth}px)`;
+                announcementEl.classList.add('is-visible');
+                announcementEl.getBoundingClientRect(); // Force browser repaint
+
+                announcementEl.style.transition = `transform ${duration}s linear`;
+                announcementEl.style.transform = `translateX(-${textWidth}px)`;
+
+                // --- THIS IS THE FIX ---
+                // Use 'transitionend' event to wait for the scroll to finish
+                announcementEl.addEventListener('transitionend', () => {
+                    announcementEl.remove();
+                    clock.style.opacity = 1;
+                    currentIndex = (currentIndex + 1) % state.announcements.length;
+                    
+                    // Schedule the NEXT cycle after the 10-second pause
+                    window.headerAnimationInterval = setTimeout(cycleAnimation, 10000); 
+                }, { once: true }); // Ensure the event fires only once
+
+            }, 500); // Wait for clock fade-out
+        };
+        
+        // Start the first cycle after a brief delay
+        window.headerAnimationInterval = setTimeout(cycleAnimation, 1000); 
+    }
+
+    function startCustomTtsScheduler() {
+        // THIS IS THE FIX: Use the value from the state
+        const ANNOUNCEMENT_CYCLE_MS = state.customAnnouncementState.ttsIntervalMins * 60 * 1000;
+        const ANNOUNCEMENT_INTERVAL_MS = 5 * 60 * 1000;
+
+        if (state.customAnnouncementState.scheduler) {
+            clearInterval(state.customAnnouncementState.scheduler);
+        }
+
+        const ttsAnnouncements = state.announcements.filter(a => a.tts);
+        if (ttsAnnouncements.length === 0) return;
+
+        const scheduleNextAnnouncement = () => {
+            const mainAlertRemaining = alertScheduleTime > 0 ? alertScheduleTime - Date.now() : ANNOUNCEMENT_CYCLE_MS;
+            const midwayPoint = mainAlertRemaining / 2;
+            state.customAnnouncementState.nextAnnouncementTime = Date.now() + midwayPoint;
+        };
+
+        const runScheduler = () => {
+            const now = Date.now();
+            const isGamePending = state.courts.some(c => c.status === 'game_pending');
+
+            if (isGamePending || state.customAnnouncementState.isPaused) {
+                return;
+            }
+
+            if (now >= state.customAnnouncementState.nextAnnouncementTime) {
+                const announcement = ttsAnnouncements[state.customAnnouncementState.currentIndex];
+                if (announcement) {
+                    playCustomTTS(announcement.text);
+                }
+
+                state.customAnnouncementState.currentIndex = (state.customAnnouncementState.currentIndex + 1) % ttsAnnouncements.length;
+
+                const nextDelay = state.customAnnouncementState.currentIndex === 0 ? ANNOUNCEMENT_CYCLE_MS : ANNOUNCEMENT_INTERVAL_MS;
+                state.customAnnouncementState.nextAnnouncementTime = now + nextDelay;
+            }
+        };
+
+        scheduleNextAnnouncement();
+        state.customAnnouncementState.scheduler = setInterval(runScheduler, 5000);
+    }
+
+
+    // --- EVENT LISTENERS FOR ANNOUNCEMENTS ---
+    customAnnouncementBtn.addEventListener('click', showAnnouncementsModal);
+    announcementSaveBtn.addEventListener('click', handleAnnouncementsSave);
+    announcementCancelBtn.addEventListener('click', () => {
+        customAnnouncementModal.classList.add('hidden');
+        adminSettingsModal.classList.remove('hidden');
+    });
+    announcementList.addEventListener('click', (e) => {
+        // Check if the add button was clicked
+        if (e.target.classList.contains('add-announcement-btn')) {
+            // --- ADD LOGIC ---
+            const parentLi = e.target.closest('li');
+            if (parentLi) {
+                e.target.remove(); // Remove the '+' from the current last item
+            }
+
+            // Create a new, empty list item with the plus button
+            const newLi = document.createElement('li');
+            const newUniqueId = `tts-${Date.now()}-${Math.random()}`;
+            newLi.innerHTML = `
+                <input type="text" value="" placeholder="Enter announcement text...">
+                <label for="${newUniqueId}" class="tts-checkbox-label">
+                    <input type="checkbox" id="${newUniqueId}"> TTS
+                </label>
+                <span class="add-announcement-btn" title="Add another message">+</span>
+                <span class="action-icon remove" title="Remove message">&times;</span>
+            `;
+            announcementList.appendChild(newLi); // Append the new item
+        } 
+        // Check if the remove button was clicked
+        else if (e.target.classList.contains('remove')) {
+            // --- REMOVE LOGIC ---
+            const liToRemove = e.target.closest('li');
+            if (liToRemove) {
+                liToRemove.remove();
+            }
+            // If it was the last item, we need to ensure the new last item gets a plus button.
+            // The easiest way is to re-render the list from the current state of the inputs.
+            const currentAnnouncements = [];
+            announcementList.querySelectorAll('li').forEach(li => {
+                const textInput = li.querySelector('input[type="text"]');
+                const ttsCheckbox = li.querySelector('input[type="checkbox"]');
+                currentAnnouncements.push({
+                    text: textInput.value,
+                    tts: ttsCheckbox.checked
+                });
+            });
+            state.announcements = currentAnnouncements;
+            showAnnouncementsModal();
+        }
+    });
 
     function render() {
-
-        // --- THIS IS THE UPDATED BLOCK ---
+        autoAssignCourtModes()
         const gameModeContainer = document.getElementById('game-mode-container');
         const availablePlayersSectionEl = document.getElementById('availablePlayersSection');
         if (gameModeContainer && availablePlayersSectionEl) {
             const showSelector = state.courtSettings.showGameModeSelector;
             gameModeContainer.style.display = showSelector ? 'block' : 'none';
-            // This new line adds/removes a class to control the margin
             availablePlayersSectionEl.classList.toggle('mode-selector-hidden', !showSelector);
         }
-        // --- END OF UPDATED BLOCK ---
         const {
             gameMode,
             players: selectedPlayerNames,
@@ -3195,6 +4136,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
         const playerStats = calculatePlayerPlaytime();
         const starPlayers = calculateStarPlayers();
+        const winningStreaks = calculateWinningStreaks();
+        const heartbreakerName = calculateHeartbreaker(); // <-- ADD THIS LINE
 
         autoAssignMatchMode();
         runAutoMinimizeLogic(); 
@@ -3221,7 +4164,6 @@ document.addEventListener('DOMContentLoaded', () => {
             li.textContent = totalPlayersAtClub() > 0 ? "All players are on court." : "Waiting For Players To Check In...";
             availablePlayersList.appendChild(li);
         } else {
-            // --- THIS IS THE CORRECTED LOGIC BLOCK ---
             let isSpecialCase = false;
             let specialHighlightIndex = -1;
             let nextPlayerSliceEnd = renderQueue.length;
@@ -3233,50 +4175,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 const playersAfterSelector = renderQueue.slice(sliceStart + 1);
                 const availableInSelectableRange = playersAfterSelector.filter(p => !p.isPaused).slice(0, selectableGroupBaseSize);
                 
-                // Only proceed if we actually have a group to evaluate
                 if (availableInSelectableRange.length > 0) {
                     const sameGenderCountInRange = availableInSelectableRange.filter(p => p.gender === selectorGender).length;
                     const lastPlayerInRange = availableInSelectableRange[availableInSelectableRange.length - 1];
                     const endOfRangeIndex = renderQueue.findIndex(p => p.name === lastPlayerInRange.name);
 
-                    // A special case is ONLY triggered if there are ZERO same-gender players in the selection box.
                     if (sameGenderCountInRange === 0) {
                         isSpecialCase = true;
-                        nextPlayerSliceEnd = endOfRangeIndex; // Shorten the main orange box
+                        nextPlayerSliceEnd = endOfRangeIndex;
                         
-                        // Search for the next suitable player after the shortened box
                         const searchPool = renderQueue.slice(endOfRangeIndex);
                         const foundPlayerIndexInPool = searchPool.findIndex(p => p.gender === selectorGender && !p.isPaused);
                         
                         if (foundPlayerIndexInPool !== -1) {
                             specialHighlightIndex = endOfRangeIndex + foundPlayerIndexInPool;
                         } else {
-                            // If no one is found, revert to a normal case to avoid errors
                             isSpecialCase = false;
                             nextPlayerSliceEnd = endOfRangeIndex + 1;
                         }
                     } else {
-                        // If there is 1 or more same-gender players, it's a normal case.
-                        // The orange box includes all 7 players.
                         isSpecialCase = false;
                         specialHighlightIndex = -1;
                         nextPlayerSliceEnd = endOfRangeIndex + 1;
                     }
                 }
             }
-            // --- END OF CORRECTED LOGIC ---
-
 
             if (renderQueue.length > 0) {
                 const playersBeforeSelector = renderQueue.slice(0, sliceStart);
                 playersBeforeSelector.forEach((player, index) => {
-                    const li = createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
+                    // MODIFIED THIS LINE
+                    const li = createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
                     availablePlayersList.appendChild(li);
                 });
 
                 if (selectorPlayer) {
                     const selectorIndex = sliceStart;
-                    const liSelector = createPlayerListItem(selectorPlayer, selectorIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, true, false);
+                    // MODIFIED THIS LINE
+                    const liSelector = createPlayerListItem(selectorPlayer, selectorIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, true, false);
                     availablePlayersList.appendChild(liSelector);
                 }
 
@@ -3286,7 +4222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     groupDiv.className = 'next-players-group';
                     orangeGroupPlayers.forEach((player, index) => {
                         const playerIndex = sliceStart + 1 + index;
-                        const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, true);
+                        // MODIFIED THIS LINE
+                        const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, true);
                         groupDiv.appendChild(playerLi);
                     });
                     availablePlayersList.appendChild(groupDiv);
@@ -3295,7 +4232,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const playersAfterOrangeGroup = renderQueue.slice(nextPlayerSliceEnd);
                 playersAfterOrangeGroup.forEach((player, index) => {
                     const playerIndex = nextPlayerSliceEnd + index;
-                    const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
+                    // MODIFIED THIS LINE
+                    const playerLi = createPlayerListItem(player, playerIndex, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase, nextPlayerSliceEnd, specialHighlightIndex, false, false);
 
                     if (playerIndex === specialHighlightIndex) {
                         const groupDiv = document.createElement('div');
@@ -3386,7 +4324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initSummaryCardElements();
         setTimeout(setPlayerListHeight, 0);
         
-        setTimeout(setActiveCardForMobileScroll, 50); 
+        requestAnimationFrame(setActiveCardForMobileScroll);
     }
 
     // NEW FUNCTION: Resets collapse state when screen is wide (desktop/tablet)
@@ -3640,34 +4578,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // NEW FUNCTION: Extracted court selection logic
+
     function proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode) {
         const court = state.courts.find(c => c.id === courtId);
-        const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
 
+        // --- THIS IS THE FIX ---
+        // The snapshot is now taken BEFORE any players are removed from the available list.
         court.queueSnapshot = JSON.parse(JSON.stringify(state.availablePlayers));
-        court.players = [...selectedPlayerObjects];
-        court.gameMode = gameMode;
+        // --- END OF FIX ---
 
-        if (gameMode === 'doubles') {
-            court.status = "selecting_teams";
-            court.teams.team1 = [];
-            court.teams.team2 = [];
+        // If a suggestion is active, use its teams and bypass player selection
+        if (state.activeSuggestion) {
+            court.players = [...state.activeSuggestion.team1, ...state.activeSuggestion.team2];
+            court.teams.team1 = state.activeSuggestion.team1;
+            court.teams.team2 = state.activeSuggestion.team2;
+            court.teamsSet = true;
+            court.gameMode = 'doubles'; // Suggestion is always for doubles
+            
+            state.availablePlayers = state.availablePlayers.filter(p => !court.players.some(p2 => p2.name === p.name));
+            clearSuggestionHighlights(); // Clear highlights and stored suggestion
         } else {
-            court.teams.team1 = [selectedPlayerObjects[0]];
-            court.teams.team2 = [selectedPlayerObjects[1]];
-            court.status = "game_pending";
+            const selectedPlayerObjects = selectedPlayerNames.map(name => getPlayerByName(name));
+            court.players = [...selectedPlayerObjects];
+            court.gameMode = gameMode;
+            if (gameMode === 'doubles') {
+                court.status = "selecting_teams";
+                court.teams.team1 = [];
+                court.teams.team2 = [];
+            } else {
+                court.teams.team1 = [selectedPlayerObjects[0]];
+                court.teams.team2 = [selectedPlayerObjects[1]];
+            }
+            state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
+        }
+
+        // The rest of the original function remains the same
+        court.status = court.status === "selecting_teams" ? "selecting_teams" : "game_pending";
+        if (court.status === "game_pending") {
             court.autoStartTimeTarget = Date.now() + 60000;
             court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
         }
 
-        state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
         state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
-
         updateGameModeBasedOnPlayerCount();
         enforceDutyPosition();
         render();
         saveState();
-    } 
+    }
 
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
     function calculatePlayerStats(gamesToProcess){
@@ -3782,6 +4739,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide all lists initially
         historyListEl.style.display = 'none';
         teamHistoryListEl.style.display = 'none';
+        setActiveMobileMenuItem('mobile-history-btn');
 
         if (state.historyViewMode === "stats") {
             historyTitle.textContent = "Player Stats";
@@ -3818,6 +4776,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return playerObj.gender === state.statsFilter.gender;
         });
 
+        // --- H2H FILTERING LOGIC ---
+        if (state.comparison.active && state.comparison.items.length === 1) {
+            const selectedPlayer = state.comparison.items[0];
+            // Filter the list to only include the selected player and their opponents
+            playersWithStats = playersWithStats.filter(name => 
+                name === selectedPlayer || state.comparison.opponents.has(name)
+            );
+        }
+        // --- END H2H FILTERING ---
+
         playersWithStats.sort((a, b) => {
             const statA = stats[a];
             const statB = stats[b];
@@ -3838,13 +4806,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label> <input type="radio" name="stats-gender-filter" value="F" ${state.statsFilter.gender === 'F' ? 'checked' : ''}> Women </label>
                 </div>
             </div>`;
-        
+
         if (playersWithStats.length === 0) {
             historyListEl.innerHTML = genderFilterHTML + '<p style="text-align: center; color: #6c757d;">No stats available for the selected filter.</p>';
         } else {
             const getSortIcon = (key) => (state.statsFilter.sortKey !== key) ? ' ' : (state.statsFilter.sortOrder === 'asc' ? ' 🔼' : ' 🔽');
-            
-            // --- THIS IS THE FIX ---
+
             const tableHeader = `
                 <div class="history-item" style="font-weight: bold; background-color: #f8f9fa;">
                     <div class="stats-grid-row">
@@ -3854,12 +4821,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="sort-btn" data-sort-key="totalDurationMs" style="background: none; border: none; font-weight: bold; cursor: pointer;">Time${getSortIcon('totalDurationMs')}</button>
                     </div>
                 </div>`;
-            
+
             const playerRows = playersWithStats.map(name => {
                 const playerStats = stats[name];
                 const winPercentage = formatWinPercentage(playerStats.played, playerStats.won);
+
+                let rowClass = '';
+                if(state.comparison.items.includes(name)) {
+                    rowClass = 'selected-for-comparison';
+                }
+
                 return `
-                    <div class="history-item">
+                    <div class="history-item ${rowClass}" data-name="${name}" data-type="player">
                         <div class="stats-grid-row">
                             <span>${name}</span>
                             <span>${playerStats.played}</span>
@@ -3868,7 +4841,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>`;
             }).join('');
-            // --- END OF FIX ---
 
             historyListEl.innerHTML = genderFilterHTML + tableHeader + playerRows;
         }
@@ -4018,16 +4990,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function createGameHistoryFilters() {
         const { timeFrame, gameType } = state.gameHistoryFilter;
         
-        // Wrap both filter groups in a single flex container
         return `
             <div class="game-history-filter-container">
-                <div class="gender-selector" style="justify-content: center;">
-                    <div class="radio-group">
-                        <label> <input type="radio" name="game-type-filter" value="all" ${gameType === 'all' ? 'checked' : ''}> All </label>
-                        <label> <input type="radio" name="game-type-filter" value="singles" ${gameType === 'singles' ? 'checked' : ''}> Singles </label>
-                        <label> <input type="radio" name="game-type-filter" value="doubles" ${gameType === 'doubles' ? 'checked' : ''}> Doubles </label>
-                    </div>
-                </div>
                 <div class="gender-selector" style="justify-content: center;">
                     <div class="radio-group">
                         <label> <input type="radio" name="game-time-filter" value="Today" ${timeFrame === 'Today' ? 'checked' : ''}> Today </label>
@@ -4157,14 +5121,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function handlePlayerClick(e){
-        // 1. Check for the Pause button click first
+        const suggestionBtn = e.target.closest('.suggestion-btn');
+        if (suggestionBtn) {
+            // TOGGLE LOGIC: If a suggestion is already active, clear it.
+            if (state.activeSuggestion) {
+                clearSuggestionHighlights();
+            } 
+            // Otherwise, create a new suggestion.
+            else {
+                const selector = state.availablePlayers.find(p => !p.isPaused);
+                const available = state.availablePlayers.filter(p => p.name !== selector.name);
+                const suggestion = findMostBalancedGame(selector, available);
+                
+                if (suggestion) {
+                    // THIS IS THE FIX: Populate the main selection array
+                    state.selection.players = [
+                        ...suggestion.team1.map(p => p.name),
+                        ...suggestion.team2.map(p => p.name)
+                    ];
+                    
+                    state.activeSuggestion = suggestion; // Store the new suggestion
+                    
+                    render(); // Re-render the UI with the new state
+                    
+                    // Trigger the court selection animations
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(ensureCourtSelectionAnimation);
+                    });
+                }
+            }
+            return; // Stop further execution
+        }
+
         const pauseButton = e.target.closest(".pause-toggle-btn");
         if (pauseButton) {
             handlePauseToggleClick(pauseButton);
             return;
         }
         
+        // If a player is clicked manually, clear any active suggestion
+        if(state.activeSuggestion) {
+            clearSuggestionHighlights();
+        }
+
         const li = e.target.closest("li");
         
         let firstAvailablePlayer = state.availablePlayers[0] ? state.availablePlayers[0].name : null;
@@ -4177,10 +5178,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!li || li.classList.contains("disabled") || li.classList.contains("waiting-message") || state.availablePlayers.length === 0) return;
         
         const playerName = li.dataset.playerName; 
-        const {players: selectedPlayerNames, gameMode} = state.selection; 
-        const requiredPlayers = gameMode === "doubles" ? 4 : 2; 
+        const { players: selectedPlayerNames } = state.selection; 
 
-        // Player selection logic
         if (selectedPlayerNames.length === 0) { 
             if (playerName !== firstAvailablePlayer) { 
                 selectedPlayerNames.push(firstAvailablePlayer, playerName); 
@@ -4193,34 +5192,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedPlayerNames.length === 1) { 
                     state.selection.players = []; 
                 } 
-            } else if (selectedPlayerNames.length < requiredPlayers) { 
+            } else if (selectedPlayerNames.length < 4) {
                 selectedPlayerNames.push(playerName); 
             } 
         }
 
-        // First, render the UI to add the '.selectable' class to the courts
+        updateGameModeBasedOnSelection();
         render(); 
         saveState();
 
-        // --- THIS IS THE MODIFIED LOGIC ---
-        // If selection is now complete...
+        const requiredPlayers = state.selection.gameMode === "doubles" ? 4 : 2;
         if (state.selection.players.length === requiredPlayers) {
-            // 1. Immediately scroll to the best available court.
             scrollToFirstAvailableCourt();
-
-            // 2. Collapse the player list to reveal the courts.
-            collapsePlayerListOnMobile(); // <-- ADD THIS LINE
-
-            // 3. Wait for the scroll to finish, then trigger the ball animations.
-            setTimeout(() => {
-                const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
-                selectableCourts.forEach((button, index) => {
-                    setTimeout(() => {
-                        button.classList.add('serve-in');
-                    }, index * 200); // Stagger each animation
-                });
-            }, 600); // 600ms delay to allow the smooth scroll to complete
+            collapsePlayerListOnMobile();
         }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(ensureCourtSelectionAnimation);
+        });
     }
 
     function handleConfirmSelection(){
@@ -4299,11 +5287,31 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
         saveState();
     }
-    function handleRandomizeTeams(courtId){
+    function handleRandomizeTeams(courtId) {
         const court = state.courts.find(c => c.id === courtId);
-        let players = [...court.players].sort(() => 0.5 - Math.random());
-        court.teams.team1 = [players[0], players[1]];
-        court.teams.team2 = [players[2], players[3]];
+        if (!court || court.players.length !== 4) return;
+
+        const men = court.players.filter(p => p.gender === 'M');
+        const women = court.players.filter(p => p.gender === 'F');
+
+        // --- THIS IS THE NEW LOGIC ---
+        // If it's a 2-man, 2-woman group, create mixed teams
+        if (men.length === 2 && women.length === 2) {
+            // Shuffle each gender group
+            const shuffledMen = men.sort(() => 0.5 - Math.random());
+            const shuffledWomen = women.sort(() => 0.5 - Math.random());
+
+            // Create mixed teams
+            court.teams.team1 = [shuffledMen[0], shuffledWomen[0]];
+            court.teams.team2 = [shuffledMen[1], shuffledWomen[1]];
+        } else {
+            // Fallback to the original complete shuffle for any other combination
+            let players = [...court.players].sort(() => 0.5 - Math.random());
+            court.teams.team1 = [players[0], players[1]];
+            court.teams.team2 = [players[2], players[3]];
+        }
+        // --- END OF NEW LOGIC ---
+
         court.status = "game_pending";
         court.matchMode = state.matchSettings.matchMode;
         court.fastPlayGames = state.matchSettings.fastPlayGames;
@@ -4772,14 +5780,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (court) {
             if(court.autoStartTimer) clearTimeout(court.autoStartTimer);
             
-            const playersWhoWereSelected = court.players.map(p => p.name);
-            
-            state.selection.players = playersWhoWereSelected; 
+            // --- THIS IS THE FIX ---
+            // Instead of re-selecting players, we clear the selection entirely.
+            state.selection.players = []; 
             state.selection.courtId = null; 
+            // --- END OF FIX ---
             
             if (court.queueSnapshot) {
+                // Restore the available players list to exactly how it was before the game was made.
                 state.availablePlayers = court.queueSnapshot;
             } else {
+                // Fallback: If for some reason there's no snapshot, return players to the front.
                 const playersToRequeue = court.players.filter(p => !p.guest);
                 state.availablePlayers = [...playersToRequeue, ...state.availablePlayers];
             }
@@ -5586,7 +6597,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideKeypad();
             adminSessionActive = true;
             
-            // Start the shared admin session timer
             if (adminSessionTimer) clearTimeout(adminSessionTimer);
             adminSessionTimer = setTimeout(() => {
                 adminSessionActive = false;
@@ -5594,13 +6604,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.courts.forEach(c => c.isModeOverlayActive = false);
                 render();
                 playAlertSound(null, null, 'Alert7.mp3');
+                requestAnimationFrame(ensureCourtSelectionAnimation); // <-- THIS IS THE FIX
             }, 60000); // 1 minute
 
-            // The only action after this is to show the main admin modal
             showAdminModal();
 
         } else {
-            // If the PIN is incorrect, shake the keypad.
             const keypadContent = customKeypadModal.querySelector('.keypad-content');
             keypadContent.classList.add('shake');
             setTimeout(() => {
@@ -5638,7 +6647,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideCourtModeKeypad();
             adminSessionActive = true;
 
-            // Start the shared admin session timer
             if (adminSessionTimer) clearTimeout(adminSessionTimer);
             adminSessionTimer = setTimeout(() => {
                 adminSessionActive = false;
@@ -5646,15 +6654,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.courts.forEach(c => c.isModeOverlayActive = false);
                 render();
                 playAlertSound(null, null, 'Alert7.mp3');
+                requestAnimationFrame(ensureCourtSelectionAnimation); // <-- THIS IS THE FIX
             }, 60000); // 1 minute
 
-            // Execute the stored court mode action
             if (courtModeAction) {
                 courtModeAction();
             }
 
         } else {
-            // If the PIN is incorrect, shake the keypad and clear it
             const keypadContent = courtModeKeypadModal.querySelector('.keypad-content');
             keypadContent.classList.add('shake');
             setTimeout(() => {
@@ -8234,7 +9241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showJuniorClubModal() {
         // Render the list with the current filter settings
         renderJuniorClubCheckInList();
-        
+        setActiveMobileMenuItem('mobile-junior-club-btn');
         juniorClubModal.classList.remove('hidden');
     }
 
@@ -9071,7 +10078,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
      // --- INITIALIZATION ---
-     // --- INITIALIZATION ---
     async function initializeApp() {
         try {
             const response = await fetch('source/members.csv');
@@ -9110,6 +10116,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const LOGIC_CHECK_INTERVAL_MS = 10 * 1000;
             checkAndPlayAlert(false);
             setInterval(checkAndPlayAlert, LOGIC_CHECK_INTERVAL_MS);
+
+            // NEW: Interval timer for the "On a Roll" text fader
+            if (!window.statusFaderInterval) {
+                window.statusFaderInterval = setInterval(() => {
+                    const faders = document.querySelectorAll('.player-status-fader');
+                    faders.forEach(fader => {
+                        const statusTexts = Array.from(fader.querySelectorAll('.status-text'));
+                        const currentlyVisibleIndex = statusTexts.findIndex(el => el.classList.contains('is-visible'));
+
+                        if (currentlyVisibleIndex !== -1) {
+                            // Hide the current text
+                            statusTexts[currentlyVisibleIndex].classList.remove('is-visible');
+
+                            // Calculate the index of the next text to show
+                            const nextIndex = (currentlyVisibleIndex + 1) % statusTexts.length;
+                            
+                            // Show the next text
+                            statusTexts[nextIndex].classList.add('is-visible');
+                        }
+                    });
+                }, 3000); // Fades every 3 seconds
+            }
+
+            // Start Custom Announcement Features
+            startHeaderTextAnimation();
+            startCustomTtsScheduler();
 
         } catch (error) {
             console.error('Failed to initialize application:', error);
@@ -9186,6 +10218,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // BIND ALL INITIAL DOM LISTENERS
 
+    // Mobile Menu Bar Event Listeners
+    if (document.getElementById('mobile-menu-bar')) {
+        document.getElementById('mobile-junior-club-btn').addEventListener('click', () => {
+            checkInModal.classList.add('hidden');
+            checkOutModal.classList.add('hidden');
+            showJuniorClubModal();
+        });
+
+        document.getElementById('mobile-history-btn').addEventListener('click', () => {
+            state.historyViewMode = 'games';
+            renderHistory();
+            historyPage.classList.remove("hidden");
+        });
+
+        document.getElementById('mobile-notify-btn').addEventListener('click', handleNotifyNow);
+
+        document.getElementById('mobile-settings-btn').addEventListener('click', handleAdminLogin);
+    }
+
     // --- LISTENERS FOR PULL DOWN HEADER ---
     // Attach event listeners
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -9239,6 +10290,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     historyToggleViewBtn.addEventListener("click", () => {
+        // RESET filters and comparison state before switching views
+        resetComparisonState();
+        resetStatsFilters();
+
         if (state.historyViewMode === 'stats') {
             state.historyViewMode = "games";
         } else {
@@ -9249,6 +10304,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('history-toggle-teams-btn').addEventListener('click', () => {
+        // RESET filters and comparison state before switching views
+        resetComparisonState();
+        resetStatsFilters();
+
         if (state.historyViewMode === 'teams') {
             state.historyViewMode = 'games';
         } else {
@@ -10039,17 +11098,16 @@ document.addEventListener('DOMContentLoaded', () => {
     adminCloseBtn.addEventListener('click', () => {
         adminSettingsModal.classList.add('hidden');
 
-        // When closing the main admin panel, start the 2-minute session timer.
         if (adminSessionActive) {
-            if (adminSessionTimer) clearTimeout(adminSessionTimer); // Reset any existing timer
+            if (adminSessionTimer) clearTimeout(adminSessionTimer);
             adminSessionTimer = setTimeout(() => {
                 adminSessionActive = false;
                 adminSessionTimer = null;
-                // When the timer expires, also close any open court mode overlays.
                 state.courts.forEach(c => c.isModeOverlayActive = false);
                 render();
                 playAlertSound(null, null, 'Alert7.mp3');
-            }, 60000); // 1 minutes
+                requestAnimationFrame(ensureCourtSelectionAnimation); // <-- THIS IS THE FIX
+            }, 60000); // 1 minute
         }
     });
 
@@ -10480,6 +11538,117 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     // --- END OF NEW VISIBILITY CHANGE LOGIC ---
 
-    // --- END OF NEW KEYBOARD BINDING LOGIC ---
+    function getTeamKeyFromElement(item) {
+        const teamNameSpan = item.querySelector('.team-name-stacked');
+        if (teamNameSpan) {
+            const playerSpans = teamNameSpan.querySelectorAll('span');
+            const players = Array.from(playerSpans).map(span => span.textContent.trim());
+            return players.sort().join(' & ');
+        }
+        return item.dataset.name; // Fallback to data attribute
+    }
+
+    // --- NEW: COMPARISON MODAL LISTENERS (Event Delegation) ---
+    function handleHistoryItemClick(e) {
+        const item = e.target.closest('.history-item');
+        if (!item || e.target.closest('.sort-btn') || e.target.closest('.radio-group')) return;
+        
+        let type = item.dataset.type;
+        let name = item.dataset.name;
+        
+        // If no dataset, determine from current view
+        if (!type) {
+            if (state.historyViewMode === 'teams') {
+                type = 'team';
+                name = getTeamKeyFromElement(item); // Use helper
+            } else if (state.historyViewMode === 'stats') {
+                type = 'player';
+                const nameSpan = item.querySelector('.stats-grid-row span:first-child');
+                if (nameSpan) name = nameSpan.textContent.trim();
+            }
+        }
+        
+        if (!name || !type) return;
+
+        if (state.comparison.active && state.comparison.type !== type) {
+            resetComparisonState();
+        }
+
+        state.comparison.active = true;
+        state.comparison.type = type;
+
+        const itemIndex = state.comparison.items.indexOf(name);
+        if (itemIndex > -1) {
+            state.comparison.items.splice(itemIndex, 1);
+        } else if (state.comparison.items.length < 2) {
+            state.comparison.items.push(name);
+        }
+
+        if (state.comparison.items.length === 1) {
+            const selectedName = state.comparison.items[0];
+            const opponents = new Set();
+            
+            state.gameHistory.forEach(game => {
+                const team1Players = game.teams.team1;
+                const team2Players = game.teams.team2;
+
+                if (type === 'player') {
+                    const isOnTeam1 = team1Players.includes(selectedName);
+                    const isOnTeam2 = team2Players.includes(selectedName);
+                    if (isOnTeam1) {
+                        team2Players.forEach(p => opponents.add(p));
+                    } else if (isOnTeam2) {
+                        team1Players.forEach(p => opponents.add(p));
+                    }
+                } else {
+                    const team1Key = [...team1Players].sort().join(' & ');
+                    const team2Key = [...team2Players].sort().join(' & ');
+                    if (team1Key === selectedName) {
+                        opponents.add(team2Key);
+                    } else if (team2Key === selectedName) {
+                        opponents.add(team1Key);
+                    }
+                }
+            });
+            state.comparison.opponents = opponents;
+        } else if (state.comparison.items.length === 0) {
+            resetComparisonState();
+        }
+        
+        if (type === 'player') renderPlayerHistory();
+        else renderTeamHistory();
+        
+        saveState(); // Add this
+
+        if (state.comparison.items.length === 2) {
+            renderComparisonModal();
+        }
+    }
+
+    // Replace with a single delegated listener on the parent container:
+    historyPage.addEventListener('click', (e) => {
+        // Check if click is within either stats list
+        const historyItem = e.target.closest('#history-list .history-item, #team-history-list .history-item');
+        if (!historyItem) return;
+        
+        // Prevent action on sort buttons
+        if (e.target.closest('.sort-btn') || e.target.closest('.radio-group')) return;
+        
+        handleHistoryItemClick(e);
+    });
+
+    comparisonCloseBtn.addEventListener('click', () => {
+        comparisonModal.classList.add('hidden');
+        historyPage.classList.remove('hidden');
+        resetComparisonState();
+        resetStatsFilters();
+        renderHistory(); // This will render based on current state.historyViewMode
+        saveState(); // Add this to persist the state
+    });
+
+    // --- NEW EVENT LISTENERS FOR TTS INTERVAL ---
+    document.getElementById('tts-interval-increase').addEventListener('click', () => handleTtsIntervalChange('increase'));
+    document.getElementById('tts-interval-decrease').addEventListener('click', () => handleTtsIntervalChange('decrease'));
+
 });
 
