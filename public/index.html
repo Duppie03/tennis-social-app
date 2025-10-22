@@ -51,7 +51,7 @@
         <div id="info-bar" class="info-bar hidden">
             <p id="info-bar-text">Dynamic message goes here.</p>
         </div>
-        
+
         <div class="content-columns">
             <section class="player-column">
                 <div id="availablePlayersSection">
@@ -81,7 +81,7 @@
                                 <button id="mode-singles" class="mode-btn">Singles</button>
                             </div>
                         </div>
-                        
+
                         <div class="player-list-header">
                             <h4>Players</h4>
                             <div class="player-list-sub-headers">
@@ -108,7 +108,7 @@
             <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis Club" class="checkout-thanks-logo">
             <div class="checkout-thanks-content">
                 <h3 id="checkout-thanks-title">Thanks for joining us!</h3>
-                
+
                 <div id="checkout-player-stats" class="checkout-stats-container hidden">
                     <h4>Here's how you did today:</h4>
                     <div class="stats-grid">
@@ -158,7 +158,7 @@
             <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis Club" class="checkout-thanks-logo">
             <div class="checkout-thanks-content">
                 <h3 id="checkout-thanks-no-stats-title">Thanks for joining us!</h3>
-                
+
                 <p id="checkout-thanks-no-stats-message">We hope you had a great day on the courts. Please join us for our next social day.</p>
                 <p><strong>Just a friendly reminder to please settle your tuck shop account before you leave.</strong></p>
             </div>
@@ -220,6 +220,15 @@
             <div class="modal-header-with-actions">
                 <h3>Admin Settings</h3>
                 <div class="modal-header-icons">
+                    <button id="manage-events-btn" class="admin-icon-btn" title="Manage Events">
+                        📅
+                    </button>
+                    <button id="suggestion-settings-btn" class="admin-icon-btn" title="Suggestion Settings">
+                        <i class="mdi mdi-racquetball"></i>
+                    </button>
+                    <button id="checklist-btn" class="admin-icon-btn" title="Admin Checklist">
+                        <i class="mdi mdi-check-circle-outline"></i>
+                    </button>
                     <button id="power-score-btn" class="admin-icon-btn" title="Power Score Stats">📈</button>
                     <button id="custom-announcement-btn" class="admin-icon-btn" title="Custom Announcements">💬</button>
                     <button id="edit-styles-btn" class="admin-icon-btn" title="Edit Styles">
@@ -234,7 +243,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="admin-settings-grid-2col">
                 <div class="admin-settings-panel">
                     <h4>Select Member on Duty</h4>
@@ -256,7 +265,130 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="suggestion-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Suggestion Settings</h3>
+            </div>
+            <p style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">Adjust the parameters for the balanced game suggestion.</p>
+
+            <div class="suggestion-settings-container">
+                <div class="setting-item power-score-toggle-container">
+                    <label for="power-score-only-toggle">Power Score Only Balancing</label>
+                    <label class="switch">
+                        <input type="checkbox" id="power-score-only-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                 <div class="setting-item least-playtime-toggle-container">
+                    <label for="least-playtime-toggle">Prioritize Least Playtime</label>
+                    <label class="switch">
+                        <input type="checkbox" id="least-playtime-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-item female-ratio-container">
+                    <div class="slider-labels">
+                        <span>All Female</span>
+                        <span>Mixed</span>
+                    </div>
+                    <input type="range" id="female-ratio-slider" min="0" max="100" step="10">
+                    <span id="female-ratio-display" class="slider-percentage">50% All Female</span>
+                </div>
+
+                <div class="setting-item male-ratio-container">
+                    <div class="slider-labels">
+                        <span>All Male</span>
+                        <span>Mixed</span>
+                    </div>
+                    <input type="range" id="male-ratio-slider" min="0" max="100" step="10">
+                    <span id="male-ratio-display" class="slider-percentage">70% All Male</span>
+                </div>
+
+                <div class="setting-item top-player-container">
+                    <div class="slider-labels">
+                        <span>Standard Balance</span>
+                        <span>Top Player H2H</span>
+                    </div>
+                    <input type="range" id="top-player-slider" min="0" max="100" step="5">
+                    <span id="top-player-display" class="slider-percentage">35% Top Player H2H</span>
+
+                </div>
+
+                <div class="setting-item frequent-opponent-container">
+                    <div class="slider-labels">
+                        <span>Standard Balance</span>
+                        <span>Frequent Opponent</span>
+                    </div>
+                    <input type="range" id="frequent-opponent-slider" min="0" max="100" step="5">
+                    <span id="frequent-opponent-display" class="slider-percentage">35% Frequent Opponent</span>
+
+                </div>
+
+                <div class="setting-item weak-player-container">
+                    <div class="slider-labels">
+                        <span>Standard Balance</span>
+                        <span>Weak Player Group</span>
+                    </div>
+                    <input type="range" id="weak-player-slider" min="0" max="100" step="5">
+                    <span id="weak-player-display" class="slider-percentage">35% Weak Player Group</span>
+
+                </div>
+                 </div> <div class="modal-actions">
+                <button id="suggestion-settings-close-btn" class="action-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checklist-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Admin Checklist</h3>
+                <div class="modal-header-icons">
+                     <button id="checklist-history-btn" class="admin-icon-btn" title="Checklist History">
+                        <i class="mdi mdi-history"></i>
+                    </button>
+                </div>
+            </div>
+            <p style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">Daily setup and closing tasks.</p>
+
+            <div id="checklist-content" class="checklist-container">
+                </div>
+
+            <div class="modal-actions">
+                <button id="checklist-close-btn" class="action-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checklist-history-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <div class="modal-header-with-actions">
+                <h3 id="checklist-history-title">Checklist History</h3>
+            </div>
+
+            <div id="checklist-history-list-view">
+                <p style="text-align: center; color: var(--neutral-color); margin-bottom: 1rem;">Select a date to view the checklist status for that day.</p>
+                <ul id="checklist-history-list" class="modal-action-list scrollable" style="max-height: 60vh;">
+                    </ul>
+            </div>
+
+            <div id="checklist-history-detail-view" class="hidden">
+                 <p style="text-align: center; color: var(--neutral-color); margin-bottom: 1.5rem;">Checklist status as recorded on <strong id="checklist-detail-date"></strong>.</p>
+                 <div id="checklist-history-detail" class="checklist-container read-only">
+                    </div>
+            </div>
+
+            <div class="modal-actions">
+                 <button id="checklist-history-back-btn" class="action-btn neutral hidden" style="flex-grow: 0; width: 150px;">Back to Dates</button>
+                 <button id="checklist-history-close-btn" class="action-btn cancel" style="flex-grow: 0; width: 150px;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="sound-selection-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
@@ -333,7 +465,7 @@
             <div id="modal-player-list" class="modal-player-list"></div>
             <div class="modal-actions">
                 <button id="modal-cancel-btn">Cancel</button>
-                <button id="modal-confirm-teams-btn">Confirm Teams</button>                
+                <button id="modal-confirm-teams-btn">Confirm Teams</button>
             </div>
         </div>
     </div>
@@ -364,7 +496,7 @@
                 <label for="guest-surname-input">Surname:</label>
                 <input type="text" id="guest-surname-input" readonly placeholder="Tap to enter surname">
             </div>
-            
+
             <div class="gender-selector">
                 <label>Gender:</label>
                 <div class="radio-group">
@@ -465,13 +597,13 @@
                 <h3>Enter Game Results</h3>
             </div>
             <p id="end-game-timestamp" style="font-size: 0.9rem; color: #6c757d; text-align: center; margin-top: -1rem; margin-bottom: 1.5rem;"></p>
-            
+
             <div class="result-section">
                 <h4>1. Select Winning Team</h4>
                 <div id="end-game-teams">
                 </div>
             </div>
-    
+
             <div class="result-section hidden" id="score-section">
                 <h4>2. Enter Final Score</h4>
                 <div class="score-input-area">
@@ -485,7 +617,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="result-section hidden" id="tie-breaker-area">
                 <h4>3. Enter Tie-Break Score</h4>
                    <div class="score-input-area">
@@ -499,7 +631,7 @@
                     </div>
                 </div>
             </div>
-    
+
             <div class="modal-actions">
                 <button id="end-game-cancel-btn">Cancel</button>
                 <button id="end-game-skip-btn" class="action-btn neutral">Skip Scores</button>
@@ -534,12 +666,12 @@
                 <button class="keypad-btn" data-key="2">2</button>
                 <button class="keypad-btn" data-key="3">3</button>
                 <button class="keypad-btn action" data-key="backspace">⌫</button>
-                
+
                 <button class="keypad-btn" data-key="4">4</button>
                 <button class="keypad-btn" data-key="5">5</button>
                 <button class="keypad-btn" data-key="6">6</button>
                 <button class="keypad-btn action secondary" data-key="clear">C</button>
-                
+
                 <button class="keypad-btn" data-key="7">7</button>
                 <button class="keypad-btn" data-key="8">8</button>
                 <button class="keypad-btn" data-key="9">9</button>
@@ -559,12 +691,12 @@
                 <button class="keypad-btn" data-key="2">2</button>
                 <button class="keypad-btn" data-key="3">3</button>
                 <button class="keypad-btn action" data-key="backspace">⌫</button>
-                
+
                 <button class="keypad-btn" data-key="4">4</button>
                 <button class="keypad-btn" data-key="5">5</button>
                 <button class="keypad-btn" data-key="6">6</button>
                 <button class="keypad-btn action secondary" data-key="clear">C</button>
-                
+
                 <button class="keypad-btn" data-key="7">7</button>
                 <button class="keypad-btn" data-key="8">8</button>
                 <button class="keypad-btn" data-key="9">9</button>
@@ -583,23 +715,36 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="global-keyboard-modal" class="global-keyboard-overlay hidden">
+        <div class="keyboard-content">
+            <div id="global-keyboard-display"></div>
+
+            <div id="emoji-search-container" class="hidden">
+                <input type="text" id="emoji-search-input" placeholder="Search emoji..." />
+            </div>
+
+            <div id="global-keyboard-grid" class="keyboard-grid">
+                </div>
+        </div>
+    </div>
+
     <div id="manage-court-players-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
                 <h3>Manage On-Court Players</h3>
             </div>
             <p id="manage-court-players-instructions">Select a court with an active game.</p>
-            
+
             <ul id="court-list-for-management" class="modal-action-list scrollable">
             </ul>
-            
+
             <ul id="remove-players-list" class="modal-action-list scrollable hidden">
             </ul>
-            
+
             <ul id="add-players-list" class="modal-action-list scrollable hidden">
             </ul>
-                
+
             <div class="modal-actions">
                 <button id="manage-players-back-btn" class="action-btn hidden" style="background-color: #6c757d;">Back</button>
                 <button id="manage-players-add-btn" class="action-btn hidden" style="background-color: var(--confirm-color);">Add Player</button>
@@ -697,9 +842,10 @@
                 <h3>Select Member Signing Out</h3>
             </div>
             <p id="sign-out-member-prompt" style="color: var(--neutral-color);">Please select the member responsible for this ball sign-out.</p>
-            <div class="admin-settings-panel" style="max-height: 400px; margin-top: 1rem;">
+            <div class="list-container">
+                <div id="sign-out-member-abc-index" class="abc-index"></div>
                 <ul id="sign-out-member-list" class="modal-action-list scrollable">
-                    </ul>
+                </ul>
             </div>
             <div class="modal-actions">
                 <button id="sign-out-member-cancel-btn" class="action-btn" style="background-color: var(--cancel-color);">Cancel</button>
@@ -718,9 +864,9 @@
                 </div>
             </div>
             <div class="ball-management-grid">
-                
+
                 <div class="admin-settings-panel">
-                    <h4>Stock (Cans)</h4> 
+                    <h4>Stock (Cans)</h4>
                     <div class="stock-display-area">
                         <span id="ball-stock-count" class="stock-number">0</span>
                         <span class="stock-label">Cans in Stock</span>
@@ -732,9 +878,9 @@
                 </div>
 
                 <div class="admin-settings-panel">
-                    <h4>Sign Out (Cans)</h4> 
+                    <h4>Sign Out (Cans)</h4>
                     <p style="font-size: 0.9em; color: var(--neutral-color); margin-top: 0.5rem; margin-bottom: 1rem;">
-                        Category for ball usage. 
+                        Category for ball usage.
                     </p>
                     <div id="sign-out-options" class="sign-out-options scrollable">
                         <button class="action-btn sign-out-btn" data-category="ClubChamps">Club Champs</button>
@@ -745,7 +891,7 @@
                 </div>
 
                 <div class="admin-settings-panel">
-                    <h4>Used Balls (Singles)</h4> 
+                    <h4>Used Balls (Singles)</h4>
                     <div class="stock-display-area">
                         <span id="used-ball-stock-count" class="stock-number used">0</span>
                         <span class="stock-label">Used Balls in Stock</span>
@@ -755,7 +901,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="modal-actions">
                 <button id="ball-management-close-btn" class="action-btn">Done</button>
             </div>
@@ -772,6 +918,97 @@
                 </div>
             <div class="modal-actions">
                 <button id="ball-history-close-btn" class="action-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ball-sale-type-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Select Stock Type for Sale</h3>
+            </div>
+            <p style="text-align: center; color: var(--neutral-color);">Is the customer purchasing a can of new balls or a single old ball?</p>
+
+            <div class="modal-actions modal-grid-2x2" style="margin-top: 1rem;">
+                <button id="sale-type-cans-btn" class="action-btn confirm" data-stock-type="cans">New Balls (Cans)</button>
+                <button id="sale-type-singles-btn" class="action-btn neutral" data-stock-type="singles">Old Balls (Singles)</button>
+                <button id="sale-type-cancel-btn" class="action-btn cancel" style="grid-column: 1 / 3;">Cancel Sale</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="purchaser-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>Select Purchaser</h3>
+            </div>
+            <p id="purchaser-selection-prompt" style="color: var(--neutral-color);">Identify the member or guest purchasing the ball(s).</p>
+
+            <div class="list-container">
+                <div id="purchaser-member-abc-index" class="abc-index"></div>
+                <ul id="purchaser-member-list" class="modal-action-list scrollable"></ul>
+            </div>
+
+            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                <button id="purchaser-cancel-btn" class="action-btn cancel">Cancel</button>
+                <button id="purchaser-returning-guest-btn" class="action-btn neutral">Returning Guest</button>
+                <button id="purchaser-new-guest-btn" class="action-btn confirm">New Guest</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ball-history-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions" style="margin-bottom: 0.5rem;"> <h3>Transaction Details</h3>
+            </div>
+            <div id="ball-detail-content" class="scrollable" style="flex-grow: 1; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 1rem;"> <div class="checkout-stats-container" style="padding: 0.75rem 1rem; margin-bottom: 0.75rem;"> <h4 style="margin-bottom: 0.5rem; color: var(--primary-blue);">Summary</h4>
+                    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem;"> <div class="stat-item">
+                            <span class="stat-label">Stock Type</span>
+                            <strong id="detail-stock-type">Cans</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Category</span>
+                            <strong id="detail-category">Sale</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Date & Time</span>
+                            <strong id="detail-datetime" style="font-size: 1.1em;">2025/10/21, 14:00</strong> </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Quantity</span>
+                            <strong id="detail-count" style="color: var(--cancel-color);">-3</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkout-stats-container" style="padding: 0.75rem 1rem; margin-bottom: 0.75rem;"> <h4 style="margin-bottom: 0.5rem; color: var(--primary-blue);">Roles</h4>
+                    <div class="stats-grid" style="grid-template-columns: 1fr; gap: 0.25rem;"> <div class="stat-item" style="align-items: flex-start; text-align: left;">
+                            <span class="stat-label" id="detail-committee-label">Committee Member (Sign Out)</span>
+                            <strong id="detail-committee-member">Franco da Silva</strong>
+                        </div>
+                        <div class="stat-item" style="align-items: flex-start; text-align: left;">
+                            <span class="stat-label">Purchaser / Recipient</span>
+                            <strong id="detail-purchaser">Andre Pienaar</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkout-stats-container" style="padding: 0.75rem 1rem;"> <h4 style="margin-bottom: 0.5rem; color: var(--primary-blue);">Stock Levels</h4>
+                    <div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="stat-item">
+                            <span class="stat-label">Before</span>
+                            <strong id="detail-stock-before">18</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Change</span>
+                            <strong id="detail-stock-change" style="color: var(--cancel-color);">-3</strong>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">After</span>
+                            <strong id="detail-stock-after">15</strong>
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="modal-actions" style="margin-top: 0;"> <button id="ball-detail-close-btn" class="action-btn">Close</button>
             </div>
         </div>
     </div>
@@ -834,9 +1071,9 @@
             <div class="modal-header-with-actions">
                 <h3>New Parent Registration</h3>
             </div>
-            
+
             <div id="parent-collapsed-display" class="collapsed-area hidden"></div>
-            
+
             <div id="parent-fields">
                 <div class="score-input-area" style="flex-direction: column; align-items: stretch;">
                     <label for="parent-name-input">Parent First Name:</label>
@@ -885,7 +1122,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="remove-child-selection-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
@@ -924,11 +1161,11 @@
                 <h3 id="detail-parent-name">Parent Name</h3>
             </div>
             <p id="detail-date" style="font-size: 0.9em; color: var(--neutral-color); margin-bottom: 1rem;"></p>
-            
+
             <h4 style="margin-bottom: 0.5rem;">Attended Children:</h4>
             <ul id="detail-children-list" class="modal-action-list">
                 </ul>
-            
+
             <div class="modal-actions" style="margin-top: 1.5rem;">
                 <button id="detail-close-btn" class="action-btn cancel">Close</button>
                 <button id="detail-toggle-paid-btn" class="action-btn">Mark as Paid</button>
@@ -938,7 +1175,7 @@
 
     <div id="junior-club-roster-modal" class="modal-overlay hidden">
         <div class="modal-content wide full-height">
-            
+
             <div class="modal-header-with-actions">
                 <h3>Junior Club Roster</h3>
             </div>
@@ -946,7 +1183,7 @@
                 <div id="junior-club-roster-abc-index" class="abc-index"></div>
                 <ul id="junior-club-roster-list" class="modal-action-list scrollable"></ul>
             </div>
-            
+
             <div class="modal-actions">
                 <button id="roster-close-btn" class="action-btn cancel">Close</button>
             </div>
@@ -961,14 +1198,14 @@
             <div id="roster-detail-content" style="max-height: 40vh; overflow-y: auto;">
                 </div>
             <div class="modal-actions">
-                <button 
-                    id="roster-detail-close-btn" 
-                    class="action-btn cancel" 
+                <button
+                    id="roster-detail-close-btn"
+                    class="action-btn cancel"
                 >Close</button>
             </div>
         </div>
     </div>
-    
+
     <div id="manual-entry-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header-with-actions">
@@ -1033,7 +1270,7 @@
                 <p style="text-align: center; font-size: 1.1em; margin: 1.5rem 0;">
                     You cannot resume yet. Please wait for the cooldown to end.
                     <br><br>
-                    Time remaining: 
+                    Time remaining:
                     <strong id="cooldown-timer" style="font-size: 1.5em; color: var(--primary-blue);">10:00</strong>
                 </p>
                 <div class="modal-actions">
@@ -1058,7 +1295,7 @@
                     <button id="comparison-close-btn" class="action-btn cancel">Close</button>
                 </div>
             </div>
-        </div> 
+        </div>
 
     <div id="custom-announcement-modal" class="modal-overlay hidden">
         <div class="modal-content wide">
@@ -1096,6 +1333,145 @@
                 <button id="power-score-close-btn" class="action-btn cancel">Close</button>
             </div>
         </div>
+    </div>
+
+    <div id="event-list-modal" class="modal-overlay hidden">
+        <div class="modal-content wide full-height">
+            <div class="modal-header-with-actions">
+                <h3>Manage Club Events</h3>
+            </div>
+            <p>View, edit, or create new events. Use the toggle to control screensaver visibility.</p>
+            <ul id="event-list" class="modal-action-list scrollable">
+                </ul>
+            <div class="modal-actions">
+                <button id="close-event-list-btn" class="action-btn cancel">Close</button>
+                <button id="create-new-event-btn" class="action-btn confirm">Create New Event</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="event-create-edit-modal" class="modal-overlay hidden">
+        <div class="modal-content wide">
+            <div class="modal-header-with-actions">
+                 <h3 id="event-modal-title">Create New Event</h3>
+            </div>
+            <div class="event-form-grid scrollable"> <div class="form-group">
+                    <label for="event-type">Event Type:</label>
+                    <select id="event-type">
+                        <option value="Social" selected>Social</option>
+                        <option value="Club Champs">Club Champs</option>
+                        <option value="League">League</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="event-heading">Heading:</label>
+                    <input type="text" id="event-heading" readonly placeholder="Tap to enter heading">
+                </div>
+
+                <div class="form-group">
+                    <label for="event-date">Event Date:</label>
+                    <input type="date" id="event-date"> </div>
+                <div class="form-group">
+                    <label for="event-rsvp-date">RSVP Date:</label>
+                    <input type="date" id="event-rsvp-date"> </div>
+
+                <div class="form-group">
+                    <label for="event-start-time">Start Time:</label>
+                    <input type="time" id="event-start-time"> </div>
+
+                <div class="form-group span-two">
+                    <label for="event-body1">Body Text 1:</label>
+                    <textarea id="event-body1" class="event-body-input" readonly placeholder="Tap to enter details..."></textarea>
+                </div>
+                <div class="form-group span-two">
+                    <label for="event-body2">Body Text 2:</label>
+                    <textarea id="event-body2" class="event-body-input" readonly placeholder="Tap to enter more details..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="event-cost-adult">Adult Cost (R): <span class="slider-value">R0</span></label>
+                    <input type="range" id="event-cost-adult" min="0" max="500" step="10" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="event-cost-child">Child Cost (R): <span class="slider-value">R0</span></label>
+                    <input type="range" id="event-cost-child" min="0" max="250" step="5" value="0">
+                </div>
+                <div class="form-group span-two" id="event-discount-group" style="display: none;"> <label for="event-participation-discount">Participation Discount (%): <span class="slider-value">0%</span></label>
+                    <input type="range" id="event-participation-discount" min="0" max="100" step="5" value="0">
+                </div>
+
+
+                <div class="form-group">
+                    <label for="event-rsvp-text">RSVP Text:</label>
+                    <input type="text" id="event-rsvp-text" readonly placeholder="Tap for RSVP details (e.g., WhatsApp number)">
+                </div>
+                <div class="form-group checkbox-group">
+                    <label for="event-volunteers">Volunteers Needed?</label>
+                    <input type="checkbox" id="event-volunteers">
+                </div>
+
+
+                <div class="form-group span-two">
+                    <label for="event-contact">Contact Details:</label>
+                    <input type="text" id="event-contact" readonly placeholder="Tap for contact info (e.g., Name & Number)">
+                </div>
+
+                <div class="form-group span-two radio-group-container">
+                    <label>Open To:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="event-open-to" value="Full Members"> Full</label>
+                        <label><input type="radio" name="event-open-to" value="Social Members"> Social</label>
+                        <label><input type="radio" name="event-open-to" value="All Members" checked> All</label>
+                    </div>
+                    <div class="checkbox-group separate-checkbox">
+                        <label for="event-open-guests">Invited Guests?</label>
+                        <input type="checkbox" id="event-open-guests">
+                    </div>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="event-image1">Image 1:</label>
+                    <select id="event-image1">
+                        <option value="None">None</option>
+                        <option value="Braai.jpg">Braai</option>
+                        <option value="Tennis.jpg">Tennis</option>
+                        <option value="Rugby.jpg">Rugby</option>
+                        <option value="F1.jpg">Formula 1</option>
+                        <option value="Potjiekos.jpg">Potjiekos</option>
+                        <option value="ClubChamps.jpg">Club Champs</option>
+                        </select>
+                </div>
+                <div class="form-group">
+                    <label for="event-image2">Image 2:</label>
+                    <select id="event-image2">
+                        <option value="None">None</option>
+                        <option value="Braai.jpg">Braai</option>
+                        <option value="Tennis.jpg">Tennis</option>
+                        <option value="Rugby.jpg">Rugby</option>
+                        <option value="F1.jpg">Formula 1</option>
+                        <option value="Potjiekos.jpg">Potjiekos</option>
+                        <option value="ClubChamps.jpg">Club Champs</option>
+                        </select>
+                </div>
+
+                <div class="form-group span-two" id="interested-players-section" style="display: none;">
+                    <h4>Interested Players</h4>
+                    <ul id="interested-players-list" class="modal-action-list scrollable">
+                        </ul>
+                </div>
+            </div> <div class="modal-actions">
+                <button id="cancel-event-edit-btn" class="action-btn cancel">Cancel</button>
+                <button id="save-event-btn" class="action-btn confirm">Save Event</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screensaver-overlay" class="hidden">
+        <div id="screensaver-content">
+            </div>
     </div>
 
     <script src="script.js"></script>

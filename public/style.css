@@ -481,14 +481,17 @@ header h1 { margin: 0; }
 #manual-entry-modal .modal-content,
 #outside-player-modal .modal-content,
 #check-in-modal .modal-content,
-#check-out-modal .modal-content {
+#check-out-modal .modal-content,
+/* --- ADD THESE TWO LINES --- */
+#event-create-edit-modal .modal-content,
+#event-list-modal .modal-content {
+/* --- END ADD --- */
     max-height: 80vh !important;
     height: 80vh;
     display: flex;
     flex-direction: column;
-    /* ADDED: Ensure the content container allows its children (the lists) to stretch */
-    flex-grow: 1; 
-    min-height: 0; 
+    flex-grow: 1;
+    min-height: 0;
 }
 
 .gender-selector .radio-group {
@@ -729,6 +732,25 @@ header h1 { margin: 0; }
     color: var(--confirm-color);
     opacity: 0;
     animation: fadeCycleText 10s infinite ease-in-out;
+}
+
+
+/* Ensure the modal-actions container has minimal bottom margin */
+.modal-overlay .modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    /* CHANGE THIS LINE */
+    margin-bottom: 1rem; /* Reduced from 1.5rem to minimum */
+    /* Add this line to handle the grid layout specific to the sales modal */
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Ensure the button itself is not adding extra bottom margin */
+#ball-sale-type-modal .modal-actions button {
+    margin-bottom: 0 !important;
 }
 
 /* --- Add new grid style (Around line 597) --- */
@@ -2829,6 +2851,7 @@ header h1 { margin: 0; }
 
 #custom-alpha-keypad-modal {
     align-items: center;
+    z-index: 1005;
 }
 
 #alpha-keypad-grid {
@@ -3342,7 +3365,7 @@ input:checked + .slider:before {
     /* Add bottom padding to main content to account for fixed menu */
     body {
         padding-bottom: 80px; /* Increased from 60px */
-        padding-top: 65px; /* <-- ADD THIS LINE */
+        padding-top: 0px; /* <-- ADD THIS LINE */
     }
     
     /* Ensure main content area has proper spacing */
@@ -3364,6 +3387,16 @@ input:checked + .slider:before {
 
     body {
         padding-bottom: env(safe-area-inset-bottom);
+    }   
+
+    #custom-keypad-modal .keypad-content,
+    #custom-alpha-keypad-modal .keypad-content,
+    #court-mode-keypad-modal .keypad-content { /* Added court-mode keypad */
+        border-radius: 8px 8px 0 0;
+        max-width: 100%;
+        margin-bottom: 0;
+        /* ADD THIS LINE - Adjust 70px if needed based on menu bar height */
+        padding-bottom: 60px;
     }   
 
 
@@ -3503,13 +3536,7 @@ input:checked + .slider:before {
         align-items: flex-end;
     }
 
-    #custom-keypad-modal .keypad-content,
-    #custom-alpha-keypad-modal .keypad-content {
-        border-radius: 8px 8px 0 0;
-        max-width: 100%;
-        margin-bottom: 0;
-        padding-bottom: 1rem;
-    }
+
 
     /* Styles for the Weather Modal on mobile */
     .weather-main, .weather-main-forecast {
@@ -3809,11 +3836,14 @@ input:checked + .slider:before {
     }
 
     #custom-keypad-modal .keypad-content,
-    #custom-alpha-keypad-modal .keypad-content {
-        border-radius: 8px 8px 0 0; /* Rounds only the top corners */
-        max-width: 100%; /* Ensures it doesn't exceed screen width */
-        margin-bottom: 0; /* Removes any bottom margin */
-        padding-bottom: 1rem; /* ADD THIS LINE */
+    #custom-alpha-keypad-modal .keypad-content,
+    #court-mode-keypad-modal .keypad-content {
+        border-radius: 8px 8px 0 0;
+        max-width: 100%;
+        /* Keep original bottom padding or set to a small value */
+        padding-bottom: 1rem;
+        /* ADD THIS LINE to push the whole box up */
+        margin-bottom: 60px; /* Adjust this value if needed (menu height + extra space) */
     }
 
     #ball-management-modal .modal-content {
@@ -4131,6 +4161,53 @@ input:checked + .slider:before {
     background-color: var(--cancel-color) !important;
 }
 
+/* Ball History Detail Modal Condensing & Scroll */
+#ball-history-detail-modal .modal-content {
+    max-height: 75vh; /* Limit max height to allow scrolling */
+    padding: 1rem 1.5rem 0 1.5rem; /* Further reduce top/bottom padding */
+    display: flex; /* Ensure flex layout */
+    flex-direction: column; /* Stack header, content, footer */
+}
+
+#ball-history-detail-modal h3 {
+    margin-bottom: 0; /* Remove space below main title */
+}
+
+/* Reduce spacing within the stat items */
+#ball-history-detail-modal .stat-item strong {
+    font-size: 1.2em; /* Slightly smaller main value font */
+    line-height: 1.1;
+}
+#ball-history-detail-modal .stat-item .stat-label {
+    font-size: 0.8em; /* Slightly smaller label font */
+    margin-bottom: 0.1rem; /* Reduce space between label and value */
+}
+
+/* Ensure the scrollable container takes up available space */
+#ball-detail-content {
+    flex-grow: 1;
+    min-height: 0; /* Crucial for flex scrolling */
+    overflow-y: auto;
+    padding-right: 0.5rem; /* Space for scrollbar */
+    margin-bottom: 1rem; /* Space above footer */
+}
+
+/* Ensure the footer doesn't have extra top space */
+#ball-history-detail-modal .modal-actions {
+    margin-top: 0;
+    padding-top: 0.5rem; /* Minimal padding */
+    margin-bottom: 1rem; /* Space at the very bottom */
+}
+
+/* Style for scrollbar (optional, webkit browsers) */
+#ball-detail-content::-webkit-scrollbar {
+  width: 6px;
+}
+#ball-detail-content::-webkit-scrollbar-thumb {
+  background-color: var(--neutral-color);
+  border-radius: 3px;
+}
+
 @media (max-width: 700px) { /* ADD THIS NEW MEDIA QUERY */
     .ball-management-grid {
         grid-template-columns: 1fr; /* Stack to 1 column on smaller screens */
@@ -4147,7 +4224,8 @@ input:checked + .slider:before {
 /* Ball History Modal Styles */
 .ball-history-details {
     display: grid;
-    grid-template-columns: 1.5fr 1.5fr 0.5fr 0.5fr 0.5fr;
+    /* Date/Time | Before | Change | After */
+    grid-template-columns: 2fr 1fr 1fr 1fr; /* Adjusted column distribution */
     gap: 1rem;
     align-items: center;
     width: 100%;
@@ -5983,13 +6061,48 @@ header:not(.header-hidden) ~ .header-pull-tab {
     }
 
     .container {
-        padding: 65px 0.5rem 0.5rem 0.5rem; /* MODIFIED THIS LINE */
+        /* Keep the side and bottom padding */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        padding-bottom: 0.5rem;
+        padding-top: 0.5rem; /* Or adjust this as needed if you still want some minimal top padding */
     }
 
     /* Hidden state - both hide together */
     header.header-hidden {
         transform: translateY(-100%);
     }
+
+    /* Force a fixed height for the summary card on mobile */
+    .summary-card {
+        /* You can adjust this height (e.g., 400px, 450px) to fit your design. */
+        min-height: 588px !important; /* NEW: Increase the minimum height for the whole card */
+        
+    }
+
+    /* Ensure the body expands to fill the space */
+    .summary-card .card-body {
+        /* Overrides any default max-height on mobile if the card is not collapsed */
+        max-height: 1000px; 
+        flex: 1; /* Allows the body to grow */
+        display: flex; /* Ensures inner content can be managed by flex */
+        flex-direction: column;
+        justify-content: space-between; /* Keeps quote at the bottom */
+    }
+    
+    /* Ensure the quote section stretches to take up remaining space if needed */
+    .quote-section {
+        margin-top: auto; /* Push the quote section to the bottom */
+        padding-top: 1rem;
+    }
+    
+    /* Ensure available players list is correctly contained */
+    #availablePlayersSection {
+        max-height: 50rem !important; /* Keep existing safety net */
+    }
+
+
+
 
     #time-overlay.header-hidden {
         transform: translateY(-100%);
@@ -6330,6 +6443,64 @@ body {
     mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
 }
 
+/* --- Styles for the scrolling tennis ball container (Emoji Layout) --- */
+.scrolling-ball {
+    display: inline-block;      /* Keeps it in the text flow */
+    font-size: 2.0rem;          /* Overall size control */
+    vertical-align: middle;     /* Align container with text */
+    margin: 0 0.5rem 0 0.75rem; /* Spacing */
+    line-height: 1;             /* Consistent line height */
+    position: relative; /* Add this to enable vertical shifting */
+    top: -4px;
+    
+
+    /* Remove animation from outer span */
+}
+
+/* --- Styles for the INNER span (Emoji Centering & Animation) --- */
+.scrolling-ball > span {
+    display: flex;              /* Use Flexbox for centering */
+    align-items: center;        /* Vertically center content (the emoji) */
+    justify-content: center;    /* Horizontally center content (the emoji) */
+    width: 100%;                /* Ensure inner span fills outer */
+    height: 100%;               /* Ensure inner span fills outer */
+    animation-name: headerBallSpinHop;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-duration: 1s;
+    transform-origin: center center; /* Keep explicit origin */
+    
+}
+
+/* --- NEW: Styles for the scrolling flame icon --- */
+.scrolling-flame {
+    display: inline-block;
+    font-size: 2.5rem;      /* Match ball size */
+    vertical-align: middle;
+    transform: rotate(90deg); /* Rotate 90 degrees */
+    margin-right: 0.75rem; /* Space between flame and text */
+    margin-left: -1.5rem;
+    padding-right: 0.6rem;
+    /* Optional: Add a subtle pulse or flicker animation if desired */
+    animation: flicker 0.8s infinite alternate;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(90deg); }
+  25% { opacity: 0.6; transform: scale(0.98) rotate(90deg); }
+  50% { opacity: 0.8; transform: scale(1.02) rotate(90deg); }
+  75% { opacity: 0.5; transform: scale(0.96) rotate(90deg); }
+}
+
+/* --- NEW: Animation specifically for the header announcement ball --- */
+@keyframes headerBallSpinHop {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(90deg); }
+    50% { transform: rotate(180deg); }
+    75% { transform: rotate(270deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .scrolling-announcement {
     position: absolute;
     white-space: nowrap;
@@ -6447,3 +6618,1158 @@ body {
 #power-score-list .power-score-grid-row > .sort-btn:first-child {
     text-align: left;
 }
+
+/* =================================
+    Suggestion Settings Modal (NEW)
+   ================================= */
+
+#suggestion-settings-modal .modal-content {
+    max-width: 600px;
+    /* --- MODIFIED: Ensure modal itself can shrink/grow slightly --- */
+    max-height: 85vh; /* Allow modal to use more vertical space */
+    display: flex;     /* Enable flexbox */
+    flex-direction: column; /* Stack header, content, footer */
+}
+.suggestion-settings-container {
+    display: flex;
+    flex-direction: column;
+    /* --- MODIFIED: Reduce gap between items --- */
+    gap: 0.5rem; /* Reduced from 1.5rem */
+    margin-top: 1rem;
+    /* --- NEW: Enable scrolling --- */
+    flex-grow: 1;      /* Allow container to fill available space */
+    overflow-y: auto;  /* Add vertical scrollbar if needed */
+    min-height: 0;     /* Required for flex scrolling */
+    padding-right: 0.5rem; /* Space for scrollbar */
+    margin-bottom: 1rem; /* Space above footer */
+}
+
+.setting-item {
+    padding-bottom: 1rem; /* Reduced from 1.5rem */
+    border-bottom: 1px solid var(--border-color);
+}
+.setting-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+/* Optional: Reduce margin for compact notes further if needed */
+.setting-note.compact {
+    margin-top: 0.25rem;
+    margin-bottom: -0.25rem; /* Further reduced */
+}
+
+/* Ensure footer doesn't have extra top space */
+#suggestion-settings-modal .modal-actions {
+     margin-top: 0; /* Remove top margin */
+     padding-top: 0.5rem; /* Add minimal top padding */
+     margin-bottom: 1rem; /* Ensure space below buttons */
+     flex-shrink: 0; /* Prevent footer from shrinking */
+}
+
+/* Add scrollbar styling (optional, webkit) */
+.suggestion-settings-container::-webkit-scrollbar {
+  width: 6px;
+}
+.suggestion-settings-container::-webkit-scrollbar-thumb {
+  background-color: var(--neutral-color);
+  border-radius: 3px;
+}
+
+/* Specific styles for toggle items */
+.power-score-toggle-container,
+.least-playtime-toggle-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.setting-item label:not(.switch) {
+    font-weight: 500;
+    font-size: calc(1rem * var(--font-size-multiplier));
+}
+
+
+
+/* Styles for slider items */
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: calc(0.85rem * var(--font-size-multiplier));
+    color: var(--neutral-color);
+    margin-bottom: 0.5rem;
+    padding: 0 5px; /* Align with slider ends */
+}
+
+input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--primary-blue); /* Color the slider track/thumb */
+}
+
+.slider-percentage {
+    display: block;
+    text-align: center;
+    margin-top: 0.5rem;
+    font-weight: bold;
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+    color: var(--primary-blue);
+}
+
+/* Fade/Disable effect */
+.setting-item.disabled {
+    opacity: 0.4;
+    pointer-events: none; /* Prevent interaction */
+}
+
+#suggestion-settings-modal .modal-actions button {
+    width: 150px; /* Set a fixed width for the 'Done' button */
+    flex-grow: 0;
+}
+
+/* Ensure admin icon button inherits styles */
+#suggestion-settings-btn {
+     /* Inherit styles like padding, font-size, color, etc. */
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--neutral-color);
+    transition: color 0.2s;
+    padding: 0;
+    line-height: 1;
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    text-align: center;
+}
+#suggestion-settings-btn:hover {
+    color: var(--primary-blue);
+}
+#suggestion-settings-btn i {
+    font-size: 1.5rem; /* Ensure icon size is consistent */
+    line-height: 1;
+}
+
+/* Styles for NEW slider items */
+.top-player-container,
+.frequent-opponent-container,
+.weak-player-container {
+    /* Inherits general slider styles */
+    /* Add specific styles if needed */
+}
+
+/* Adjust setting note for compactness */
+.setting-note.compact {
+    font-size: 0.8em; /* Make note text slightly smaller */
+    margin-top: 0.25rem; /* Reduce space above note */
+    margin-bottom: -0.5rem; /* Pull note closer to bottom border */
+    text-align: center;
+    color: var(--neutral-color);
+}
+
+/* Ensure disabled state applies to new containers */
+.setting-item.top-player-container.disabled,
+.setting-item.frequent-opponent-container.disabled,
+.setting-item.weak-player-container.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Style for the new checklist icon button */
+#checklist-btn i {
+    color: var(--confirm-color); /* Green color */
+}
+#checklist-btn:hover i {
+     color: var(--primary-blue); /* Keep hover effect consistent */
+}
+
+/* =================================
+    Admin Checklist Modal (NEW)
+   ================================= */
+
+#checklist-modal .modal-content {
+    max-width: 600px; /* Same width as suggestion settings */
+    /* Ensure content doesn't get too tall */
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.checklist-container {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    flex-grow: 1; /* Allow list to take available space */
+    overflow-y: auto; /* Enable scrolling if list is long */
+    min-height: 0; /* Necessary for flex scroll */
+}
+
+.checklist-item {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.checklist-item:last-child {
+    border-bottom: none;
+}
+
+.checklist-item label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    flex-grow: 1; /* Make label take full width */
+    font-size: calc(1rem * var(--font-size-multiplier));
+}
+
+.checklist-item input[type="checkbox"] {
+    margin-right: 1rem;
+    width: 1.2em; /* Slightly larger checkbox */
+    height: 1.2em;
+    accent-color: var(--primary-blue); /* Color the checkbox */
+}
+
+/* Style for checked items (optional: line-through) */
+.checklist-item input[type="checkbox"]:checked + span {
+    text-decoration: line-through;
+    color: var(--neutral-color);
+    font-style: italic;
+}
+
+#checklist-modal .modal-actions button {
+    width: 150px; /* Fixed width for Done button */
+    flex-grow: 0;
+}
+
+#checklist-modal #checklist-history-btn {
+    /* Styles if needed, e.g., color */
+    color: var(--neutral-color);
+}
+#checklist-modal #checklist-history-btn:hover {
+    color: var(--primary-blue);
+}
+
+/* =================================
+    Checklist History Modal (NEW)
+   ================================= */
+
+#checklist-history-modal .modal-content {
+    max-height: 85vh; /* Allow more height */
+    display: flex;
+    flex-direction: column;
+}
+
+#checklist-history-list-view,
+#checklist-history-detail-view {
+    flex-grow: 1; /* Allow content to fill space */
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Necessary for scroll */
+}
+
+#checklist-history-list-view.hidden,
+#checklist-history-detail-view.hidden {
+    display: none;
+}
+
+#checklist-history-list {
+    margin: 0; /* Remove default margins */
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    flex-grow: 1; /* Make list fill space */
+}
+
+ #checklist-history-list li {
+    cursor: pointer;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    font-weight: 500;
+ }
+ #checklist-history-list li:hover {
+    background-color: #f8f9fa;
+ }
+ #checklist-history-list li:last-child {
+     border-bottom: none;
+ }
+
+#checklist-history-detail {
+    margin: 0; /* Override default margins */
+    /* Inherits .checklist-container styles for border/scroll */
+}
+
+/* Read-only styling for history detail */
+.checklist-container.read-only .checklist-item label {
+    cursor: default; /* Not interactive */
+}
+.checklist-container.read-only .checklist-item input[type="checkbox"] {
+    pointer-events: none; /* Disable interaction */
+    opacity: 0.7;
+}
+.checklist-container.read-only .checklist-item input[type="checkbox"]:checked + span {
+    /* Keep line-through for clarity */
+    text-decoration: line-through;
+    color: var(--neutral-color);
+    font-style: italic;
+}
+ .checklist-container.read-only .checklist-item input[type="checkbox"]:not(:checked) + span {
+    /* Ensure unchecked items look normal but aren't interactive */
+     text-decoration: none;
+     color: var(--dark-text);
+     font-style: normal;
+}
+
+
+/* Checklist Section Headers */
+.checklist-section-header {
+    background-color: #f8f9fa;
+    padding: 0.6rem 1rem;
+    margin: 0; /* Remove margin */
+    font-weight: bold;
+    color: var(--primary-blue);
+    border-bottom: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+}
+.checklist-container > .checklist-section-header:first-of-type {
+    border-top: none; /* Remove top border for the very first header */
+}
+
+#checklist-history-modal .modal-actions {
+    justify-content: center; /* Center buttons */
+    gap: 1rem;
+}
+ #checklist-history-modal .modal-actions button.hidden {
+    display: none;
+ }
+
+ /* Ensure Checklist History Button inherits admin icon styles */
+#checklist-modal .admin-icon-btn {
+    background: none; /* Explicitly set background to none */
+    border: none;
+    /* Apply size multiplier to font size */
+    font-size: calc(1.5rem * var(--display-size-multiplier));
+    cursor: pointer;
+    color: var(--neutral-color);
+    transition: color 0.2s;
+    padding: 0;
+    line-height: 1;
+    display: inline-block;
+    /* Apply size multiplier to width and height */
+    width: calc(28px * var(--display-size-multiplier));
+    height: calc(28px * var(--display-size-multiplier));
+    text-align: center;
+}
+
+#checklist-modal .admin-icon-btn:hover {
+    color: var(--primary-blue);
+}
+
+/* Ensure the icon itself scales */
+#checklist-modal .admin-icon-btn i {
+     font-size: calc(1.5rem * var(--display-size-multiplier));
+     line-height: 1;
+}
+
+/* =================================
+    Event Management Modals (NEW)
+   ================================= */
+
+/* Event List Modal */
+#event-list-modal .modal-content {
+    max-width: 800px; /* Wider modal */
+}
+
+#event-list {
+    margin-top: 1rem; /* Space above list */
+    border-top: 1px solid var(--border-color); /* Separator */
+}
+
+.event-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+.event-list-item:last-child {
+    border-bottom: none;
+}
+
+.event-summary {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    margin-right: 1rem;
+}
+
+.event-heading {
+    font-weight: 500;
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+}
+
+.event-date {
+    font-size: calc(0.9rem * var(--font-size-multiplier));
+    color: var(--neutral-color);
+}
+
+.event-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.event-controls .edit-event-btn {
+    padding: 0.5rem 1rem;
+    font-size: calc(0.9rem * var(--font-size-multiplier));
+    background-color: var(--neutral-color);
+    border: none;
+    color: white;
+}
+.event-controls .edit-event-btn:hover {
+    background-color: var(--neutral-hover-color);
+}
+
+/* Event Create/Edit Modal */
+#event-create-edit-modal .modal-content {
+    max-height: 85vh; /* Allow more height for scrolling */
+    display: flex; /* Needed for scrollable area */
+    flex-direction: column;
+}
+
+/* Style the logo similar to checkout modal */
+#event-create-edit-modal .checkout-thanks-logo {
+    display: block;
+    margin: -1rem auto 1rem auto; /* Adjust margins as needed */
+    height: 70px;
+    width: auto;
+    filter: url(#recolor-to-primary-blue);
+    pointer-events: none;
+}
+
+.event-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns */
+    gap: 1rem 1.5rem; /* Row gap, Column gap */
+    margin-top: 1rem;
+    flex-grow: 1; /* Allows this area to scroll */
+    overflow-y: auto; /* Enable vertical scroll */
+    min-height: 0; /* Important for flex scroll */
+    padding: 0.5rem; /* Padding inside scroll area */
+    margin-bottom: 1rem; /* Space before modal actions */
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.span-two {
+    grid-column: span 2; /* Make element span both columns */
+}
+
+.form-group label {
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+    font-size: calc(0.9rem * var(--font-size-multiplier));
+    color: var(--primary-blue);
+}
+
+/* Style inputs, select */
+#event-create-edit-modal input[type="text"],
+#event-create-edit-modal input[type="date"],
+#event-create-edit-modal input[type="time"],
+#event-create-edit-modal select {
+    padding: 0.6rem 0.8rem;
+    font-size: calc(1rem * var(--font-size-multiplier));
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    box-sizing: border-box; /* Include padding in width */
+    width: 100%; /* Make inputs fill column */
+}
+/* Readonly inputs (for keypad) */
+/* --- MODIFIED: Style for multiline body text textareas --- */
+#event-create-edit-modal .event-body-input {
+    /* Set a fixed height that fits ~3 lines and prevent resizing */
+    height: 100px; /* Adjusted height for clean 3-4 line display */
+    min-height: 100px; /* Ensure minimum height */
+    resize: none;
+    /* Reset padding from the previous attempt, use standard padding */
+    padding: 0.6rem 0.8rem;
+    font-size: calc(1rem * var(--font-size-multiplier));
+    line-height: 1.5; /* Ensure spacing between lines */
+    box-sizing: border-box;
+    /* Ensure text aligns to the top */
+    vertical-align: top; 
+}
+
+/* Readonly inputs (for keypad) */
+#event-create-edit-modal input[readonly],
+#event-create-edit-modal textarea[readonly] { /* ADDED: textarea[readonly] */
+    background-color: #e9ecef; 
+    cursor: pointer;
+}
+
+/* Slider value display */
+.slider-value {
+    font-weight: bold;
+    color: var(--dark-text);
+}
+
+/* Range slider styling */
+#event-create-edit-modal input[type="range"] {
+    width: 100%;
+    margin-top: 0.5rem;
+    cursor: pointer;
+}
+
+/* Checkbox group styling */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem; /* Align with other fields */
+}
+.checkbox-group label {
+    margin-bottom: 0; /* Reset label margin */
+    color: var(--dark-text); /* Standard text color */
+    font-weight: normal;
+}
+.checkbox-group input[type="checkbox"] {
+    width: 1.1em;
+    height: 1.1em;
+}
+
+/* Radio button group styling */
+.radio-group-container {
+    display: flex;
+    flex-direction: column; /* Stack label and buttons */
+}
+.radio-group-container > label { /* Target only the main label */
+     margin-bottom: 0.3rem;
+     font-weight: 500;
+     font-size: calc(0.9rem * var(--font-size-multiplier));
+     color: var(--primary-blue);
+}
+.radio-group-container .radio-group {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    justify-content: space-around; /* Distribute options */
+}
+.radio-group-container .radio-group label {
+    margin-bottom: 0;
+    font-weight: normal;
+    color: var(--dark-text);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.separate-checkbox {
+     margin-top: 0.8rem;
+     padding-top: 0.8rem;
+     border-top: 1px dashed var(--border-color);
+}
+
+
+/* Interested Players List (Admin View) */
+#interested-players-section h4 {
+    margin-bottom: 0.5rem;
+    color: var(--primary-blue);
+}
+#interested-players-list {
+    max-height: 150px; /* Limit height */
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 0;
+    margin: 0;
+}
+#interested-players-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    font-size: calc(0.95rem * var(--font-size-multiplier));
+    border-bottom: 1px solid #f0f0f0;
+}
+#interested-players-list li:last-child {
+    border-bottom: none;
+}
+
+
+/* =================================
+    Screensaver Styles (NEW)
+   ================================= */
+
+#screensaver-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh; /* Cover full viewport height */
+    background-color: rgba(0, 0, 0, 0.9); /* Semi-transparent black */
+    z-index: 9999;
+    display: flex; /* Use flex to center content */
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 1s ease-in-out, visibility 0s linear 1s; /* Fade transition */
+    cursor: pointer; /* Indicate it can be clicked to close */
+    overflow: hidden; /* Prevent content overflow */
+}
+
+#screensaver-overlay:not(.hidden) {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 1s ease-in-out, visibility 0s linear 0s;
+}
+
+#screensaver-content {
+    width: 90%; /* Adjust width as needed */
+    max-width: 1200px; /* Max width for large screens */
+    height: 90%; /* Adjust height */
+    max-height: 800px; /* Max height */
+    background-color: var(--primary-blue); /* Match image background */
+    color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-sizing: border-box;
+    position: relative; /* For absolute positioning inside */
+    background-size: cover; /* Cover the area */
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0; /* Start hidden for fade */
+    transition: opacity 1s ease-in-out; /* Fade content */
+    display: flex;
+    flex-direction: column;
+}
+
+#screensaver-content.visible {
+    opacity: 1;
+}
+
+/* Logo specific styling */
+.screensaver-logo {
+    display: block;
+    height: 80px; /* Adjust size */
+    width: auto;
+    margin: 0 auto 1.5rem auto; /* Center and space below */
+    filter: brightness(0) invert(1); /* Make logo white */
+}
+
+.screensaver-heading {
+    text-align: center;
+    font-size: calc(2.5rem * var(--font-size-multiplier)); /* Large heading */
+    margin: 0 0 1rem 0;
+    color: var(--yellow); /* Match image yellow */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+}
+
+.screensaver-details {
+    flex-grow: 1; /* Take remaining space */
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for details */
+    gap: 0.5rem 2rem; /* Row gap, Column gap */
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+    line-height: 1.5;
+    overflow-y: auto; /* Allow scrolling if content overflows */
+    padding: 1rem;
+    background-color: rgba(0, 0, 0, 0.3); /* Slightly darker background for text */
+    border-radius: 8px;
+    margin-bottom: 1.5rem; /* Space before button */
+}
+
+.screensaver-details p {
+    margin: 0.3rem 0;
+    display: flex; /* Align label and value */
+    justify-content: space-between;
+}
+.screensaver-details strong {
+    color: var(--yellow); /* Highlight labels */
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+.screensaver-details span {
+    text-align: right; /* Align values to the right */
+}
+
+
+/* Spanning elements */
+.screensaver-body1,
+.screensaver-body2,
+.screensaver-contact,
+.screensaver-open-to {
+    grid-column: span 2;
+    justify-content: flex-start; /* Align full-width items left */
+}
+.screensaver-body1 span,
+.screensaver-body2 span,
+.screensaver-contact span,
+.screensaver-open-to span {
+    text-align: left;
+    white-space: normal; /* Allow body text to wrap */
+}
+
+
+/* Style the "I am interested" button */
+#screensaver-interested-btn {
+    padding: 0.8rem 1.5rem;
+    font-size: calc(1.2rem * var(--font-size-multiplier));
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: var(--confirm-color);
+    color: white;
+    border: none;
+    transition: background-color 0.2s;
+    width: fit-content; /* Size to content */
+    margin: 0 auto; /* Center button */
+    z-index: 10000; /* Ensure it's clickable above overlay */
+}
+
+#screensaver-interested-btn:hover {
+    background-color: var(--confirm-hover-color);
+}
+
+/* Styles for showing the main app view during screensaver */
+#screensaver-overlay.show-main-app {
+    background-color: transparent; /* Make overlay transparent */
+    pointer-events: none; /* Allow interaction with underlying app */
+}
+
+#screensaver-overlay.show-main-app #screensaver-content {
+    display: none; /* Hide event content */
+}
+
+
+/* --- NEW: Icon Input Group Styling --- */
+.icon-input-group {
+    position: relative; /* Needed for absolute positioning of the icon */
+}
+
+.icon-input-group i.mdi {
+    position: absolute;
+    left: 10px; /* Adjust as needed */
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: calc(1.5rem * var(--font-size-multiplier)); /* Adjust icon size */
+    color: var(--neutral-color); /* Icon color */
+    pointer-events: none; /* Make icon non-interactive */
+}
+
+/* Adjust input padding to make space for the icon */
+.icon-input-group input[type="text"] {
+    padding-left: 40px !important; /* Increase left padding */
+}
+
+
+/* --- Responsive adjustments for Event form --- */
+@media (max-width: 600px) {
+    .event-form-grid {
+        grid-template-columns: 1fr; /* Stack to single column */
+    }
+    .form-group.span-two {
+        grid-column: span 1; /* Reset span */
+    }
+    #event-create-edit-modal .modal-content {
+        padding: 1rem; /* Reduce padding on mobile */
+    }
+    .screensaver-details {
+        grid-template-columns: 1fr; /* Stack details */
+         font-size: calc(1rem * var(--font-size-multiplier));
+    }
+     .screensaver-details p {
+        flex-direction: column; /* Stack label/value on mobile */
+        align-items: center;
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+    .screensaver-details strong {
+        margin-right: 0;
+        margin-bottom: 0.2rem;
+    }
+    .screensaver-details span {
+        text-align: center;
+    }
+    /* Reset spans for stacked items */
+    .screensaver-body1,
+    .screensaver-body2,
+    .screensaver-contact,
+    .screensaver-open-to {
+        grid-column: span 1;
+    }
+    .screensaver-body1 span,
+    .screensaver-body2 span,
+    .screensaver-contact span,
+    .screensaver-open-to span {
+        text-align: center;
+    }
+}
+/* =================================
+    Event Create/Edit Header Alignment
+================================= */
+
+/* 1. Ensure the Logo is explicitly hidden */
+#event-create-edit-modal .checkout-thanks-logo {
+    display: none !important;
+}
+
+/* 2. Style the header container for left alignment and vertical spacing */
+#event-create-edit-modal .modal-header-with-actions {
+    justify-content: flex-start;
+    padding: 0;
+    /* MODIFIED: Align margin with Event List */
+    margin-bottom: 1rem;
+}
+
+/* 3. Ensure the h3 title itself has clean margins */
+#event-create-edit-modal .modal-header-with-actions h3 {
+    margin: 0;
+}
+
+/* 4. Ensure the modal content container has reduced top padding */
+#event-create-edit-modal .modal-content {
+    /* MODIFIED: Align padding with Event List */
+    padding: 1rem 2rem 0.5rem 2rem !important;
+}
+
+/* 5. Eliminate the default top margin on the form grid */
+#event-create-edit-modal .event-form-grid {
+    margin-top: 0 !important; 
+}
+
+/* 6. Reduce bottom margin on the action buttons container */
+#event-create-edit-modal .modal-actions {
+     /* MODIFIED: Align margin with Event List */
+    margin-bottom: 1rem !important;
+}
+
+
+/* =================================
+    Event List Header/Footer Alignment (NEW)
+================================= */
+
+/* 1. Reduce top padding for the modal content to lift the header */
+#event-list-modal .modal-content {
+    padding-top: 1rem !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* 2. Left-align the header title and adjust bottom margin */
+#event-list-modal .modal-header-with-actions {
+     /* MODIFIED: Changed from justify-content: center */
+    justify-content: flex-start;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+/* 3. Ensure the h3 title itself has clean margins */
+#event-list-modal .modal-header-with-actions h3 {
+    margin: 0;
+}
+
+/* 4. Remove default top margin from the paragraph below the header */
+#event-list-modal .modal-content > p {
+    margin-top: 0 !important;
+    margin-bottom: 1rem; /* Keep some space above the list */
+}
+
+/* 5. Ensure the list container starts flush below the paragraph */
+#event-list-modal #event-list {
+    margin-top: 0 !important; 
+}
+
+/* 6. Reduce bottom margin on the action buttons container */
+#event-list-modal .modal-actions {
+    margin-bottom: 1rem !important; /* Standardized to 1rem */
+    padding-top: 0.5rem;
+}
+
+#event-create-edit-modal .modal-actions {
+    margin-bottom: 1rem !important; /* Reduced from 1.5rem or default */
+}
+
+/* =================================
+    Global Keyboard Styles (BASE - applies to ALL)
+   ================================= */
+
+:root {
+    --keyboard-bg: #e9ecef;
+    --key-bg: #ffffff;
+    --key-special-bg: #a8d5ff; /* Light blue for special keys */
+    --key-text-color: var(--dark-text);
+    --key-action-bg: var(--primary-blue);
+    --key-action-text: white;
+    --key-shadow: 0 3px 0 #adb5bd;
+    --key-special-shadow: 0 3px 0 #7ab8ec; /* Darker light blue for 3D effect */
+    --key-action-shadow: 0 3px 0 #7ab8ec;
+    --keyboard-gap: 5px;
+}
+
+/* Global Overlay */
+.global-keyboard-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 10000;
+    padding: 0;
+}
+.global-keyboard-overlay.hidden {
+    display: none;
+}
+
+/* Keyboard Content Container */
+.global-keyboard-overlay .keyboard-content {
+    background: var(--keyboard-bg);
+    width: 100%;
+    max-width: 100%;
+    border-radius: 10px 10px 0 0;
+    padding: 6px;
+    box-sizing: border-box;
+    padding-bottom: calc(6px + 60px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Display Field */
+#global-keyboard-display {
+    font-size: calc(1.2rem * var(--font-size-multiplier));
+    min-height: 40px;
+    background: white;
+    border-radius: 5px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    color: var(--key-text-color);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    white-space: pre-wrap;
+    min-height: 1.5em;
+}
+
+/* Main Key Grid */
+#global-keyboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--keyboard-gap);
+}
+
+/* Row wrapper */
+.keyboard-row {
+    display: grid;
+    gap: var(--keyboard-gap);
+    width: 100%;
+}
+
+/* Base Key Styles (ALL KEYS) */
+.global-keypad-btn {
+    padding: 10px 0;
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+    font-weight: 500;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    color: var(--key-text-color);
+    background-color: var(--key-bg);
+    box-shadow: var(--key-shadow);
+    line-height: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+}
+
+.global-keypad-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #adb5bd;
+}
+
+.global-keypad-btn.key-special {
+    background-color: var(--key-special-bg);
+    box-shadow: var(--key-special-shadow);
+}
+
+.global-keypad-btn.key-special:active {
+    box-shadow: 0 1px 0 #7ab8ec;
+}
+
+.global-keypad-btn.key-action {
+    background-color: var(--key-action-bg);
+    color: var(--key-action-text);
+    box-shadow: var(--key-action-shadow);
+}
+
+.global-keypad-btn.key-action:active {
+    box-shadow: 0 1px 0 #7ab8ec;
+}
+
+/* =================================
+    LETTER PAD SPECIFIC STYLES
+   ================================= */
+
+/* First Row (QWERTY) */
+.keyboard-content[data-page="LetterPad"] .row-0 {
+    grid-template-columns: repeat(10, 1fr) !important;
+}
+
+/* Second Row (ASDFGHJKL) - 9 keys centered */
+.keyboard-content[data-page="LetterPad"] .row-1 {
+    grid-template-columns: repeat(9, 1fr) !important;
+    width: 90%;
+    margin: 0 auto;
+}
+
+/* Third Row (SHIFT ZXC...) */
+.keyboard-content[data-page="LetterPad"] .row-2 {
+    grid-template-columns: 1.5fr repeat(7, 1fr) 1.5fr !important;
+}
+
+/* Fourth Row (NAV) */
+.keyboard-content[data-page="LetterPad"] .row-3 {
+    grid-template-columns: 1.45fr 1fr 5.1fr 1fr 1.45fr !important;
+}
+
+/* =================================
+    SYMBOLS P1 SPECIFIC STYLES
+   ================================= */
+
+.keyboard-content[data-page="SymbolsP1"] .row-0,
+.keyboard-content[data-page="SymbolsP1"] .row-1 {
+    grid-template-columns: repeat(10, 1fr) !important;
+}
+
+.keyboard-content[data-page="SymbolsP1"] .row-2 {
+    grid-template-columns: 1.5fr repeat(6, 1fr) 1.5fr !important;
+    width: 90% !important;
+}
+
+.keyboard-content[data-page="SymbolsP1"] .row-3 {
+    grid-template-columns: 1.45fr 1fr 5.1fr 1fr 1.45fr !important;
+}
+
+/* =================================
+    SYMBOLS P2 SPECIFIC STYLES
+   ================================= */
+
+.keyboard-content[data-page="SymbolsP2"] .row-0,
+.keyboard-content[data-page="SymbolsP2"] .row-1 {
+    grid-template-columns: repeat(10, 1fr) !important;
+}
+
+.keyboard-content[data-page="SymbolsP2"] .row-2 {
+    grid-template-columns: 1.5fr repeat(6, 1fr) 1.5fr !important;
+}
+
+.keyboard-content[data-page="SymbolsP2"] .row-3 {
+    grid-template-columns: 1.45fr 1fr 5.1fr 1fr 1.45fr !important;
+}
+
+/* =================================
+    NUMBER PAD SPECIFIC STYLES
+   ================================= */
+
+/* Container adjustments */
+.keyboard-content[data-page="NumberPad"] {
+    --keyboard-gap: 8px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* All NumberPad rows are full width */
+.keyboard-content[data-page="NumberPad"] .keyboard-row {
+    width: 100% !important;
+    margin: 0 !important;
+}
+
+/* Rows 0-2: 5 equal columns */
+.keyboard-content[data-page="NumberPad"] .row-0,
+.keyboard-content[data-page="NumberPad"] .row-1,
+.keyboard-content[data-page="NumberPad"] .row-2 {
+    grid-template-columns: 1fr 1.5fr 1.5fr 1.5fr 1fr !important;
+}
+
+/* Row 3: 7 equal columns */
+.keyboard-content[data-page="NumberPad"] .row-3 {
+    grid-template-columns: 1.05fr 0.7125fr 0.7125fr 1.55fr 0.7125fr 0.7125fr 1.05fr !important;
+}
+
+/* NumberPad key adjustments */
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn {
+    min-width: 0 !important;
+    padding: 10px 4px !important;
+}
+
+/* Number keys styling */
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="0"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="1"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="2"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="3"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="4"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="5"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="6"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="7"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="8"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="9"] {
+    font-weight: 600;
+    font-size: calc(1.3rem * var(--font-size-multiplier));
+}
+
+/* Operator keys styling */
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="+"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="-"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="*"],
+.keyboard-content[data-page="NumberPad"] .global-keypad-btn[data-key="="] {
+    font-size: calc(1.4rem * var(--font-size-multiplier));
+    font-weight: 700;
+}
+
+/* =================================
+    EMOJI PAGE STYLES
+   ================================= */
+
+#emoji-search-container:not(.active-page) {
+    display: none !important;
+}
+
+.emoji-grid {
+    display: grid !important;
+    grid-template-columns: repeat(8, 1fr) !important;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.emoji-grid .global-keypad-btn {
+    font-size: 1.5rem;
+    padding: 8px;
+    text-transform: none;
+}
+
+/* =================================
+    DESKTOP OVERRIDES
+   ================================= */
+
+@media (min-width: 901px) {
+    .global-keyboard-overlay .keyboard-content {
+        max-width: 800px;
+        border-radius: 10px;
+        padding-bottom: 6px;
+    }
+    
+    .keyboard-content[data-page="NumberPad"] {
+        max-width: 500px !important;
+    }
+}
+
+
+
