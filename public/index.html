@@ -1084,10 +1084,34 @@
                     <input type="text" id="parent-surname-input" readonly placeholder="Tap to enter surname" style="width: 100%;">
                 </div>
                 <div class="score-input-area" style="flex-direction: column; align-items: stretch; margin-top: 1rem;">
-                    <label for="parent-phone-input">Parent Phone (Mandatory):</label>
-                    <input type="tel" id="parent-phone-input" readonly placeholder="Tap to enter number" style="width: 100%;">
+                    <label for="parent-email-input">Email Address (Mandatory):</label>
+                    <input type="email" id="parent-email-input" readonly placeholder="Tap to enter email" style="width: 100%;">
+                </div>
+                <div class="score-input-area" style="flex-direction: column; align-items: stretch; margin-top: 1rem;">
+                    <label for="parent-phone-input">Phone Number (Mandatory):</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="parent-country-code" style="width: 120px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 5px; background: white;">
+                            <option value="+27" selected>🇿🇦 +27</option>
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+44">🇬🇧 +44</option>
+                            <option value="+61">🇦🇺 +61</option>
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+86">🇨🇳 +86</option>
+                            <option value="+81">🇯🇵 +81</option>
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+33">🇫🇷 +33</option>
+                            <option value="+39">🇮🇹 +39</option>
+                            <option value="+34">🇪🇸 +34</option>
+                            <option value="+55">🇧🇷 +55</option>
+                            <option value="+52">🇲🇽 +52</option>
+                            <option value="+7">🇷🇺 +7</option>
+                            <option value="+82">🇰🇷 +82</option>
+                        </select>
+                        <input type="tel" id="parent-phone-input" readonly placeholder="Tap to enter number" style="flex: 1;">
+                    </div>
                 </div>
             </div>
+
 
             <div id="children-container-wrapper">
                 <h4 style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Children Details</h4>
@@ -1217,10 +1241,11 @@
                 <div id="manual-player-abc-index" class="abc-index"></div>
                 <ul id="manual-player-list" class="modal-action-list scrollable"></ul>
             </div>
-            <div class="modal-actions">
+            <div class="modal-actions" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
                 <button id="manual-entry-cancel-btn" class="action-btn cancel">Close</button>
-                <button id="add-outside-player-btn" class="action-btn">Checked Out</button>
-                <button id="manual-entry-confirm-btn" class="action-btn" disabled>Confirm</button>
+                <button id="add-outside-player-btn" class="action-btn neutral">Checked Out</button>
+                <button id="manual-add-guest-btn" class="action-btn confirm" style="grid-column: 1 / 2;">New Guest</button>
+                <button id="manual-entry-confirm-btn" class="action-btn confirm" disabled style="grid-column: 2 / 4;">Confirm</button>
             </div>
         </div>
     </div>
@@ -1372,10 +1397,12 @@
 
                 <div class="form-group">
                     <label for="event-date">Event Date:</label>
-                    <input type="date" id="event-date"> </div>
+                    <input type="date" id="event-date">
+                 </div>
                 <div class="form-group">
                     <label for="event-rsvp-date">RSVP Date:</label>
-                    <input type="date" id="event-rsvp-date"> </div>
+                    <input type="date" id="event-rsvp-date">
+                </div>
 
                 <div class="form-group">
                     <label for="event-start-time">Start Time:</label>

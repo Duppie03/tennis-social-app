@@ -1677,6 +1677,10 @@ header h1 { margin: 0; }
 }
 
 
+#global-keyboard-modal {
+    z-index: 1100;
+}
+
 /* =================================
     MODAL & ACTION BUTTON STYLES
     ================================= */
@@ -1883,10 +1887,7 @@ header h1 { margin: 0; }
 }
 
 
-#end-game-modal .modal-actions button,
-#manual-entry-modal .modal-actions button {
-    flex: 1;
-}
+
 
 /* --- NEW: Ensure End Game Modal is on top --- */
 #end-game-modal {
@@ -3300,10 +3301,30 @@ input:checked + .slider:before {
     margin-top: 0 !important; 
 }
 
-
+/* Ensure consistent vertical alignment for list containers with ABC index */
+#check-in-modal .list-container,
+#check-out-modal .list-container,
+#returning-guest-modal .list-container,
+#junior-club-modal .list-container,
+#junior-club-roster-modal .list-container,
+#junior-club-stats-modal .list-container,
+#sign-out-member-modal .list-container,
+#purchaser-selection-modal .list-container,
+#manual-entry-modal .list-container,
+#outside-player-modal .list-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0.5rem !important; /* Small gap below header/paragraph */
+    margin-bottom: 0 !important; /* Flush with bottom actions */
+    flex: 1; /* Ensure it grows */
+    min-height: 0; /* Essential for flex scroll */
+}
 
 .abc-index {
     display: flex;
+    justify-content: flex-start; /* Aligns letters to the top */
+    padding-top: 5px; /* Add a small top padding if needed for visual alignment */
+    padding-bottom: 5px;
     flex-direction: column;
     justify-content: flex-start; /* Changed from space-around */
     gap: 2px; /* Add a small gap between letters */
@@ -3348,6 +3369,60 @@ input:checked + .slider:before {
     grid-template-columns: 1fr 1fr 1fr; /* Create three equal columns */
     gap: 0.5rem;
     flex-shrink: 0; /* Prevents the button bar from shrinking */
+}
+
+
+#end-game-modal .modal-actions button,
+#history-page .modal-actions button,
+#manual-entry-modal .modal-actions button {
+    flex: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    grid-column: auto;
+    grid-row: auto;
+    padding: 0.8rem 0.5rem !important; /* CHANGED: Symmetric padding */
+    min-height: auto !important;
+    box-sizing: border-box !important;
+    justify-self: stretch;
+    align-self: stretch;
+    min-width: 0 !important;
+}
+
+/* --- Manual Entry Button Positions (4 buttons) --- */
+#manual-entry-modal #manual-add-guest-btn {
+    grid-column: 1 / 2 !important;
+    grid-row: 1 / 2 !important;
+}
+#manual-entry-modal #add-outside-player-btn {
+    grid-column: 2 / 3 !important;
+    grid-row: 1 / 2 !important;
+    background-color: var(--primary-blue) !important;
+}
+#manual-entry-modal #manual-entry-cancel-btn {
+    grid-column: 1 / 2 !important;
+    grid-row: 2 / 3 !important;
+}
+#manual-entry-modal #manual-entry-confirm-btn {
+    grid-column: 2 / 3 !important;
+    grid-row: 2 / 3 !important;
+}
+
+/* --- Revert Modal Content Padding --- */
+#manual-entry-modal .modal-content {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+}
+
+#manual-entry-modal .modal-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto auto !important;
+    gap: 0.5rem !important;
+    width: 100% !important; /* ADD THIS */
+    box-sizing: border-box !important; /* ADD THIS */
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
 }
 
 
@@ -4443,6 +4518,89 @@ input:checked + .slider:before {
     cursor: pointer;
 }
 
+/* Custom date/time input overlay */
+.date-time-input-wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.date-time-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-family: inherit;
+    font-size: inherit;
+    color: #333;
+    font-weight: normal;
+    background: transparent;
+}
+
+.date-time-overlay span {
+    display: inline-block;
+}
+
+.date-time-overlay .part {
+    min-width: 2ch;
+    display: inline-block;
+    font-weight: normal;
+}
+
+.date-time-overlay .part.active {
+    background-color: rgba(10, 10, 87, 0.2);
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
+.date-time-overlay .part.filled {
+    color: #000;
+    font-weight: normal;
+}
+
+.date-time-overlay .part.empty {
+    color: #999;
+    font-weight: normal;
+}
+
+.date-time-overlay .separator {
+    color: #666;
+    margin: 0 2px;
+}
+
+/* Hide native input text completely when overlay is active */
+.date-time-input-wrapper input[type="date"],
+.date-time-input-wrapper input[type="time"] {
+    color: transparent !important;
+    caret-color: transparent !important;
+}
+
+.date-time-input-wrapper input[type="date"]:focus,
+.date-time-input-wrapper input[type="time"]:focus {
+    color: transparent !important;
+    caret-color: transparent !important;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+.shake {
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Apply shake to global keyboard display */
+#global-keyboard-display.shake {
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+}
+
 /* MODIFIED: New Parent Registration Inputs */
 /* Target all inputs within the parent and children field groups */
 #new-parent-modal .score-input-area input[type="text"] {
@@ -4570,6 +4728,8 @@ input:checked + .slider:before {
     padding-bottom: 1rem;
     border-bottom: 1px solid #f0f0f0;
 }
+
+
 
 
 
@@ -5544,7 +5704,12 @@ input:checked + .slider:before {
 #new-parent-modal .modal-content {
     height: 80vh;
     max-height: 80vh;
-    padding-bottom: 0 !important; /* Ensure flush footer */
+    padding-bottom: 0 !important; /* Keep flush footer */
+    /* --- Ensure Flex Properties --- */
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow content to potentially shrink/scroll */
+    /* --- END Ensure --- */
 }
 
 /* Reduced vertical padding in parent fields for a tighter form fit */
@@ -5799,26 +5964,69 @@ input:checked + .slider:before {
 
 /* 1. Base style for all list items in these modals */
 #junior-club-list li,
-#junior-club-history-list .history-item {
+#junior-club-history-list .history-item,
+.roster-item /* Target roster items directly */ {
     line-height: 1.5; /* Apply consistent line height to the parent item */
 }
 
-/* 2. Primary Name (Parent): Bold, Blue, Larger Font for all three modals */
-#junior-club-list li span:first-child span:first-child,
-#junior-club-history-list .name-col span:first-child,
-.roster-item .roster-col-name span:first-child {
-    font-size: calc(1rem * var(--font-size-multiplier)) !important;
+/* 2. Primary Name (Parent/Child): Bold, Blue/Dark, Standard Font for all three modals */
+#junior-club-list li span:first-child span:first-child, /* Check-in: Parent/Child Name */
+#junior-club-history-list .name-col span:first-child, /* History: Parent Name */
+.roster-item .roster-col-name span:first-child /* Roster: Parent/Child Name */ {
+    font-size: calc(1rem * var(--font-size-multiplier)) !important; /* Standard base size */
     font-weight: 700 !important;
+    /* Use primary blue for parent names, dark text for child names */
+    /* Color handled by specific overrides below */
+}
+/* Ensure Parent Name is Blue */
+#junior-club-list li[data-parent-id] span:first-child span:first-child,
+#junior-club-history-list .name-col span:first-child,
+.roster-item[data-roster-index] .roster-col-name span:first-child { /* Targets parent name in 'all' and 'parent' views */
     color: var(--primary-blue) !important;
 }
+/* Ensure Child Name is Dark Text */
+#junior-club-list li[data-child-name] span:first-child span:first-child, /* Assuming child view has data-child-name */
+.roster-item[data-roster-index]:not(:has(span[style*="primary-blue"])) .roster-col-name span:first-child { /* Targets child name in 'children' view */
+     color: var(--dark-text) !important;
+}
 
-/* 3. Secondary Name (Child): Normal, Dark Text, Smaller Font for all three modals */
-#junior-club-list li span:first-child span:last-child,
-#junior-club-history-list .name-col span:last-child,
-.roster-item .roster-col-name span:last-child {
-    font-size: calc(0.9rem * var(--font-size-multiplier)) !important;
-    font-weight: 400 !important;
+
+/* 3. Secondary Info (Child Details/Parent Name/Contact): Normal, Neutral, Smaller Font */
+#junior-club-list li span:first-child span:last-child, /* Check-in: Child Details/Parent */
+#junior-club-history-list .name-col span:last-child, /* History: Child Names */
+.roster-item .roster-col-name span:last-child, /* Roster: Child Name in 'all' view */
+.roster-item .roster-col-contact, /* Roster: Contact */
+.roster-item .roster-col-email, /* Roster: Email */
+.roster-item .roster-col-gender, /* Roster: Gender */
+.roster-item .roster-col-age, /* Roster: Age */
+.roster-item .roster-col-checkin /* Roster: Check-in Date */ {
+    font-size: calc(0.9rem * var(--font-size-multiplier)) !important; /* Smaller text for details */
+    font-weight: 400 !important; /* Normal weight */
+    color: var(--neutral-color) !important;
+}
+
+/* 4. Roster/History Header Buttons & Spans: Smaller, Bold, Dark Text */
+.roster-header .roster-sort-btn,
+.roster-header .roster-col-contact, /* Target non-button headers too */
+.roster-header .roster-col-email,
+#junior-club-history-list .history-item.roster-header span /* If history header uses spans */ {
+    font-size: calc(0.8rem * var(--font-size-multiplier)) !important;
+    font-weight: bold !important;
     color: var(--dark-text) !important;
+    padding-top: 0.2rem; /* Reduce top padding for header */
+    padding-bottom: 0.2rem;/* Reduce bottom padding for header */
+}
+
+/* 5. Payment Status specific overrides */
+#junior-club-history-list .history-item .payment-status {
+    font-size: calc(0.9rem * var(--font-size-multiplier)) !important; /* Match secondary info size */
+    font-weight: bold !important;
+    /* Color is handled by .paid / .unpaid classes */
+}
+#junior-club-history-list .history-item .payment-date-text { /* Target the date specifically */
+    font-size: calc(0.8rem * var(--font-size-multiplier)) !important; /* Even smaller for date */
+    font-weight: normal !important;
+    color: var(--neutral-color) !important;
 }
 
 /* --- JUNIOR CLUB ROSTER HEADER ALIGNMENT FIX --- */
@@ -5826,6 +6034,68 @@ input:checked + .slider:before {
 /* This rule specifically targets the "Parent / Child" header button */
 #junior-club-roster-list .roster-header .roster-col-name {
     justify-content: flex-start !important; /* Overrides 'center' from .action-btn */
+}
+
+/* ===================================================
+    LIST ITEM HEIGHT STANDARDIZATION
+   =================================================== */
+
+/* Apply consistent height and vertical alignment to list items in key modals */
+#junior-club-list li,
+#junior-club-history-list .history-item, /* Target .history-item as it acts like li */
+#junior-club-roster-list .roster-item, /* Target .roster-item */
+#check-in-list li,
+#check-out-list li,
+#returning-guest-list li,
+#sign-out-member-list li,
+#purchaser-member-list li,
+#manual-player-list li,
+#outside-player-list li {
+    display: flex;
+    align-items: center; /* Vertically center content within the row */
+    min-height: calc(4em * var(--font-size-multiplier)); /* Ensure minimum height for ~2 lines + padding */
+    /* Use consistent vertical padding that works with min-height */
+    padding-top: calc(0.6rem * var(--font-size-multiplier));
+    padding-bottom: calc(0.6rem * var(--font-size-multiplier));
+    box-sizing: border-box; /* Include padding and border in height calculation */
+    border-bottom: 1px solid #f0f0f0; /* Ensure consistent border */
+}
+
+/* Ensure last item in scrollable lists doesn't have a bottom border */
+.modal-action-list.scrollable li:last-child,
+.history-list.scrollable .history-item:last-child,
+.history-list.scrollable .roster-item:last-child {
+    border-bottom: none;
+}
+
+
+/* Remove bottom border from header items and allow natural height */
+#junior-club-history-list .history-item.roster-header,
+#junior-club-roster-list .history-item.roster-header {
+    border-bottom: 1px solid var(--border-color); /* Keep a border below header */
+    min-height: auto; /* Allow header height to be determined by content */
+    padding-top: 0.2rem; /* Keep header padding tight */
+    padding-bottom: 0.2rem;
+}
+
+/* Ensure flex containers within list items align correctly */
+/* Example: For Junior Club History list columns */
+#junior-club-history-list .name-col,
+#junior-club-history-list .status-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center content vertically within the column */
+    height: 100%; /* Make columns fill the li height */
+    padding: 0; /* Remove potential conflicting padding */
+}
+#junior-club-history-list .status-col {
+     align-items: flex-end; /* Keep status right-aligned */
+}
+
+/* Example: For Roster list inner row */
+#junior-club-roster-list .roster-item .roster-row {
+   align-items: center; /* Vertically center content within the inner row */
+   width: 100%; /* Ensure inner row takes full width */
 }
 
 /* ===================================================
@@ -5853,6 +6123,39 @@ input:checked + .slider:before {
     /* This overrides any inherited padding that might affect centering */
     padding: 0 !important; 
 }
+
+#children-container-wrapper {
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    /* --- ADD THESE LINES --- */
+    display: flex; /* Ensure it's a flex container */
+    flex-direction: column; /* Stack header and children-container */
+    flex-grow: 1; /* Allow it to take up available space */
+    min-height: 0; /* Necessary for nested scrolling */
+    /* --- END ADD --- */
+}
+
+#children-container {
+    max-height: 40vh; /* Keep max-height if you want scrolling */
+    overflow-y: auto;
+    /* --- ADD THESE LINES --- */
+    flex-grow: 1; /* Allow it to take up space within the wrapper */
+    min-height: 0; /* Allow shrinking if needed */
+     /* --- Optional: Add padding for visual spacing --- */
+     padding-bottom: 1rem;
+    /* --- END ADD --- */
+}
+
+/* Add this rule if it doesn't exist, or modify if it does */
+#parent-fields {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Allow parent fields container to grow */
+    min-height: 0; /* Crucial for nested flex/scroll */
+    /* You might adjust padding/margins here if needed */
+}
+
 
 
 /* ===================================================
@@ -7511,6 +7814,13 @@ input[type="range"] {
     --keyboard-gap: 5px;
 }
 
+/* Optional: Visual feedback for physical key presses on Global Keyboard */
+.global-keypad-btn.active-keypress {
+    background-color: #d1d1d1 !important; /* Slightly darker background on press */
+    transform: translateY(1px); /* Slight press down effect */
+    box-shadow: 0 2px 0 #adb5bd !important; /* Adjust shadow */
+}
+
 /* Global Overlay */
 .global-keyboard-overlay {
     position: fixed;
@@ -7773,3 +8083,55 @@ input[type="range"] {
 
 
 
+
+/* Make date input and wrapper flex to fill container */
+#children-container .child-dob-input {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+#children-container .child-dob-input .date-time-input-wrapper {
+    flex: 1;
+    width: 100%;
+}
+
+#children-container .child-dob-input input[type="date"] {
+    width: 100%;
+    flex: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 0.4rem 1rem;
+    box-sizing: border-box;
+}
+
+/* ===================================================
+   CHILD DATE INPUT - SPACING, ALIGNMENT & HIDE NATIVE TEXT
+   =================================================== */
+
+/* Left-align the date input overlay text */
+#children-container .date-time-overlay {
+    justify-content: flex-start !important;
+    padding-left: 0.5rem !important;
+}
+
+/* CRITICAL: Hide ALL native date input text (only show custom overlay) */
+#children-container input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+
+/* Firefox support for hiding native date text */
+#children-container input[type="date"]::-moz-datetime-edit,
+#children-container input[type="date"]::-moz-datetime-edit-fields-wrapper,
+#children-container input[type="date"]::-moz-datetime-edit-text,
+#children-container input[type="date"]::-moz-datetime-edit-month-field,
+#children-container input[type="date"]::-moz-datetime-edit-day-field,
+#children-container input[type="date"]::-moz-datetime-edit-year-field {
+    color: transparent !important;
+}
