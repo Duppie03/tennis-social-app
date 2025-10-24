@@ -1,1 +1,20 @@
+# Dependencies
 node_modules/
+
+# Data storage
+data/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
