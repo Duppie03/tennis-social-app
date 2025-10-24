@@ -9253,82 +9253,176 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Function to display the next item (event or app view)
-        const displayNextScreensaverItem = () => {
-            const activeEvents = state.events.filter(event => event.isActive);
+                // SCREENSAVER CYCLING LOGIC:
+        // - Event View: Shows event details with overlay background
+        // - Main App View: Makes overlay transparent so you can see courts/players/main app
+        // - Cycles every 15 seconds between these two states
+        // - This allows monitoring courts while still promoting events
+        
+    const displayNextScreensaverItem = () => {
+        const activeEvents = state.events.filter(event => event.isActive);
 
-            // --- FADE OUT ---
-            // Always fade out the event content first
-            screensaverContent.classList.remove('visible');
-            // If we were showing the main app, remove that class to potentially show event background
-            screensaverOverlay.classList.remove('show-main-app');
+        // --- FADE OUT ---
+        screensaverContent.classList.remove('visible');
+        screensaverOverlay.classList.remove('show-main-app');
 
-            // Wait for the fade-out transition (1 second based on CSS)
-            setTimeout(() => {
-                if (isShowingScreensaverEvent && activeEvents.length > 0) {
-                    // --- SHOW EVENT ---
-                    const eventIndexToShow = screensaverCurrentIndex % activeEvents.length;
-                    const event = activeEvents[eventIndexToShow];
+        // --- Remove existing overlay button ---
+        const existingOverlayBtn = document.getElementById('screensaver-interested-btn-overlay');
+        if (existingOverlayBtn) {
+            existingOverlayBtn.remove();
+        }
 
-                    // Format Date and Time for display
-                    const eventDateFormatted = event.eventDate
-                        ? new Date(event.eventDate + 'T00:00:00').toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                        : 'Date TBC';
-                    const eventTimeFormatted = event.startTime || 'Time TBC';
-                    const rsvpDateFormatted = event.rsvpDate
-                        ? new Date(event.rsvpDate + 'T00:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : 'N/A';
+        setTimeout(() => {
+            if (isShowingScreensaverEvent && activeEvents.length > 0) {
+                // --- SHOW EVENT ---
+                const eventIndexToShow = screensaverCurrentIndex % activeEvents.length;
+                const event = activeEvents[eventIndexToShow];
 
-                    // Build the HTML content for the event
-                    screensaverContent.innerHTML = `
-                        <img src="source/eldorainge-tennis-logo.png" class="screensaver-logo">
-                        <h1 class="screensaver-heading">${event.heading || 'Event Heading'}</h1>
-                        <div class="screensaver-details">
-                            <p class="screensaver-datetime"><strong>Date / Time:</strong> <span>${eventDateFormatted} | ${eventTimeFormatted}</span></p>
-                            <p class="screensaver-rsvp"><strong>RSVP By:</strong> <span>${rsvpDateFormatted} / ${event.rsvpText || 'N/A'}</span></p>
-                            <p class="screensaver-body1"><strong>Details:</strong> <span>${event.body1 || ''}</span></p>
-                            <p class="screensaver-body2"><span>${event.body2 || ''}</span></p>
-                            <p class="screensaver-cost"><strong>Cost:</strong> <span>Adult: R${event.costAdult || 0} | Child: R${event.costChild || 0}</span></p>
-                            ${ (event.eventType === 'Club Champs' || event.eventType === 'League') && event.participationDiscountPercent > 0 ? `<p class="screensaver-discount"><strong>Discount:</strong> <span>${event.participationDiscountPercent}% for Participants</span></p>` : '' }
-                            ${ event.volunteersNeeded ? `<p class="screensaver-volunteers"><strong>Help Needed:</strong> <span>Volunteers Required!</span></p>` : ''}
-                            <p class="screensaver-contact"><strong>Contact:</strong> <span>${event.contactDetails || 'Club Office'}</span></p>
-                            <p class="screensaver-open-to"><strong>Open To:</strong> <span>${event.openTo}${event.isOpenToGuests ? ' & Invited Guests' : ''}</span></p>
-                        </div>
-                        <button id="screensaver-interested-btn" data-event-id="${event.id}">I am interested</button>
-                    `;
+                // --- Format Date (Removed weekday) ---
+                const eventDateFormatted = event.eventDate
+                    ? new Date(event.eventDate + 'T00:00:00').toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' }) // Removed weekday:'long'
+                    : 'Date TBC';
 
-                    // Set background images
-                    let bgImageStyle = '';
-                    if (event.image1Filename && event.image1Filename !== 'None') {
-                        bgImageStyle += `url('source/${event.image1Filename}')`;
+                // --- Format Time (Added AM/PM) ---
+                let eventTimeFormatted = 'Time TBC';
+                if (event.startTime) {
+                    try {
+                        const [hours, minutes] = event.startTime.split(':');
+                        const hourInt = parseInt(hours, 10);
+                        const minuteInt = parseInt(minutes, 10);
+                        const ampm = hourInt >= 12 ? 'PM' : 'AM';
+                        const hour12 = hourInt % 12 || 12; // Convert 0 hour to 12
+                        eventTimeFormatted = `${hour12}:${String(minuteInt).padStart(2, '0')} ${ampm}`;
+                    } catch (e) {
+                        console.error("Error formatting event time:", e);
+                        eventTimeFormatted = event.startTime; // Fallback to original if parsing fails
                     }
-                    // Simple overlay logic: If image2 exists, use it as a secondary layer
-                    if (event.image2Filename && event.image2Filename !== 'None') {
-                        // Example: Add a semi-transparent gradient over the first image, then the second image
-                        // You might need to adjust CSS for background-blend-mode or use pseudo-elements for more complex layering
-                         if (bgImageStyle) bgImageStyle += ', '; // Add comma if first image exists
-                         bgImageStyle += `url('source/${event.image2Filename}')`;
-                    }
-                    screensaverContent.style.backgroundImage = bgImageStyle || 'none'; // Apply or clear
-
-                    screensaverContent.style.display = 'flex'; // Ensure event content block is visible
-                    screensaverContent.classList.add('visible'); // Fade in event content
-
-                    // Prepare for the next cycle: increment index, toggle flag
-                    screensaverCurrentIndex++;
-                    isShowingScreensaverEvent = false; // Next time, show app view
-
-                } else {
-                    // --- SHOW MAIN APP VIEW ---
-                    // If no active events, or it's the app view's turn
-                    screensaverContent.style.display = 'none'; // Hide the event content block
-                    screensaverOverlay.classList.add('show-main-app'); // Make overlay transparent
-                    // No need to fade screensaverContent as it's hidden
-
-                    // Prepare for the next cycle: toggle flag (index stays the same)
-                    isShowingScreensaverEvent = true; // Next time, show event (if any exist)
                 }
-            }, 1000); // Wait 1 second (duration of fade-out CSS transition) before changing content
-        };
+                // --- END Time Formatting ---
+
+                const rsvpDateFormatted = event.rsvpDate
+                    ? new Date(event.rsvpDate + 'T00:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : 'N/A';
+
+                // Build images HTML
+                let imagesHTML = '';
+                if (event.image1Filename && event.image1Filename !== 'None') {
+                    imagesHTML += `<img src="source/screensaver/${event.image1Filename}" alt="Event Image 1" class="screensaver-event-image">`;
+                }
+                if (event.image2Filename && event.image2Filename !== 'None') {
+                    imagesHTML += `<img src="source/screensaver/${event.image2Filename}" alt="Event Image 2" class="screensaver-event-image">`;
+                }
+
+                // Build cost display
+                let costHTML = '';
+                if (event.costAdult > 0 || event.costChild > 0) {
+                    const adultCost = event.costAdult > 0 ? `Adult: R${event.costAdult}` : '';
+                    const childCost = event.costChild > 0 ? `Child: R${event.costChild}` : '';
+                    const separator = adultCost && childCost ? ' | ' : '';
+                    costHTML = `<p class="screensaver-cost">${adultCost}${separator}${childCost}</p>`;
+
+                    if (event.participationDiscount > 0) {
+                            costHTML += `<p class="screensaver-discount">Club Champ Participants get R${event.participationDiscount} off</p>`;
+                    }
+                }
+
+                // Build RSVP section
+                let rsvpHTML = '';
+                if (rsvpDateFormatted && rsvpDateFormatted !== 'N/A') {
+                    let rsvpText = `RSVP BY ${rsvpDateFormatted.toUpperCase()}`;
+                    if (event.volunteersNeeded) {
+                        rsvpText += ' - VOLUNTEER COOKS NEEDED';
+                    }
+                    rsvpHTML = `<p class="screensaver-rsvp"><strong>${rsvpText}</strong></p>`;
+                } else if (event.volunteersNeeded) {
+                    rsvpHTML = `<p class="screensaver-rsvp"><strong>VOLUNTEER COOKS NEEDED</strong></p>`;
+                }
+
+                // Build contact info HTML
+                let contactHTML = '';
+                if (event.phone || event.email || event.website) {
+                        contactHTML = '<div class="screensaver-contact-bar">';
+                        if (event.phone) {
+                            contactHTML += `<div class="screensaver-contact-item"><span class="contact-icon">📞</span><span class="contact-text">${event.phone}</span></div>`;
+                        }
+                        if (event.email) {
+                            contactHTML += `<div class="screensaver-contact-item"><span class="contact-icon">✉</span><span class="contact-text">${event.email}</span></div>`;
+                        }
+                        if (event.website) {
+                            contactHTML += `<div class="screensaver-contact-item"><span class="contact-icon">🌐</span><span class="contact-text">${event.website}</span></div>`;
+                        }
+                        contactHTML += '</div>';
+                }
+
+                // Build open to text
+                let openToText = event.openTo || 'All Members';
+                if (event.isOpenToGuests) {
+                    openToText += ' and Invited Guests';
+                }
+                const openBannerHTML = `<div class="screensaver-open-banner">EVENT OPEN TO ${openToText.toUpperCase()}</div>`;
+
+                // --- Build the HTML content for the event (RSVP Moved) ---
+                screensaverContent.innerHTML = `
+                    <div class="screensaver-event-layout">
+                        <div class="screensaver-left-column">
+                            ${imagesHTML || '<div class="screensaver-placeholder-image"></div>'}
+                        </div>
+
+                        <div class="screensaver-right-column">
+                            <div class="screensaver-right-column-main-content">
+                                <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis" class="screensaver-club-logo">
+
+                                <h1 class="screensaver-event-heading">${event.heading || 'Club Event'}</h1>
+
+                                <div class="screensaver-datetime-row">
+                                    <div class="screensaver-date">
+                                        <div class="date-value">${eventDateFormatted}</div>
+                                    </div>
+                                    ${eventTimeFormatted && eventTimeFormatted !== 'Time TBC' ? `
+                                    <div class="screensaver-trophy"><img src="source/tennis-ball.png" alt="Tennis Ball"></div>
+                                    <div class="screensaver-time">
+                                        <div class="time-value">${eventTimeFormatted} TO CLOSING</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+
+                                <div class="screensaver-body-text">
+                                    ${event.body1 ? `<p>${event.body1}</p>` : ''}
+                                    ${event.body2 ? `<p>${event.body2}</p>` : ''}
+                                </div>
+
+                                ${costHTML}
+
+                                <button id="screensaver-interested-btn" data-event-id="${event.id}">I am interested</button>
+                            </div>
+
+                            ${rsvpHTML}
+                            ${contactHTML}
+                            ${openBannerHTML}
+                        </div>
+                    </div>
+                `;
+
+                // Clear any background images
+                screensaverContent.style.backgroundImage = 'none';
+
+                screensaverContent.style.display = 'flex';
+                screensaverContent.classList.add('visible');
+
+                isShowingScreensaverEvent = false;
+
+            } else {
+                // --- SHOW MAIN APP VIEW (Logic Unchanged) ---
+                screensaverContent.style.display = 'none';
+                screensaverContent.classList.remove('visible');
+                screensaverOverlay.classList.add('show-main-app');
+                isShowingScreensaverEvent = true;
+                if (activeEvents.length > 0) {
+                    screensaverCurrentIndex++;
+                }
+            }
+        }, 1000);
+    };
 
         displayNextScreensaverItem(); // Display the first item immediately
         screensaverCycleInterval = setInterval(displayNextScreensaverItem, SCREENSAVER_INTERVAL_MS); // Cycle every 15 seconds
@@ -9388,6 +9482,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- END NEW FUNCTION ---
 
     // --- NEW FUNCTION: Show Event List Modal ---
+    // --- NEW FUNCTION: Delete Event with Confirmation ---
+    function deleteEvent(eventId) {
+        const event = state.events.find(ev => ev.id == eventId);
+        if (!event) return;
+
+        const eventName = event.heading || 'this event';
+        const confirmDelete = confirm(`Are you sure you want to delete "${eventName}"?\n\nThis action cannot be undone.`);
+        
+        if (confirmDelete) {
+            // Remove the event from state
+            state.events = state.events.filter(ev => ev.id != eventId);
+            saveState();
+            
+            // Refresh the event list display
+            showEventListModal();
+            
+            // If screensaver is running and this was an active event, refresh it
+            const screensaverOverlay = document.getElementById('screensaver-overlay');
+            if (!screensaverOverlay.classList.contains('hidden')) {
+                stopScreensaver();
+                resetInactivityTimer();
+            }
+        }
+    }
+    // --- END NEW FUNCTION ---
+
     function showEventListModal() {
         // Find or create the necessary elements if not already done
         const eventList = document.getElementById('event-list');
@@ -9416,6 +9536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="event-controls">
                         <button class="action-btn edit-event-btn" data-action="edit">Edit</button>
+                        <span class="action-icon remove delete-event-btn" data-action="delete" title="Delete Event">&times;</span>
                         <label class="switch" title="Show in Screensaver">
                             <input type="checkbox" class="event-active-toggle" ${event.isActive ? 'checked' : ''}>
                             <span class="slider"></span>
@@ -9431,9 +9552,90 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // --- END NEW FUNCTION ---
 
+    // --- NEW FUNCTION: Load available screensaver images ---
+    async function loadScreensaverImages() {
+        try {
+            // Try to load images.json file first (recommended method)
+            const response = await fetch('source/screensaver/images.json');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+                    console.log('Loaded images from images.json:', data.images);
+                    return ['None', ...data.images];
+                }
+            }
+        } catch (error) {
+            console.log('images.json not found, trying directory listing...');
+        }
+        
+        // Fallback: Try directory listing (may not work on all servers)
+        try {
+            const response = await fetch('source/screensaver/');
+            if (response.ok) {
+                const text = await response.text();
+                const imageRegex = /<a href="([^"]+\.(?:jpg|jpeg|png|gif|webp))"/gi;
+                const matches = [...text.matchAll(imageRegex)];
+                const images = matches.map(match => match[1]);
+                
+                if (images.length > 0) {
+                    console.log('Loaded images from directory listing:', images);
+                    return ['None', ...images];
+                }
+            }
+        } catch (error) {
+            console.log('Directory listing not available');
+        }
+        
+        // Final fallback: Return default list
+        console.warn('Using default image list - please create source/screensaver/images.json');
+        return ['None', 'Trophy.jpg', 'Potjiekos.jpg', 'Tennis.jpg', 'Braai.jpg', 'Rugby.jpg', 'F1.jpg', 'ClubChamps.jpg'];
+    }
+
+    // --- NEW FUNCTION: Populate image dropdowns ---
+    async function populateImageDropdowns() {
+        const images = await loadScreensaverImages();
+        
+        const dropdown1 = document.getElementById('event-image1');
+        const dropdown2 = document.getElementById('event-image2');
+        
+        if (dropdown1 && dropdown2) {
+            // Save current selections
+            const currentValue1 = dropdown1.value;
+            const currentValue2 = dropdown2.value;
+            
+            // Clear and repopulate
+            dropdown1.innerHTML = '';
+            dropdown2.innerHTML = '';
+            
+            images.forEach(img => {
+                const option1 = document.createElement('option');
+                option1.value = img;
+                option1.textContent = img === 'None' ? 'None' : img.replace(/\.[^.]+$/, ''); // Remove extension for display
+                dropdown1.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = img;
+                option2.textContent = img === 'None' ? 'None' : img.replace(/\.[^.]+$/, '');
+                dropdown2.appendChild(option2);
+            });
+            
+            // Restore selections if they still exist
+            if ([...dropdown1.options].some(opt => opt.value === currentValue1)) {
+                dropdown1.value = currentValue1;
+            }
+            if ([...dropdown2.options].some(opt => opt.value === currentValue2)) {
+                dropdown2.value = currentValue2;
+            }
+        }
+    }
+    // --- END NEW FUNCTIONS ---
+
     // --- NEW/MODIFIED FUNCTION: Show Event Create/Edit Modal ---
-    function showEventCreateEditModal(eventId = null) {
+    async function showEventCreateEditModal(eventId = null) {
         const modal = document.getElementById('event-create-edit-modal');
+        
+        // Populate image dropdowns with available files
+        await populateImageDropdowns();
         const title = document.getElementById('event-modal-title');
         const form = modal.querySelector('.event-form-grid');
         const interestedSection = document.getElementById('interested-players-section');
@@ -9454,7 +9656,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('input[name="event-open-to"][value="All Members"]').checked = true;
         document.getElementById('event-image1').value = 'None';
         document.getElementById('event-image2').value = 'None';
-        document.getElementById('event-discount-group').style.display = 'none'; // Hide discount
          // Clear interested list
         interestedList.innerHTML = '';
         interestedSection.style.display = 'none';
@@ -9483,21 +9684,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('event-body2').value = event.body2 || '';
             document.getElementById('event-cost-adult').value = event.costAdult || 0;
             document.getElementById('event-cost-child').value = event.costChild || 0;
-            document.getElementById('event-participation-discount').value = event.participationDiscountPercent || 0;
-            document.getElementById('event-rsvp-text').value = event.rsvpText || '';
+            document.getElementById('event-participation-discount').value = event.participationDiscount || event.participationDiscountPercent || 0;
             document.getElementById('event-volunteers').checked = event.volunteersNeeded || false;
-            document.getElementById('event-contact').value = event.contactDetails || '';
+            document.getElementById('event-phone').value = event.phone || '';
+            document.getElementById('event-email').value = event.email || '';
+            document.getElementById('event-website').value = event.website || '';
             const openToRadio = form.querySelector(`input[name="event-open-to"][value="${event.openTo || 'All Members'}"]`);
             if (openToRadio) openToRadio.checked = true;
             document.getElementById('event-open-guests').checked = event.isOpenToGuests || false;
             document.getElementById('event-image1').value = event.image1Filename || 'None';
             document.getElementById('event-image2').value = event.image2Filename || 'None';
-
-            // Show/hide discount slider based on loaded event type
-             if (event.eventType === 'Club Champs' || event.eventType === 'League') {
-                 document.getElementById('event-discount-group').style.display = 'block';
-             }
-
 
             // Populate Interested Players List
             event.interestedPlayers = event.interestedPlayers || []; // Ensure array exists
@@ -9608,9 +9804,10 @@ document.addEventListener('DOMContentLoaded', () => {
          if (eventType === 'Club Champs' || eventType === 'League') {
              participationDiscountPercent = parseInt(document.getElementById('event-participation-discount').value, 10) || 0;
          }
-        const rsvpText = document.getElementById('event-rsvp-text').value.trim();
         const volunteersNeeded = document.getElementById('event-volunteers').checked;
-        const contactDetails = document.getElementById('event-contact').value.trim();
+        const phone = document.getElementById('event-phone').value.trim();
+        const email = document.getElementById('event-email').value.trim();
+        const website = document.getElementById('event-website').value.trim();
         const openToRadio = modal.querySelector('input[name="event-open-to"]:checked');
         const openTo = openToRadio ? openToRadio.value : 'All Members'; // Default if none selected
         const isOpenToGuests = document.getElementById('event-open-guests').checked;
@@ -9640,9 +9837,11 @@ document.addEventListener('DOMContentLoaded', () => {
             costAdult,
             costChild,
             participationDiscountPercent,
-            rsvpText,
+            participationDiscount: parseInt(document.getElementById('event-participation-discount').value, 10) || 0,
             volunteersNeeded,
-            contactDetails,
+            phone,
+            email,
+            website,
             openTo,
             isOpenToGuests,
             image1Filename,
@@ -9691,7 +9890,6 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(inactivityTimer);
         inactivityTimer = null; // Clear the timer ID
 
-        // --- NEW CHECK ---
         // Check if there are any active events
         const hasActiveEvents = state.events.some(event => event.isActive);
 
@@ -9699,15 +9897,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // AND we are not on mobile (screensaver disabled on mobile)
         if (hasActiveEvents && window.innerWidth > 900) {
             // console.log("Resetting inactivity timer (active events found)..."); // Optional logging
+            // Set the timeout again for 5 minutes (INACTIVITY_TIMEOUT_MS is already defined as 5 * 60 * 1000)
             inactivityTimer = setTimeout(startScreensaver, INACTIVITY_TIMEOUT_MS);
         } else {
             // console.log("Inactivity timer NOT reset (no active events or mobile view)."); // Optional logging
             // Ensure screensaver is stopped if it somehow got started without active events
-            stopScreensaver();
+            stopScreensaver(); // Call stopScreensaver here to ensure it's hidden if conditions aren't met
         }
-        // --- END NEW CHECK ---
     }
     // --- END: Screensaver Functions ---
+    // --- NEW: Screensaver Activity Listeners ---
+    document.addEventListener('click', resetInactivityTimer);
+    document.addEventListener('touchstart', resetInactivityTimer);
+    document.addEventListener('mousemove', resetInactivityTimer);
+    document.addEventListener('keydown', resetInactivityTimer);
+    // Call it once on load to start the timer initially if conditions are met
+    resetInactivityTimer();
 
     /* =================================
         END Screensaver FUNCTIONS (NEW)
@@ -10389,10 +10594,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    function wireAlphaKeypadToInput(input, validationCallback) {
+    function wireGlobalKeypadToInput(input, validationCallback) {
         input.readOnly = true;
         input.addEventListener('click', (e) => {
-            showAlphaKeypad(e.target);
+            showGlobalKeyboard(e.target);
         });
         input.addEventListener('input', validationCallback);
     }
@@ -12934,7 +13139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     screensaverOverlay.addEventListener('click', (e) => {
         // Stop screensaver ONLY if the click wasn't on the "I am interested" button
         if (!e.target.closest('#screensaver-interested-btn')) {
-            stopScreensaver();
+            stopScreensaver(); // This correctly stops it
         } else {
             // --- MODIFIED BLOCK ---
             const button = e.target.closest('#screensaver-interested-btn');
@@ -12966,6 +13171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Use event delegation for edit buttons and toggles within the list
     document.getElementById('event-list')?.addEventListener('click', (e) => {
         const button = e.target.closest('.edit-event-btn');
+        const deleteButton = e.target.closest('.delete-event-btn');
         const toggle = e.target.closest('.event-active-toggle');
         const listItem = e.target.closest('.event-list-item');
         const eventId = listItem ? listItem.dataset.eventId : null;
@@ -12974,6 +13180,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Edit button clicked
             document.getElementById('event-list-modal')?.classList.add('hidden');
             showEventCreateEditModal(eventId); // Open edit modal in 'edit' mode
+        } else if (deleteButton && eventId) {
+            // Delete button clicked
+            deleteEvent(eventId);
         } else if (toggle && eventId) {
             // Active toggle changed
             const event = state.events.find(ev => ev.id == eventId);
@@ -13298,32 +13507,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- END THIS LINE ---
 
     // Wire up text inputs to alpha keypad
-    wireAlphaKeypadToInput(document.getElementById('event-heading'));
-    wireAlphaKeypadToInput(document.getElementById('event-body1'));
-    wireAlphaKeypadToInput(document.getElementById('event-body2'));
-    wireAlphaKeypadToInput(document.getElementById('event-rsvp-text'));
-    wireAlphaKeypadToInput(document.getElementById('event-contact'));
+    wireGlobalKeypadToInput(document.getElementById('event-heading'));
+    wireGlobalKeypadToInput(document.getElementById('event-body1'));
+    wireGlobalKeypadToInput(document.getElementById('event-body2'));
 
     // --- NEW: Wire Body Text inputs to the Global Keyboard ---
     // Note: We create a custom listener instead of using wireAlphaKeypadToInput
     document.getElementById('event-body1')?.addEventListener('click', (e) => showGlobalKeyboard(e.target));
     document.getElementById('event-body2')?.addEventListener('click', (e) => showGlobalKeyboard(e.target));
+    
+    // --- NEW: Wire phone, email, website fields to Global Keyboard ---
+    document.getElementById('event-phone')?.addEventListener('click', function() {
+        showGlobalKeyboard(this, 'NumberPad');
+    });
+    document.getElementById('event-email')?.addEventListener('click', function() {
+        showGlobalKeyboard(this, 'LetterPad');
+    });
+    document.getElementById('event-website')?.addEventListener('click', function() {
+        showGlobalKeyboard(this, 'LetterPad');
+    });
     // --- END NEW ---
 
     // Listeners for sliders to update display
     document.getElementById('event-cost-adult')?.addEventListener('input', () => updateSliderDisplay('event-cost-adult'));
     document.getElementById('event-cost-child')?.addEventListener('input', () => updateSliderDisplay('event-cost-child'));
     document.getElementById('event-participation-discount')?.addEventListener('input', () => updateSliderDisplay('event-participation-discount'));
-
-    // Listener for event type change to show/hide discount
-    document.getElementById('event-type')?.addEventListener('change', (e) => {
-            const discountGroup = document.getElementById('event-discount-group');
-            if (e.target.value === 'Club Champs' || e.target.value === 'League') {
-            discountGroup.style.display = 'block';
-            } else {
-                discountGroup.style.display = 'none';
-            }
-    });
 
     // Delegate clicks for removing interested players
     document.getElementById('interested-players-list')?.addEventListener('click', (e) => {

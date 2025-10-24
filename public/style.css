@@ -7512,18 +7512,15 @@ input[type="range"] {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100vh; /* Cover full viewport height */
-    background-color: rgba(0, 0, 0, 0.9); /* Semi-transparent black */
+    width: 100vw;
+    height: 100vh;
+    background: var(--primary-blue);
     z-index: 9999;
-    display: flex; /* Use flex to center content */
-    justify-content: center;
-    align-items: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 1s ease-in-out, visibility 0s linear 1s; /* Fade transition */
-    cursor: pointer; /* Indicate it can be clicked to close */
-    overflow: hidden; /* Prevent content overflow */
+    transition: opacity 1s ease-in-out, visibility 0s linear 1s;
+    cursor: pointer;
+    overflow: hidden;
 }
 
 #screensaver-overlay:not(.hidden) {
@@ -7533,94 +7530,239 @@ input[type="range"] {
 }
 
 #screensaver-content {
-    width: 90%; /* Adjust width as needed */
-    max-width: 1200px; /* Max width for large screens */
-    height: 90%; /* Adjust height */
-    max-height: 800px; /* Max height */
-    background-color: var(--primary-blue); /* Match image background */
+    width: 100%;
+    height: 100%;
+    display: flex; /* Keep as flex */
+    /* REMOVE flex-direction: column; */
     color: white;
-    border-radius: 15px;
-    padding: 2rem;
-    box-sizing: border-box;
-    position: relative; /* For absolute positioning inside */
-    background-size: cover; /* Cover the area */
-    background-position: center;
-    background-repeat: no-repeat;
-    opacity: 0; /* Start hidden for fade */
-    transition: opacity 1s ease-in-out; /* Fade content */
-    display: flex;
-    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
 }
 
 #screensaver-content.visible {
     opacity: 1;
 }
 
-/* Logo specific styling */
-.screensaver-logo {
-    display: block;
-    height: 80px; /* Adjust size */
-    width: auto;
-    margin: 0 auto 1.5rem auto; /* Center and space below */
-    filter: brightness(0) invert(1); /* Make logo white */
-}
-
-.screensaver-heading {
-    text-align: center;
-    font-size: calc(2.5rem * var(--font-size-multiplier)); /* Large heading */
-    margin: 0 0 1rem 0;
-    color: var(--yellow); /* Match image yellow */
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
-}
-
-.screensaver-details {
-    flex-grow: 1; /* Take remaining space */
+/* Main event layout - split into left images and right content */
+.screensaver-event-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns for details */
-    gap: 0.5rem 2rem; /* Row gap, Column gap */
-    font-size: calc(1.1rem * var(--font-size-multiplier));
-    line-height: 1.5;
-    overflow-y: auto; /* Allow scrolling if content overflows */
-    padding: 1rem;
-    background-color: rgba(0, 0, 0, 0.3); /* Slightly darker background for text */
-    border-radius: 8px;
-    margin-bottom: 1.5rem; /* Space before button */
+    grid-template-columns: 33vw 1fr; /* Keep column widths */
+    grid-template-rows: 1fr; /* Single row */
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+    padding: 0;
+    /* --- NEW: Ensure layout takes full height --- */
+    height: 100%;
+    width: 100%;
+    /* --- END NEW --- */
 }
 
-.screensaver-details p {
-    margin: 0.3rem 0;
-    display: flex; /* Align label and value */
-    justify-content: space-between;
+/* Left column - Event images stacked vertically */
+.screensaver-left-column {
+    /* REMOVED max-width: 500px; */
+    background: var(--primary-blue);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    /* REMOVED border-right: 4px solid #a3e635; */
+    /* Optional: Remove box-shadow if you don't want the subtle shadow either */
+    /* box-shadow: 2px 0 4px rgba(163, 230, 53, 0.3); */
+    height: 100%;
 }
-.screensaver-details strong {
-    color: var(--yellow); /* Highlight labels */
-    margin-right: 0.5rem;
+
+.screensaver-event-image {
+    width: 100%;
+    height: 50%; /* Each takes half */
+    object-fit: fill;
+    display: block;
+    /* --- NEW: Prevent shrinking --- */
     flex-shrink: 0;
-}
-.screensaver-details span {
-    text-align: right; /* Align values to the right */
+    /* --- END NEW --- */
 }
 
-
-/* Spanning elements */
-.screensaver-body1,
-.screensaver-body2,
-.screensaver-contact,
-.screensaver-open-to {
-    grid-column: span 2;
-    justify-content: flex-start; /* Align full-width items left */
-}
-.screensaver-body1 span,
-.screensaver-body2 span,
-.screensaver-contact span,
-.screensaver-open-to span {
-    text-align: left;
-    white-space: normal; /* Allow body text to wrap */
+.screensaver-event-image:only-child {
+    height: 100%; /* Single image takes full height */
 }
 
+.screensaver-placeholder-image {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(135deg, #1a1a4a 0%, #0a0a2e 100%); /* Old Gradient */
+    background-color: var(--primary-blue); /* NEW Solid Color */
+}
+
+/* Right column - Event details on blue background */
+.screensaver-right-column {
+    background: var(--primary-blue);
+    /* Remove padding: 3rem 4rem; */
+    display: flex;
+    flex-direction: column; /* Stack main content and banners */
+    overflow: hidden; /* Prevent parent scroll */
+    color: white;
+    /* --- NEW: Ensure full height --- */
+    height: 100%;
+    /* --- END NEW --- */
+}
+
+/* --- NEW RULE: Wrapper for main text content in right column --- */
+.screensaver-right-column-main-content {
+    flex-grow: 1; /* Allow this section to take up available space */
+    /* REMOVE overflow-y: auto; */
+    /* ADD display: flex and flex-direction */
+    display: flex;
+    flex-direction: column;
+    /* END ADD */
+    padding: 1rem 4rem; /* Apply original padding here */
+    min-height: 0; /* Important for flex */
+    overflow: hidden; /* Prevent accidental overflow if flex doesn't fully contain */
+}
+
+.screensaver-club-logo {
+    width: 320px;
+    height: auto;
+    margin-top: -2rem;
+    display: block;
+    filter: brightness(0) invert(1);
+    /* --- NEW: Prevent shrinking --- */
+    flex-shrink: 0;
+    /* --- END NEW --- */
+}
+
+.screensaver-event-heading {
+    font-size: 3rem; /* Reduced from 3.5rem (approx 57%) */
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 1rem 0; /* Reduced bottom margin */
+    line-height: 1.1;
+    text-transform: uppercase;
+    color: white;
+    letter-spacing: 1px;
+    /* --- NEW: Prevent shrinking --- */
+    flex-shrink: 0;
+    /* --- END NEW --- */
+}
+
+/* Date and time row with trophy icon */
+.screensaver-datetime-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    margin: 0 0 1.5rem 0;
+    padding: 0.25rem 0;
+    border-top: 3px solid white;
+    border-bottom: 3px solid white;
+    position: relative; /* Keep this */
+}
+
+.screensaver-date,
+.screensaver-time {
+    flex: 1;
+    text-align: center;
+}
+
+.screensaver-date .date-value,
+.screensaver-time .time-value {
+    font-size: 1.8rem; /* Reduced from 2.2rem */
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+}
+
+.screensaver-trophy {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--primary-blue);
+    padding: 0 1rem;
+    z-index: 1;
+    height: 6rem; /* Increased from 4.8rem - adjust as needed */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* --- NEW: Style for the tennis ball image in the date/time row --- */
+.screensaver-datetime-row .screensaver-trophy img {
+    height: 5.8rem; /* Keep or adjust as needed */
+    width: auto;
+    display: block;
+    margin: 0 auto;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* Body text */
+.screensaver-body-text {
+    font-size: 1.4rem;
+    line-height: 1.6;
+    margin: 0 0 1rem 0; /* Reduced bottom margin */
+    text-align: center;
+    /* --- Allow shrinking, but don't hide overflow --- */
+    flex-shrink: 1;
+    /* REMOVE overflow: hidden; */
+    /* --- END CHANGE --- */
+}
+
+.screensaver-body-text p {
+    margin: 0 0 1rem 0;
+}
+
+.screensaver-body-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* Cost display */
+.screensaver-cost {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem 0;
+    text-align: center;
+}
+
+.screensaver-discount {
+    font-size: 1.3rem;
+    margin: 0.5rem 0 1.5rem 0;
+    text-align: center;
+    font-style: italic;
+}
+
+/* RSVP section */
+.screensaver-rsvp {
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 2rem 0 0.5rem 0;
+    color: #fef08a;
+    background: transparent !important;
+}
+
+.screensaver-volunteers {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 0.5rem 0 1.5rem 0;
+    color: #fef08a;
+}
+
+.screensaver-rsvp-text {
+    font-size: 1.3rem;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.screensaver-contact-name {
+    font-size: 1.3rem;
+    text-align: center;
+    margin: 1rem 0 0 0;
+}
 
 /* Style the "I am interested" button */
 #screensaver-interested-btn {
+    /* Existing styles */
     padding: 0.8rem 1.5rem;
     font-size: calc(1.2rem * var(--font-size-multiplier));
     font-weight: bold;
@@ -7630,24 +7772,161 @@ input[type="range"] {
     color: white;
     border: none;
     transition: background-color 0.2s;
-    width: fit-content; /* Size to content */
-    margin: 0 auto; /* Center button */
-    z-index: 10000; /* Ensure it's clickable above overlay */
+    width: fit-content;
+    /* margin: 2rem auto 0 auto; /* Remove original margin */
+    z-index: 11000; /* Keep z-index */
+
+    /* Added styles for centering */
+    display: block; /* Make it a block element to center with margin */
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1rem; /* Adjust top margin if needed */
+    flex-shrink: 0;
 }
 
 #screensaver-interested-btn:hover {
     background-color: var(--confirm-hover-color);
 }
 
+/* Contact bar at bottom - yellow/lime background */
+.screensaver-contact-bar {
+    background: linear-gradient(135deg, #bef264 0%, #a3e635 100%);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    /* --- NEW: Prevent shrinking --- */
+    flex-shrink: 0;
+    /* --- END NEW --- */
+}
+
+.screensaver-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: #1a1a1a;
+}
+
+.contact-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.contact-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+/* Open to banner at very bottom */
+.screensaver-open-banner {
+    /* background: #0a0a2e; /* Old Darker Blue */
+    background-color: var(--primary-blue); /* NEW Solid Color */
+    color: #fef08a;
+    text-align: center;
+    padding: 1.2rem;
+    font-size: 1.6rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
 /* Styles for showing the main app view during screensaver */
 #screensaver-overlay.show-main-app {
-    background-color: transparent; /* Make overlay transparent */
-    pointer-events: none; /* Allow interaction with underlying app */
+    background: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    pointer-events: none;
 }
 
 #screensaver-overlay.show-main-app #screensaver-content {
-    display: none; /* Hide event content */
+    display: none !important;
 }
+
+/* Add flex-shrink: 0 to prevent these from shrinking */
+.screensaver-right-column-main-content .screensaver-club-logo,
+.screensaver-right-column-main-content .screensaver-datetime-row,
+.screensaver-right-column-main-content .screensaver-cost,
+.screensaver-right-column-main-content .screensaver-discount,
+#screensaver-interested-btn {
+    flex-shrink: 0;
+}
+
+/* Adjust margins for tighter vertical fit */
+.screensaver-right-column-main-content .screensaver-club-logo {
+    margin: 0 auto 1rem auto; /* Reduced bottom margin */
+}
+
+.screensaver-right-column-main-content .screensaver-datetime-row {
+    margin: 0 0 1.5rem 0; /* Reduced bottom margin */
+    padding: 1rem 0;      /* Reduced vertical padding */
+}
+
+.screensaver-right-column-main-content .screensaver-cost {
+    margin: 1rem 0 0.25rem 0; /* Adjusted margins */
+    flex-shrink: 0;
+    /* --- NEW: Push down --- */
+    margin-top: auto;
+    /* --- END NEW --- */
+}
+
+.screensaver-right-column-main-content .screensaver-discount {
+    margin: 0.25rem 0 1rem 0; /* Adjusted margins */
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+    .screensaver-event-layout {
+        grid-template-columns: 30vw 1fr;
+    }
+    
+    .screensaver-right-column {
+        padding: 2rem 3rem;
+    }
+    
+    .screensaver-event-heading {
+        font-size: 3rem;
+    }
+    
+    .screensaver-club-logo {
+        width: 260px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .screensaver-event-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    
+    .screensaver-left-column {
+    max-width: 500px;
+        flex-direction: row;
+        height: 250px;
+    }
+    
+    .screensaver-event-image {
+        width: 50%;
+        height: 100%;
+    }
+    
+    .screensaver-right-column {
+        padding: 2rem;
+    }
+    
+    .screensaver-event-heading {
+        font-size: 2.5rem;
+    }
+    
+    .screensaver-contact-bar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+}
+
 
 
 /* --- NEW: Icon Input Group Styling --- */
