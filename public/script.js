@@ -1338,6 +1338,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function totalPlayersAtClub(){ let total = state.availablePlayers.length; state.courts.forEach(court => { if (court.players) { total += court.players.length; } }); return total; }
     // Modified to use API instead of localStorage
     async function saveState() { 
+        // Don't save if we're currently receiving an update from WebSocket
+        if (state._isReceivingUpdate) {
+            return;
+        }
+        
         try {
             await API.saveState(state);
             console.log('State saved to server');
@@ -1346,277 +1351,290 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-// INSTRUCTION: Replace your existing loadState function (around line 1349) with this:
 
-    async function loadState(MASTER_MEMBER_LIST) {
-        try {
-            const loaded = await API.loadState();
-            
-            if (loaded) {
-                // --- THIS IS THE FIX ---
-                // Merge the loaded announcement state with the default to ensure new properties exist
-                if (loaded.customAnnouncementState) {
-                    loaded.customAnnouncementState = { ...state.customAnnouncementState, ...loaded.customAnnouncementState };
-                }
-                // --- END OF FIX ---
 
-                // Perform the general merge first
-                state = { ...state, ...loaded };
-
-                // --- START OF NEW CHECKLIST FIX ---
-                // After merging, specifically check the adminChecklist structure.
-                // If it's not an object OR it doesn't have the 'arrival' array,
-                // it means the loaded state is outdated. Reset it to the default.
-                if (typeof state.adminChecklist !== 'object' || !Array.isArray(state.adminChecklist.arrival)) {
-                    console.warn("Outdated adminChecklist structure found. Resetting to default.");
-                    // Define the default structure again here to ensure it's applied
-                    state.adminChecklist = {
-                        arrival: [
-                            { id: 'arrUnlockTuckshop', text: 'Unlock Tuckshop & Setup POS', checked: false },
-                            { id: 'arrUnlockCloakrooms', text: 'Unlock Cloakrooms', checked: false },
-                            { id: 'arrMainTv', text: 'Main TV: On & Sport Channel', checked: false },
-                            { id: 'arrTuckshopTv', text: 'Tuckshop TV: On & Music Videos', checked: false },
-                            { id: 'arrAmpAux', text: 'Amp: Aux Analog', checked: false },
-                            { id: 'arrAmpOptical', text: 'Amp: Optical/Main TV', checked: false },
-                            { id: 'arrOpenCurtains', text: 'Open Curtains & Sliding Door', checked: false },
-                            { id: 'arrPutCushions', text: 'Put Out Bench Cushions', checked: false },
-                            { id: 'arrSignOutBalls', text: 'Sign Out Social Balls (via Ball Mgmt)', checked: false },
-                            { id: 'arrEmptyDishwasher', text: 'Empty Dishwasher & Check Dishes', checked: false },
-                            { id: 'arrCheckFridge', text: 'Check Fridge for Expired Products', checked: false },
-                            { id: 'arrEmptyBins', text: 'Empty Full Bins & Replace Liners', checked: false },
-                            { id: 'arrManStation', text: 'Man Duty Station (Busy Times)', checked: false },
-                            { id: 'arrAssistApp', text: 'Assist Members with App', checked: false },
-                            { id: 'arrRemindAccounts', text: 'Remind Members re: Tuck Shop Accounts', checked: false }
-                        ],
-                        departure: [
-                            { id: 'depReturnBalls', text: 'Return Social Balls & Sign In (via Ball Mgmt)', checked: false },
-                            { id: 'depCheckOutApp', text: 'Ensure All Players Checked Out on App', checked: false },
-                            { id: 'depLoadDishes', text: 'Load/Wash Dishes', checked: false },
-                            { id: 'depReturnCushions', text: 'Return Bench Cushions', checked: false },
-                            { id: 'depTurnOffTvAmp', text: 'Turn Off TVs & Amp', checked: false },
-                            { id: 'depWipeBar', text: 'Wipe Down Bar Counter', checked: false },
-                            { id: 'depEmptyIceBucket', text: 'Empty & Wash Ice Bucket', checked: false },
-                            { id: 'depWipeKitchen', text: 'Wipe Down Kitchen Counter', checked: false },
-                            { id: 'depTrashOut', text: 'Take Inside Trash to Outside Bins', checked: false },
-                            { id: 'depLockBarStore', text: 'Lock Bar & Storeroom', checked: false },
-                            { id: 'depCloseCurtains', text: 'Close Sliding Door & Curtains', checked: false },
-                            { id: 'depLockClubhouseAlarm', text: 'Lock Clubhouse & Set Alarm', checked: false },
-                            { id: 'depLockCloakrooms', text: 'Lock Cloakrooms', checked: false },
-                            { id: 'depLockGates', text: 'Check & Lock Pedestrian Gates', checked: false }
-                        ]
-                    };
-                }
-                // --- END OF NEW CHECKLIST FIX ---
-
-                // --- Continue with other state property checks ---
-                if (!state.uiSettings) {
-                    state.uiSettings = { fontSizeMultiplier: 1.0, displaySizeMultiplier: 1.0 };
-                } else if (state.uiSettings.displaySizeMultiplier === undefined) {
-                    state.uiSettings.displaySizeMultiplier = 1.0;
-                }
-
-                if (!state.courtSettings) {
-                    state.courtSettings = {
-                        visibleCourts: ['A', 'B', 'C', 'D', 'E'],
-                        autoAssignModes: true,
-                        showGameModeSelector: false
-                    };
-                } else {
-                    if (state.courtSettings.autoAssignModes === undefined) {
-                        state.courtSettings.autoAssignModes = true;
-                    }
-                    if (state.courtSettings.showGameModeSelector === undefined) {
-                        state.courtSettings.showGameModeSelector = false;
-                    }
-                }
-
-                if (!state.matchSettings) {
-                    state.matchSettings = {
-                        matchMode: '1set',
-                        fastPlayGames: 4,
-                        autoMatchModes: true
-                    };
-                } else if (state.matchSettings.autoMatchModes === undefined) {
-                    state.matchSettings.autoMatchModes = true;
-                }
-
-                if (!state.juniorClub) {
-                    state.juniorClub = { parents: [], activeChildren: [], history: [], statsFilter: { parent: 'all', paid: 'all' }, rosterFilter: { sortKey: 'name', sortOrder: 'asc', type: 'all' }, checkInFilter: { displayMode: 'parent' }, registrationFlow: { parentCollapsed: false, childrenExpanded: false } };
-                } else {
-                    if (!state.juniorClub.checkInFilter) {
-                        state.juniorClub.checkInFilter = { displayMode: 'parent' };
-                    }
-                    if (!state.juniorClub.rosterFilter) {
-                        state.juniorClub.rosterFilter = { sortKey: 'name', sortOrder: 'asc', type: 'all' };
-                    }
-                    if (!state.juniorClub.registrationFlow) {
-                        state.juniorClub.registrationFlow = { parentCollapsed: false, childrenExpanded: false };
-                    }
-                    if (!state.juniorClub.statsFilter) {
-                        state.juniorClub.statsFilter = { parent: 'all', paid: 'all' };
-                    } else if (state.juniorClub.statsFilter.paid === undefined) {
-                        state.juniorClub.statsFilter.paid = 'all';
-                    }
-                }
-
-                state.gameHistory = state.gameHistory || [];
-                state.reorderHistory = state.reorderHistory || [];
-
-                state.statsFilter = state.statsFilter || { gender: 'all', teamGender: 'all', sortKey: 'totalDurationMs', sortOrder: 'desc' };
-                if (state.statsFilter.teamGender === undefined) {
-                    state.statsFilter.teamGender = 'all';
-                }
-
-                state.selectedAlertSound = state.selectedAlertSound || 'Alert1.mp3';
-
-                if (!state.mobileControls) {
-                    state.mobileControls = { isSummaryExpanded: true, isPlayersExpanded: true };
-                }
-
-                if (!state.notificationControls) {
-                    state.notificationControls = {
-                        isMuted: false,
-                        isMinimized: false,
-                        isTTSDisabled: false,
-                        autoMinimize: true
-                    };
-                } else if (state.notificationControls.autoMinimize === undefined) {
-                    state.notificationControls.autoMinimize = true;
-                }
-
-                if (!state.adminCourtManagement) {
-                    state.adminCourtManagement = {
-                        mode: 'card1_select_court',
-                        courtId: null,
-                        currentCourtPlayers: [],
-                        removedPlayers: [],
-                        addedPlayers: []
-                    };
-                }
-
-                if (!state.guestHistory) {
-                    state.guestHistory = [];
-                }
-
-                if (!state.ballManagement) {
-                    state.ballManagement = {
-                        stock: 0,
-                        usedStock: 0,
-                        history: [],
-                        historyFilter: 'all',
-                        tempSale: { stockType: null, memberSignOut: null, purchaserName: null, purchaserType: null }
-                    };
-                } else {
-                    if (state.ballManagement.usedStock === undefined) {
-                        state.ballManagement.usedStock = 0;
-                    }
-                    if (!state.ballManagement.historyFilter) {
-                        state.ballManagement.historyFilter = 'all';
-                    }
-                    if (!state.ballManagement.tempSale) {
-                        state.ballManagement.tempSale = { stockType: null, memberSignOut: null, purchaserName: null, purchaserType: null };
-                    } else if (state.ballManagement.tempSale.purchaserType === undefined) {
-                        state.ballManagement.tempSale.purchaserType = null;
-                    }
-                }
-
-                if (!state.lightSettings || !state.lightSettings.courts || !state.lightSettings.general) {
-                    state.lightSettings = {
-                        shellyBaseUrl: 'http://<SHELLY_IP>/rpc',
-                        shellyAuthKey: '',
-                        courts: {
-                            'A': { id: 'A', label: 'Court A Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.15' },
-                            'B': { id: 'B', label: 'Court B Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.147' },
-                            'C': { id: 'C', label: 'Court C Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.130' },
-                            'D': { id: 'D', label: 'Court D Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.179' },
-                            'E': { id: 'E', label: 'Court E Lights', isManaged: false, isActive: false, shellyDeviceId: '' }
-                        },
-                        general: {
-                            'clubhouse': { id: 'clubhouse', label: 'Clubhouse Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.100' }
-                        }
-                    };
-                }
-
-                if (!state.suggestionSettings) {
-                    state.suggestionSettings = {
-                        femaleRatioPercent: 50,
-                        maleRatioPercent: 70,
-                        prioritizeLeastPlaytime: true,
-                        powerScoreOnly: false
-                    };
-                }
-
-                state.checklistHistory = state.checklistHistory || [];
-                state.selectedChecklistHistoryDate = state.selectedChecklistHistoryDate || null;
-
-                const ensurePlayerObjects = (playerList, defaultList) => {
-                    if (!Array.isArray(playerList)) return [];
-                    return playerList.map(player => {
-                        if (typeof player === 'string') {
-                            const defaultPlayer = defaultList.find(p => p.name === player);
-                            return defaultPlayer || { name: player, gender: '?', guest: true, isPaused: false, onLeaderboard: true };
-                        }
-                        player.isPaused = player.isPaused || false;
-                        player.onLeaderboard = player.onLeaderboard === undefined ? true : player.onLeaderboard;
-                        return player;
-                    });
-                };
-
-                const checkedInNames = new Set();
-                if (Array.isArray(state.availablePlayers)) {
-                    state.availablePlayers.forEach(p => checkedInNames.add(p.name));
-                }
-                state.courts.forEach(court => {
-                    if (Array.isArray(court.players)) {
-                        court.players.forEach(p => checkedInNames.add(p.name));
-                    }
-                });
-
-                state.clubMembers = MASTER_MEMBER_LIST.filter(p => !checkedInNames.has(p.name));
-                state.clubMembers.sort((a,b) => a.name.localeCompare(b.name));
-
-                state.availablePlayers = ensurePlayerObjects(state.availablePlayers, MASTER_MEMBER_LIST);
-
-                state.courts.forEach(court => {
-                    if (court.status === 'available' && court.becameAvailableAt === undefined) {
-                        court.becameAvailableAt = Date.now();
-                    }
-                    court.isCollapsed = court.isCollapsed === undefined ? false : court.isCollapsed;
-                    court.isModeOverlayActive = court.isModeOverlayActive === undefined ? false : court.isModeOverlayActive;
-                    court.courtMode = court.courtMode || 'doubles';
-                    court.teamsSet = court.teamsSet === undefined ? null : court.teamsSet;
-
-                    court.players = ensurePlayerObjects(court.players, MASTER_MEMBER_LIST);
-                    if (!court.teams) {
-                        court.teams = { team1: [], team2: [] };
-                    } else {
-                        court.teams.team1 = ensurePlayerObjects(court.teams.team1, MASTER_MEMBER_LIST);
-                        court.teams.team2 = ensurePlayerObjects(court.teams.team2, MASTER_MEMBER_LIST);
-                    }
-
-                    if (court.status === "game_pending" && court.autoStartTimeTarget) {
-                        const delay = court.autoStartTimeTarget - Date.now();
-                        if (delay > 0) {
-                            if (court.autoStartTimer) clearTimeout(court.autoStartTimer);
-                            court.autoStartTimer = setTimeout(() => handleStartGame(court.id), delay);
-                        } else {
-                            handleStartGame(court.id);
-                        }
-                    } else {
-                        if (court.autoStartTimer) clearTimeout(court.autoStartTimer);
-                        court.autoStartTimer = null;
-                    }
-                });
-
-                console.log('State loaded from server successfully');
-            } else {
-                console.log("No saved state found on server, using initial state.");
+// COMPLETE CORRECTED loadState FUNCTION
+async function loadState(MASTER_MEMBER_LIST) {
+    try {
+        const loaded = await API.loadState();
+        
+        if (loaded) {
+            // --- THIS IS THE FIX ---
+            // Merge the loaded announcement state with the default to ensure new properties exist
+            if (loaded.customAnnouncementState) {
+                loaded.customAnnouncementState = { ...state.customAnnouncementState, ...loaded.customAnnouncementState };
             }
-        } catch (error) {
-            console.error('Error loading state:', error);
-            console.log("Using initial state due to error.");
+            // --- END OF FIX ---
+
+            // Perform the general merge first
+            state = { ...state, ...loaded };
+
+            // FIX: If loaded courts are empty, reinitialize with default courts
+            if (!state.courts || state.courts.length === 0) {
+                console.log("Empty courts array detected, reinitializing courts...");
+                state.courts = [
+                    { id: 'A', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+                    { id: 'B', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+                    { id: 'C', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+                    { id: 'D', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' },
+                    { id: 'E', status: 'available', players: [], teams: { team1: [], team2: [] }, autoStartTimer: null, gameMode: null, gameStartTime: null, autoStartTimeTarget: null, becameAvailableAt: Date.now(), isCollapsed: false, isModeOverlayActive: false, courtMode: 'doubles' }
+                ];
+            }
+
+            // --- START OF NEW CHECKLIST FIX ---
+            // After merging, specifically check the adminChecklist structure.
+            // If it's not an object OR it doesn't have the 'arrival' array,
+            // it means the loaded state is outdated. Reset it to the default.
+            if (typeof state.adminChecklist !== 'object' || !Array.isArray(state.adminChecklist.arrival)) {
+                console.warn("Outdated adminChecklist structure found. Resetting to default.");
+                // Define the default structure again here to ensure it's applied
+                state.adminChecklist = {
+                    arrival: [
+                        { id: 'arrUnlockTuckshop', text: 'Unlock Tuckshop & Setup POS', checked: false },
+                        { id: 'arrUnlockCloakrooms', text: 'Unlock Cloakrooms', checked: false },
+                        { id: 'arrMainTv', text: 'Main TV: On & Sport Channel', checked: false },
+                        { id: 'arrTuckshopTv', text: 'Tuckshop TV: On & Music Videos', checked: false },
+                        { id: 'arrAmpAux', text: 'Amp: Aux Analog', checked: false },
+                        { id: 'arrAmpOptical', text: 'Amp: Optical/Main TV', checked: false },
+                        { id: 'arrOpenCurtains', text: 'Open Curtains & Sliding Door', checked: false },
+                        { id: 'arrPutCushions', text: 'Put Out Bench Cushions', checked: false },
+                        { id: 'arrSignOutBalls', text: 'Sign Out Social Balls (via Ball Mgmt)', checked: false },
+                        { id: 'arrEmptyDishwasher', text: 'Empty Dishwasher & Check Dishes', checked: false },
+                        { id: 'arrCheckFridge', text: 'Check Fridge for Expired Products', checked: false },
+                        { id: 'arrEmptyBins', text: 'Empty Full Bins & Replace Liners', checked: false },
+                        { id: 'arrManStation', text: 'Man Duty Station (Busy Times)', checked: false },
+                        { id: 'arrAssistApp', text: 'Assist Members with App', checked: false },
+                        { id: 'arrRemindAccounts', text: 'Remind Members re: Tuck Shop Accounts', checked: false }
+                    ],
+                    departure: [
+                        { id: 'depReturnBalls', text: 'Return Social Balls & Sign In (via Ball Mgmt)', checked: false },
+                        { id: 'depCheckOutApp', text: 'Ensure All Players Checked Out on App', checked: false },
+                        { id: 'depLoadDishes', text: 'Load/Wash Dishes', checked: false },
+                        { id: 'depReturnCushions', text: 'Return Bench Cushions', checked: false },
+                        { id: 'depTurnOffTvAmp', text: 'Turn Off TVs & Amp', checked: false },
+                        { id: 'depWipeBar', text: 'Wipe Down Bar Counter', checked: false },
+                        { id: 'depEmptyIceBucket', text: 'Empty & Wash Ice Bucket', checked: false },
+                        { id: 'depWipeKitchen', text: 'Wipe Down Kitchen Counter', checked: false },
+                        { id: 'depTrashOut', text: 'Take Inside Trash to Outside Bins', checked: false },
+                        { id: 'depLockBarStore', text: 'Lock Bar & Storeroom', checked: false },
+                        { id: 'depCloseCurtains', text: 'Close Sliding Door & Curtains', checked: false },
+                        { id: 'depLockClubhouseAlarm', text: 'Lock Clubhouse & Set Alarm', checked: false },
+                        { id: 'depLockCloakrooms', text: 'Lock Cloakrooms', checked: false },
+                        { id: 'depLockGates', text: 'Check & Lock Pedestrian Gates', checked: false }
+                    ]
+                };
+            }
+            // --- END OF NEW CHECKLIST FIX ---
+
+            // --- Continue with other state property checks ---
+            if (!state.uiSettings) {
+                state.uiSettings = { fontSizeMultiplier: 1.0, displaySizeMultiplier: 1.0 };
+            } else if (state.uiSettings.displaySizeMultiplier === undefined) {
+                 state.uiSettings.displaySizeMultiplier = 1.0;
+            }
+
+            if (!state.courtSettings) {
+                state.courtSettings = {
+                    visibleCourts: ['A', 'B', 'C', 'D', 'E'],
+                    autoAssignModes: true,
+                    showGameModeSelector: false
+                };
+            } else {
+                 if (state.courtSettings.autoAssignModes === undefined) {
+                    state.courtSettings.autoAssignModes = true;
+                 }
+                 if (state.courtSettings.showGameModeSelector === undefined) {
+                    state.courtSettings.showGameModeSelector = false;
+                 }
+            }
+
+            if (!state.matchSettings) {
+                state.matchSettings = {
+                    matchMode: '1set',
+                    fastPlayGames: 4,
+                    autoMatchModes: true
+                };
+            } else if (state.matchSettings.autoMatchModes === undefined) {
+                 state.matchSettings.autoMatchModes = true;
+            }
+
+            if (!state.juniorClub) {
+                 state.juniorClub = { parents: [], activeChildren: [], history: [], statsFilter: { parent: 'all', paid: 'all' }, rosterFilter: { sortKey: 'name', sortOrder: 'asc', type: 'all' }, checkInFilter: { displayMode: 'parent' }, registrationFlow: { parentCollapsed: false, childrenExpanded: false } };
+            } else {
+                 if (!state.juniorClub.checkInFilter) {
+                    state.juniorClub.checkInFilter = { displayMode: 'parent' };
+                 }
+                 if (!state.juniorClub.rosterFilter) {
+                     state.juniorClub.rosterFilter = { sortKey: 'name', sortOrder: 'asc', type: 'all' };
+                 }
+                 if (!state.juniorClub.registrationFlow) {
+                     state.juniorClub.registrationFlow = { parentCollapsed: false, childrenExpanded: false };
+                 }
+                 if (!state.juniorClub.statsFilter) {
+                     state.juniorClub.statsFilter = { parent: 'all', paid: 'all' };
+                 } else if (state.juniorClub.statsFilter.paid === undefined) {
+                      state.juniorClub.statsFilter.paid = 'all';
+                 }
+            }
+
+            state.gameHistory = state.gameHistory || [];
+            state.reorderHistory = state.reorderHistory || [];
+
+            state.statsFilter = state.statsFilter || { gender: 'all', teamGender: 'all', sortKey: 'totalDurationMs', sortOrder: 'desc' };
+             if (state.statsFilter.teamGender === undefined) {
+                 state.statsFilter.teamGender = 'all';
+             }
+
+            state.selectedAlertSound = state.selectedAlertSound || 'Alert1.mp3';
+
+            if (!state.mobileControls) {
+                state.mobileControls = { isSummaryExpanded: true, isPlayersExpanded: true };
+            }
+
+            if (!state.notificationControls) {
+                state.notificationControls = {
+                    isMuted: false,
+                    isMinimized: false,
+                    isTTSDisabled: false,
+                    autoMinimize: true
+                };
+            } else if (state.notificationControls.autoMinimize === undefined) {
+                 state.notificationControls.autoMinimize = true;
+            }
+
+            if (!state.adminCourtManagement) {
+                state.adminCourtManagement = {
+                    mode: 'card1_select_court',
+                    courtId: null,
+                    currentCourtPlayers: [],
+                    removedPlayers: [],
+                    addedPlayers: []
+                };
+            }
+
+            if (!state.guestHistory) {
+                state.guestHistory = [];
+            }
+
+            if (!state.ballManagement) {
+                state.ballManagement = {
+                    stock: 0,
+                    usedStock: 0,
+                    history: [],
+                    historyFilter: 'all',
+                    tempSale: { stockType: null, memberSignOut: null, purchaserName: null, purchaserType: null }
+                };
+            } else {
+                if (state.ballManagement.usedStock === undefined) {
+                    state.ballManagement.usedStock = 0;
+                }
+                if (!state.ballManagement.historyFilter) {
+                    state.ballManagement.historyFilter = 'all';
+                }
+                if (!state.ballManagement.tempSale) {
+                    state.ballManagement.tempSale = { stockType: null, memberSignOut: null, purchaserName: null, purchaserType: null };
+                } else if (state.ballManagement.tempSale.purchaserType === undefined) {
+                     state.ballManagement.tempSale.purchaserType = null;
+                }
+            }
+
+             if (!state.lightSettings || !state.lightSettings.courts || !state.lightSettings.general) {
+                 state.lightSettings = {
+                    shellyBaseUrl: 'http://<SHELLY_IP>/rpc',
+                    shellyAuthKey: '',
+                    courts: {
+                        'A': { id: 'A', label: 'Court A Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.15' },
+                        'B': { id: 'B', label: 'Court B Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.147' },
+                        'C': { id: 'C', label: 'Court C Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.130' },
+                        'D': { id: 'D', label: 'Court D Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.179' },
+                        'E': { id: 'E', label: 'Court E Lights', isManaged: false, isActive: false, shellyDeviceId: '' }
+                    },
+                    general: {
+                        'clubhouse': { id: 'clubhouse', label: 'Clubhouse Lights', isManaged: true, isActive: false, shellyDeviceId: '192.168.0.100' }
+                    }
+                 };
+             }
+
+             if (!state.suggestionSettings) {
+                state.suggestionSettings = {
+                    femaleRatioPercent: 50,
+                    maleRatioPercent: 70,
+                    prioritizeLeastPlaytime: true,
+                    powerScoreOnly: false
+                 };
+             }
+
+             state.checklistHistory = state.checklistHistory || [];
+             state.selectedChecklistHistoryDate = state.selectedChecklistHistoryDate || null;
+
+            const ensurePlayerObjects = (playerList, defaultList) => {
+                 if (!Array.isArray(playerList)) return [];
+                 return playerList.map(player => {
+                    if (typeof player === 'string') {
+                        const defaultPlayer = defaultList.find(p => p.name === player);
+                        return defaultPlayer || { name: player, gender: '?', guest: true, isPaused: false, onLeaderboard: true };
+                    }
+                     player.isPaused = player.isPaused || false;
+                     player.onLeaderboard = player.onLeaderboard === undefined ? true : player.onLeaderboard;
+                    return player;
+                });
+            };
+
+            const checkedInNames = new Set();
+             if (Array.isArray(state.availablePlayers)) {
+                state.availablePlayers.forEach(p => checkedInNames.add(p.name));
+             }
+            state.courts.forEach(court => {
+                if (Array.isArray(court.players)) {
+                    court.players.forEach(p => checkedInNames.add(p.name));
+                }
+            });
+
+            state.clubMembers = MASTER_MEMBER_LIST.filter(p => !checkedInNames.has(p.name));
+            state.clubMembers.sort((a,b) => a.name.localeCompare(b.name));
+
+            state.availablePlayers = ensurePlayerObjects(state.availablePlayers, MASTER_MEMBER_LIST);
+
+            state.courts.forEach(court => {
+                if (court.status === 'available' && court.becameAvailableAt === undefined) {
+                    court.becameAvailableAt = Date.now();
+                }
+                court.isCollapsed = court.isCollapsed === undefined ? false : court.isCollapsed;
+                court.isModeOverlayActive = court.isModeOverlayActive === undefined ? false : court.isModeOverlayActive;
+                court.courtMode = court.courtMode || 'doubles';
+                court.teamsSet = court.teamsSet === undefined ? null : court.teamsSet;
+
+                court.players = ensurePlayerObjects(court.players, MASTER_MEMBER_LIST);
+                 if (!court.teams) {
+                    court.teams = { team1: [], team2: [] };
+                 } else {
+                    court.teams.team1 = ensurePlayerObjects(court.teams.team1, MASTER_MEMBER_LIST);
+                    court.teams.team2 = ensurePlayerObjects(court.teams.team2, MASTER_MEMBER_LIST);
+                 }
+
+                if (court.status === "game_pending" && court.autoStartTimeTarget) {
+                    const delay = court.autoStartTimeTarget - Date.now();
+                    if (delay > 0) {
+                        if (court.autoStartTimer) clearTimeout(court.autoStartTimer);
+                        court.autoStartTimer = setTimeout(() => handleStartGame(court.id), delay);
+                    } else {
+                        handleStartGame(court.id);
+                    }
+                } else {
+                     if (court.autoStartTimer) clearTimeout(court.autoStartTimer);
+                     court.autoStartTimer = null;
+                }
+            });
+
+            console.log('State loaded from server successfully');
+        } else {
+             console.log("No saved state found on server, using initial state.");
         }
+    } catch (error) {
+        console.error('Error loading state:', error);
+        console.log("Using initial state due to error.");
     }
+}
 
     function updateHeaderClock(){ 
         const date = new Date();
@@ -13228,6 +13246,47 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGameModeBasedOnPlayerCount();
             autoAssignCourtModes();
             render();
+            // Real-time sync setup
+            API.onStateUpdate((updatedState) => {
+                console.log('🔄 Real-time update received!');
+                
+                // Set flag to prevent saveState during this update
+                state._isReceivingUpdate = true;
+                
+                const localUIState = {
+                    mobileControls: state.mobileControls,
+                    notificationControls: state.notificationControls,
+                    uiSettings: state.uiSettings
+                };
+                
+                state = { ...state, ...updatedState };
+                
+                state.mobileControls = localUIState.mobileControls;
+                state.notificationControls = localUIState.notificationControls;
+                state.uiSettings = localUIState.uiSettings;
+                state._isReceivingUpdate = true; // Restore flag after merge
+                
+                const checkedInNames = new Set();
+                if (Array.isArray(state.availablePlayers)) {
+                    state.availablePlayers.forEach(p => checkedInNames.add(p.name));
+                }
+                state.courts.forEach(court => {
+                    if (Array.isArray(court.players)) {
+                        court.players.forEach(p => checkedInNames.add(p.name));
+                    }
+                });
+                state.clubMembers = MASTER_MEMBER_LIST.filter(p => !checkedInNames.has(p.name));
+                state.clubMembers.sort((a,b) => a.name.localeCompare(b.name));
+                
+                render();
+                
+                // Clear flag after render completes
+                setTimeout(() => {
+                    state._isReceivingUpdate = false;
+                }, 100);
+                
+                console.log('✅ UI updated');
+            });
             resetInactivityTimer(); // Start the inactivity timer when the app loads
             // CRITICAL FIX: Ensure animations are restored on page load if a selection is active.
             setTimeout(ensureCourtSelectionAnimation, 50);

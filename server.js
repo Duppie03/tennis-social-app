@@ -2,9 +2,20 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+// Store connected clients
+const clients = new Set();
 
 // Middleware
 app.use(cors());
@@ -41,6 +52,57 @@ async function initializeState() {
     }
 }
 
+// Broadcast state update to all connected clients
+function broadcastStateUpdate(state) {
+    const message = JSON.stringify({
+        type: 'state_update',
+        state: state,
+        timestamp: new Date().toISOString()
+    });
+    
+    let broadcastCount = 0;
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+            broadcastCount++;
+        }
+    });
+    
+    console.log(`📡 Broadcasted state update to ${broadcastCount} client(s)`);
+}
+
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+    console.log('🔌 New client connected');
+    clients.add(ws);
+    
+    // Send current state to new client
+    fs.readFile(DATA_FILE, 'utf8')
+        .then(data => {
+            const state = JSON.parse(data);
+            ws.send(JSON.stringify({
+                type: 'initial_state',
+                state: state,
+                timestamp: new Date().toISOString()
+            }));
+        })
+        .catch(err => {
+            console.error('Error sending initial state:', err);
+        });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+        console.log('🔌 Client disconnected');
+        clients.delete(ws);
+    });
+    
+    // Handle errors
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        clients.delete(ws);
+    });
+});
+
 // API Routes
 
 // GET /api/state - Load the current state
@@ -74,6 +136,9 @@ app.post('/api/state', async (req, res) => {
         // Save to file
         await fs.writeFile(DATA_FILE, JSON.stringify(newState, null, 2));
         
+        // Broadcast to all connected clients
+        broadcastStateUpdate(newState);
+        
         res.json({
             success: true,
             message: 'State saved successfully',
@@ -94,7 +159,8 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        connectedClients: clients.size
     });
 });
 
@@ -109,12 +175,13 @@ async function startServer() {
         await ensureDataDirectory();
         await initializeState();
         
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`
 ╔════════════════════════════════════════════╗
 ║  Tennis Club Social Day Manager Server    ║
 ║  Running on port ${PORT}                     ║
 ║  http://localhost:${PORT}                    ║
+║  WebSocket: ENABLED ✅                       ║
 ╚════════════════════════════════════════════╝
             `);
         });

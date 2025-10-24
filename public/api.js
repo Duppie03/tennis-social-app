@@ -1,10 +1,80 @@
 // API Configuration
-const API_BASE_URL = window.location.origin; // Use same origin as the page
+const API_BASE_URL = window.location.origin;
+const WS_URL = window.location.origin.replace(/^http/, 'ws'); // Convert http:// to ws://
+
 const API_ENDPOINTS = {
     getState: `${API_BASE_URL}/api/state`,
     saveState: `${API_BASE_URL}/api/state`,
     health: `${API_BASE_URL}/api/health`
 };
+
+// WebSocket connection
+let ws = null;
+let reconnectInterval = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 3000; // 3 seconds
+
+// Callback for when state is updated from server
+let onStateUpdateCallback = null;
+
+// Initialize WebSocket connection
+function initWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        return; // Already connected
+    }
+    
+    console.log('🔌 Connecting to WebSocket...');
+    ws = new WebSocket(WS_URL);
+    
+    ws.onopen = () => {
+        console.log('✅ WebSocket connected - Real-time sync enabled!');
+        reconnectAttempts = 0;
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'state_update' || data.type === 'initial_state') {
+                console.log('📨 Received state update from server');
+                
+                // Call the callback if it's set
+                if (onStateUpdateCallback && typeof onStateUpdateCallback === 'function') {
+                    onStateUpdateCallback(data.state);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    };
+    
+    ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+        console.log('🔌 WebSocket disconnected');
+        
+        // Attempt to reconnect
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`⏳ Reconnecting... (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+            
+            if (!reconnectInterval) {
+                reconnectInterval = setTimeout(() => {
+                    initWebSocket();
+                }, RECONNECT_DELAY);
+            }
+        } else {
+            console.log('⚠️ Max reconnection attempts reached. Please refresh the page.');
+        }
+    };
+}
 
 // API Helper Functions
 const API = {
@@ -23,12 +93,11 @@ const API = {
             }
         } catch (error) {
             console.error('Error loading state from API:', error);
-            // Return null so the app can use default state
             return null;
         }
     },
 
-    // Save state to server
+    // Save state to server (this will trigger WebSocket broadcast to other clients)
     async saveState(state) {
         try {
             const response = await fetch(API_ENDPOINTS.saveState, {
@@ -68,8 +137,39 @@ const API = {
             console.error('Health check failed:', error);
             return false;
         }
+    },
+    
+    // Set callback for when state updates are received
+    onStateUpdate(callback) {
+        onStateUpdateCallback = callback;
+    },
+    
+    // Initialize WebSocket connection
+    connect() {
+        initWebSocket();
+    },
+    
+    // Close WebSocket connection
+    disconnect() {
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
     }
 };
+
+// Auto-connect when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        API.connect();
+    });
+} else {
+    API.connect();
+}
 
 // Export for use in main script
 window.API = API;
