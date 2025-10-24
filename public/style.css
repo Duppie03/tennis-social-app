@@ -3720,13 +3720,12 @@ input:checked + .slider:before {
 
     /* 1. Define the width and order for the top row action buttons */
     #manual-entry-modal #add-outside-player-btn,
-    #manual-entry-modal #manual-entry-confirm-btn, 
-    #end-game-modal #end-game-skip-btn, 
-    #end-game-modal #end-game-confirm-btn 
+    #manual-entry-modal #manual-entry-confirm-btn 
+
     {
         /* Calculate 50% width minus half the margin for a perfect fit */
         width: calc(50% - 0.25rem); 
-        flex: 0 0 auto !important; /* Disable flex-grow to allow wrapping */
+        flex: 0 0 auto ; /* Disable flex-grow to allow wrapping */
         margin-bottom: 0.5rem; /* Space below the top row of buttons */
         margin-top: 0 !important; /* Ensure margin top is zero */
     }
@@ -8413,4 +8412,148 @@ input[type="range"] {
 #children-container input[type="date"]::-moz-datetime-edit-day-field,
 #children-container input[type="date"]::-moz-datetime-edit-year-field {
     color: transparent !important;
+}
+
+/* ============================================
+   GAME RESULTS MODAL - RESPONSIVE WIDTH FIX
+   ============================================ */
+
+/* Make the game results modal wider and more flexible */
+#end-game-modal .modal-content {
+    max-width: 700px;
+    width: 95%;
+}
+
+/* Ensure team selection buttons are properly sized */
+#end-game-modal .result-section {
+    margin-bottom: 1.5rem;
+}
+
+#end-game-modal .team-card {
+    padding: 1rem 1.5rem;
+    margin: 0.5rem 0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#end-game-modal .team-card:hover {
+    border-color: var(--primary-blue);
+    background-color: #f8f9fa;
+}
+
+#end-game-modal .team-card.selected {
+    border-color: var(--success-green);
+    background-color: #d4edda;
+}
+
+/* Score input area - make it flex properly */
+#end-game-modal .score-input-area {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+#end-game-modal .score-input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#end-game-modal .score-input-wrapper label {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+#end-game-modal .score-input-wrapper input {
+    padding: 0.75rem;
+    font-size: 1.5rem;
+    text-align: center;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+#end-game-modal .score-input-wrapper.winning input {
+    border-color: var(--success-green);
+    background-color: #f0f9f4;
+}
+
+#end-game-modal .score-input-wrapper.losing input {
+    border-color: #dc3545;
+    background-color: #fff5f5;
+}
+
+/* CRITICAL FIX: Modal actions - 3 buttons sharing the container width */
+#end-game-modal .modal-actions {
+    display: flex !important; /* Force flex display */
+    gap: 0.75rem;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+    flex-wrap: nowrap; /* Keep in one row */
+    width: 100%; /* Ensure container takes full width */
+}
+
+#end-game-modal .modal-actions button {
+    flex: 1 1 0; /* Equal flex grow, shrink, and base of 0 */
+    min-width: 0; /* Allow buttons to shrink below content width */
+    padding: 0.75rem 0.5rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ensure no other styles override the button width */
+#end-game-modal .modal-actions button#end-game-cancel-btn,
+#end-game-modal .modal-actions button#end-game-skip-btn,
+#end-game-modal .modal-actions button#end-game-confirm-btn {
+    width: auto !important; /* Override any width: 100% */
+    max-width: none !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+    #end-game-modal .modal-content {
+        width: 98%;
+        padding: 1rem;
+    }
+    
+    #end-game-modal .modal-actions {
+        gap: 0.5rem;
+    }
+    
+    #end-game-modal .modal-actions button {
+        padding: 0.75rem 0.25rem;
+        font-size: 0.85rem;
+    }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+    #end-game-modal .modal-content {
+        max-width: 650px;
+    }
+    
+    #end-game-modal .modal-actions button {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+}
+
+/* Desktop */
+@media (min-width: 901px) {
+    #end-game-modal .modal-content {
+        max-width: 700px;
+    }
+    
+    #end-game-modal .modal-actions button {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
 }
