@@ -241,7 +241,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.select-court.hide-anim {
     animation: spinAndShrink 2s forwards;
-    will-change: transform;
+
 }
 
 
@@ -736,7 +736,7 @@ header h1 { margin: 0; }
     color: var(--confirm-color);
     animation: fadeCycle 10s infinite ease-in-out, scaleBounce 2s infinite ease-in-out;
     line-height: 1;
-    will-change: transform;
+
 }
 
 .duty-text {
@@ -745,7 +745,7 @@ header h1 { margin: 0; }
     color: var(--confirm-color);
     opacity: 0;
     animation: fadeCycleText 10s infinite ease-in-out;
-    will-change: transform;
+
 }
 
 
@@ -1281,7 +1281,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.end-game-ball.hide-anim {
     animation: bounceSelect 2s forwards;
-    will-change: transform;
+
 }
 
 @keyframes ballHop {
@@ -1323,7 +1323,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.select-court.start-game-hop {
     animation: ballHop 2s forwards;
-    will-change: transform;
+
 }
 
 @keyframes hitWinner {
@@ -1347,7 +1347,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.end-game-ball.hide-anim {
     animation: hitWinner 1.5s forwards ease-in;
-    will-change: transform;
+
 }
 
 @keyframes serveBall {
@@ -1383,7 +1383,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.select-court.serve-out {
     animation: hitWinner 1.5s forwards ease-in;
-    will-change: transform;
+
 }
 
 @keyframes endGameAppear {
@@ -1432,7 +1432,7 @@ header h1 { margin: 0; }
 
 .court-card.status-in_progress .end-game-ball.animate-in {
     animation: endGameAppear 2s forwards;
-    will-change: transform;
+
 }
 
 /* ADD THIS NEW RULE */
@@ -2343,7 +2343,7 @@ header h1 { margin: 0; }
     border-radius: 5px;
     /* This animation now calls the new inset border pulse */
     animation: pulse-inset-border 2s infinite; 
-    will-change: transform;
+
     cursor: default;
     border-bottom: 3px solid var(--confirm-color);
     
@@ -2780,7 +2780,7 @@ header h1 { margin: 0; }
 /* Shake animation for incorrect PIN */
 #court-mode-keypad-modal .keypad-content.shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-    will-change: transform;
+
 }
 
 /* Styles for the Done button */
@@ -2802,7 +2802,7 @@ header h1 { margin: 0; }
 }
 .shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-    will-change: transform;
+
 }
 
 
@@ -4616,13 +4616,13 @@ input:checked + .slider:before {
 }
 .shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-    will-change: transform;
+
 }
 
 /* Apply shake to global keyboard display */
 #global-keyboard-display.shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-    will-change: transform;
+
 }
 
 /* MODIFIED: New Parent Registration Inputs */
@@ -6701,14 +6701,14 @@ body {
     background-color: #eafaf1 !important;
     border-radius: 5px;
     animation: pulse-green 2s infinite;
-    will-change: transform;
+
 }
 
 #availablePlayersList li.suggested-opponent {
     background-color: #e7f3ff !important;
     border-radius: 5px;
     animation: pulse-blue 2s infinite;
-    will-change: transform;
+
 }
 
 .suggestion-btn-container {
@@ -6812,7 +6812,7 @@ body {
     padding-right: 0.6rem;
     /* Optional: Add a subtle pulse or flicker animation if desired */
     animation: flicker 0.8s infinite alternate;
-    will-change: transform;
+
 }
 
 @keyframes flicker {
@@ -6835,7 +6835,7 @@ body {
     position: absolute;
     white-space: nowrap;
     opacity: 0;
-    will-change: transform;
+
     font-size: 1.5rem;
     font-weight: bold;
     color: white;

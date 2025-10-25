@@ -7055,23 +7055,47 @@ async function loadState(MASTER_MEMBER_LIST) {
         saveState();
     }
 
-    function ensureCourtSelectionAnimation() {
+    // MODIFIED function to handle animations sequentially
+    async function ensureCourtSelectionAnimation() { // Add 'async'
         const { players: selectedPlayerNames, gameMode } = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
 
+        // Find all potentially selectable court buttons
+        const allCourtButtons = document.querySelectorAll('.court-confirm-btn.select-court');
+        // Find only the ones that should animate in
+        const selectableButtons = document.querySelectorAll('.court-card.selectable:not(.is-reserved-only) .court-confirm-btn.select-court');
+
+        // --- NEW: Function to wait for animation end ---
+        const waitForAnimation = (element) => {
+            return new Promise(resolve => {
+                // Use 'animationend' event
+                element.addEventListener('animationend', resolve, { once: true });
+                // Fallback timeout in case event doesn't fire (e.g., element removed)
+                setTimeout(resolve, 1600); // Slightly longer than animation (1.5s)
+            });
+        };
+        // --- END NEW ---
+
+        // --- Clear existing animations first ---
+        allCourtButtons.forEach(button => {
+            button.classList.remove('serve-in', 'serve-out');
+            // Force reflow to ensure removal is registered before adding again
+            void button.offsetWidth;
+        });
+        // --- END CLEAR ---
+
+
         if (selectedPlayerNames.length === requiredPlayers) {
-            const selectableCourts = document.querySelectorAll('.court-card.selectable .court-confirm-btn.select-court');
-            selectableCourts.forEach(button => {
-                // Unconditionally add the class to make the ball visible
+            // --- Animate IN sequentially ---
+            for (const button of selectableButtons) {
                 button.classList.add('serve-in');
-            });
-        } else {
-            // If the selection is not complete, ensure the class is removed from all buttons.
-            const allCourts = document.querySelectorAll('.court-confirm-btn.select-court');
-            allCourts.forEach(button => {
-                button.classList.remove('serve-in');
-            });
+                await waitForAnimation(button); // Wait for this animation
+                // Optional small delay between animations if needed
+                // await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            // --- END SEQUENTIAL ---
         }
+        // No 'else' needed, clearing happens above for non-selectable states
     }
 
     function handlePlayerClick(e){
