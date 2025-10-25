@@ -6521,8 +6521,15 @@ async function loadState(MASTER_MEMBER_LIST) {
 
     // NEW FUNCTION: Extracted court selection logic
 
+    // MODIFIED function to include pong resume
     function proceedWithCourtSelection(selectedPlayerNames, courtId, gameMode) {
         const court = state.courts.find(c => c.id === courtId);
+        if (!court) {
+             // Resume pong even if court selection failed unexpectedly
+             resumePongAnimations();
+             return;
+        }
+
 
         // --- THIS IS THE FIX ---
         // The snapshot is now taken BEFORE any players are removed from the available list.
@@ -6536,7 +6543,7 @@ async function loadState(MASTER_MEMBER_LIST) {
             court.teams.team2 = state.activeSuggestion.team2;
             court.teamsSet = true;
             court.gameMode = 'doubles'; // Suggestion is always for doubles
-            
+
             state.availablePlayers = state.availablePlayers.filter(p => !court.players.some(p2 => p2.name === p.name));
             clearSuggestionHighlights(); // Clear highlights and stored suggestion
         } else {
@@ -6544,18 +6551,20 @@ async function loadState(MASTER_MEMBER_LIST) {
             court.players = [...selectedPlayerObjects];
             court.gameMode = gameMode;
             if (gameMode === 'doubles') {
-                court.status = "selecting_teams";
+                // court.status = "selecting_teams"; // Status set below
                 court.teams.team1 = [];
                 court.teams.team2 = [];
+                court.teamsSet = false; // Explicitly set teamsSet to false
             } else {
                 court.teams.team1 = [selectedPlayerObjects[0]];
                 court.teams.team2 = [selectedPlayerObjects[1]];
+                court.teamsSet = true; // Explicitly set teamsSet to true for singles
             }
             state.availablePlayers = state.availablePlayers.filter(p => !selectedPlayerNames.includes(p.name));
         }
 
         // The rest of the original function remains the same
-        court.status = court.status === "selecting_teams" ? "selecting_teams" : "game_pending";
+        court.status = (gameMode === 'doubles' && !state.activeSuggestion) ? "selecting_teams" : "game_pending"; // Determine status correctly
         if (court.status === "game_pending") {
             court.autoStartTimeTarget = Date.now() + 60000;
             court.autoStartTimer = setTimeout(() => handleStartGame(courtId), 60000);
@@ -6569,9 +6578,15 @@ async function loadState(MASTER_MEMBER_LIST) {
 
         state.selection = { gameMode: state.selection.gameMode, players: [], courtId: null };
         updateGameModeBasedOnPlayerCount();
-        enforceDutyPosition();
+        enforceDutyPosition(); // Re-apply duty logic after player removal
+        autoAssignCourtModes(); // Re-apply court modes
         render();
         saveState();
+
+        // --- NEW: Resume pong animations AFTER state updates and render ---
+        // Use setTimeout to ensure it runs after the current execution stack clears
+        setTimeout(resumePongAnimations, 0);
+        // --- END NEW ---
     }
 
     function formatDuration(ms) { if (ms === 0) return "00h00m"; const totalMinutes = Math.floor(ms / 60000); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${String(hours).padStart(2, "0")}h${String(minutes).padStart(2, "0")}m`; }
@@ -7013,7 +7028,6 @@ async function loadState(MASTER_MEMBER_LIST) {
     function handleStatsFilterChange(e) { state.statsFilter.gender = e.target.value; saveState(); renderHistory(); }
     function handleSortClick(e) { const key = e.target.dataset.sortKey; if (key) { handleSort(key); } }
     
-    // Player selection and game setup functions (no alert calls here)
     function handleCancelSelection() {
         // This is the corrected logic. It preserves the selected players
         // and only nullifies the court selection before re-rendering.
@@ -7024,6 +7038,17 @@ async function loadState(MASTER_MEMBER_LIST) {
 
         render();
         saveState();
+
+        // --- NEW: Resume pong animations AFTER state updates and render ---
+        // Use setTimeout to ensure it runs after the current execution stack clears
+        setTimeout(resumePongAnimations, 0);
+        // --- END NEW ---
+
+        // --- FIX: Ensure serve-in animation is re-triggered after cancel ---
+        requestAnimationFrame(() => {
+            requestAnimationFrame(ensureCourtSelectionAnimation);
+        });
+        // --- END FIX ---
     }
     function handleModeChange(mode){
         // 1. Unconditionally preserve the current selection at the start.
@@ -7055,47 +7080,60 @@ async function loadState(MASTER_MEMBER_LIST) {
         saveState();
     }
 
-    // MODIFIED function to handle animations sequentially
-    async function ensureCourtSelectionAnimation() { // Add 'async'
+    // --- NEW HELPER FUNCTION ---
+    function resumePongAnimations() {
+        console.log("Resuming pong animations..."); // Optional log
+        const availablePongContainers = document.querySelectorAll('.court-card.status-available .pong-animation-container');
+        availablePongContainers.forEach(container => container.classList.remove('pong-paused'));
+    }
+    // --- END NEW HELPER ---
+
+    // MODIFIED function to handle animations sequentially AND PAUSE PONG (NO RESUME HERE)
+    async function ensureCourtSelectionAnimation() {
         const { players: selectedPlayerNames, gameMode } = state.selection;
         const requiredPlayers = gameMode === "doubles" ? 4 : 2;
 
-        // Find all potentially selectable court buttons
         const allCourtButtons = document.querySelectorAll('.court-confirm-btn.select-court');
-        // Find only the ones that should animate in
         const selectableButtons = document.querySelectorAll('.court-card.selectable:not(.is-reserved-only) .court-confirm-btn.select-court');
+        const availablePongContainers = document.querySelectorAll('.court-card.status-available .pong-animation-container');
 
-        // --- NEW: Function to wait for animation end ---
         const waitForAnimation = (element) => {
             return new Promise(resolve => {
-                // Use 'animationend' event
                 element.addEventListener('animationend', resolve, { once: true });
-                // Fallback timeout in case event doesn't fire (e.g., element removed)
-                setTimeout(resolve, 1600); // Slightly longer than animation (1.5s)
+                // Safety timeout slightly longer than the longest potential animation (spinAndShrink is 2s)
+                setTimeout(resolve, 2100);
             });
         };
-        // --- END NEW ---
 
         // --- Clear existing animations first ---
         allCourtButtons.forEach(button => {
-            button.classList.remove('serve-in', 'serve-out');
-            // Force reflow to ensure removal is registered before adding again
+            button.classList.remove('serve-in', 'serve-out', 'hide-anim'); // Add hide-anim here too
             void button.offsetWidth;
         });
-        // --- END CLEAR ---
-
+        // --- Always ensure pong animations are running initially if NO selection is ready ---
+        if (selectedPlayerNames.length !== requiredPlayers) {
+            availablePongContainers.forEach(container => container.classList.remove('pong-paused'));
+        }
+        // --- END CLEAR / INITIAL STATE ---
 
         if (selectedPlayerNames.length === requiredPlayers) {
+            // --- PAUSE PONG ANIMATIONS ---
+            console.log("Pausing pong animations...");
+            availablePongContainers.forEach(container => container.classList.add('pong-paused'));
+            // --- END PAUSE ---
+
             // --- Animate IN sequentially ---
             for (const button of selectableButtons) {
                 button.classList.add('serve-in');
-                await waitForAnimation(button); // Wait for this animation
-                // Optional small delay between animations if needed
-                // await new Promise(resolve => setTimeout(resolve, 50));
+                await waitForAnimation(button); // Wait for serve-in (1.5s)
             }
             // --- END SEQUENTIAL ---
+
+            // --- DO NOT RESUME PONG HERE ---
+            // console.log("Resuming pong animations..."); // REMOVED
+            // availablePongContainers.forEach(container => container.classList.remove('pong-paused')); // REMOVED
+            // --- END DO NOT RESUME ---
         }
-        // No 'else' needed, clearing happens above for non-selectable states
     }
 
     function handlePlayerClick(e){

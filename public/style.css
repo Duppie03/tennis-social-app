@@ -5071,6 +5071,11 @@ input:checked + .slider:before {
     PONG ANIMATION STYLES (Singles Base & Doubles Overrides)
     ================================= */
 
+.pong-paused .pong-paddle,
+.pong-paused .pong-ball {
+    animation-play-state: paused !important; /* Force pause */
+}
+
 /* Container for all Pong elements */
 .pong-animation-container {
     position: absolute;
