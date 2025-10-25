@@ -236,10 +236,12 @@ header h1 { margin: 0; }
         color: transparent; 
         text-shadow: none;
     }
+    
 }
 
 .court-confirm-btn.select-court.hide-anim {
     animation: spinAndShrink 2s forwards;
+    will-change: transform;
 }
 
 
@@ -511,9 +513,19 @@ header h1 { margin: 0; }
 }
 
 .gender-selector .radio-group,
-.player-type-selector .radio-group {
-    min-width: 180px;
-    justify-content: center;
+.player-type-selector .radio-group,
+.age-type-selector .radio-group { /* <-- ADD THIS SELECTOR */
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background-color: #f0f0f0; /* This is the grey background */
+    border-radius: 8px;
+}
+
+/* Add this new rule for min-width consistency */
+.age-type-selector .radio-group {
+    min-width: 240px; /* Adjust if needed */
+    justify-content: space-around;
 }
 
 .gender-container {
@@ -724,6 +736,7 @@ header h1 { margin: 0; }
     color: var(--confirm-color);
     animation: fadeCycle 10s infinite ease-in-out, scaleBounce 2s infinite ease-in-out;
     line-height: 1;
+    will-change: transform;
 }
 
 .duty-text {
@@ -732,6 +745,7 @@ header h1 { margin: 0; }
     color: var(--confirm-color);
     opacity: 0;
     animation: fadeCycleText 10s infinite ease-in-out;
+    will-change: transform;
 }
 
 
@@ -1267,6 +1281,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.end-game-ball.hide-anim {
     animation: bounceSelect 2s forwards;
+    will-change: transform;
 }
 
 @keyframes ballHop {
@@ -1308,6 +1323,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.select-court.start-game-hop {
     animation: ballHop 2s forwards;
+    will-change: transform;
 }
 
 @keyframes hitWinner {
@@ -1331,6 +1347,7 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.end-game-ball.hide-anim {
     animation: hitWinner 1.5s forwards ease-in;
+    will-change: transform;
 }
 
 @keyframes serveBall {
@@ -1361,10 +1378,12 @@ header h1 { margin: 0; }
 
 .court-confirm-btn.select-court.serve-in {
     animation: serveBall 1.5s forwards ease-out;
+    will-change: transform;
 }
 
 .court-confirm-btn.select-court.serve-out {
     animation: hitWinner 1.5s forwards ease-in;
+    will-change: transform;
 }
 
 @keyframes endGameAppear {
@@ -1413,6 +1432,7 @@ header h1 { margin: 0; }
 
 .court-card.status-in_progress .end-game-ball.animate-in {
     animation: endGameAppear 2s forwards;
+    will-change: transform;
 }
 
 /* ADD THIS NEW RULE */
@@ -2323,6 +2343,7 @@ header h1 { margin: 0; }
     border-radius: 5px;
     /* This animation now calls the new inset border pulse */
     animation: pulse-inset-border 2s infinite; 
+    will-change: transform;
     cursor: default;
     border-bottom: 3px solid var(--confirm-color);
     
@@ -2759,6 +2780,7 @@ header h1 { margin: 0; }
 /* Shake animation for incorrect PIN */
 #court-mode-keypad-modal .keypad-content.shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    will-change: transform;
 }
 
 /* Styles for the Done button */
@@ -2780,6 +2802,7 @@ header h1 { margin: 0; }
 }
 .shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    will-change: transform;
 }
 
 
@@ -4593,11 +4616,13 @@ input:checked + .slider:before {
 }
 .shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    will-change: transform;
 }
 
 /* Apply shake to global keyboard display */
 #global-keyboard-display.shake {
     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    will-change: transform;
 }
 
 /* MODIFIED: New Parent Registration Inputs */
@@ -6676,12 +6701,14 @@ body {
     background-color: #eafaf1 !important;
     border-radius: 5px;
     animation: pulse-green 2s infinite;
+    will-change: transform;
 }
 
 #availablePlayersList li.suggested-opponent {
     background-color: #e7f3ff !important;
     border-radius: 5px;
     animation: pulse-blue 2s infinite;
+    will-change: transform;
 }
 
 .suggestion-btn-container {
@@ -6785,6 +6812,7 @@ body {
     padding-right: 0.6rem;
     /* Optional: Add a subtle pulse or flicker animation if desired */
     animation: flicker 0.8s infinite alternate;
+    will-change: transform;
 }
 
 @keyframes flicker {
@@ -8551,9 +8579,24 @@ input[type="range"] {
     #end-game-modal .modal-content {
         max-width: 700px;
     }
-    
-    #end-game-modal .modal-actions button {
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
+
+    /* --- MODIFY THIS BLOCK --- */
+    #end-game-modal .modal-actions {
+        display: flex !important; /* Ensure flex display */
+        justify-content: space-between; /* Space out buttons */
+        gap: 0.75rem; /* Consistent gap */
+        width: 100%; /* Take full width */
+        box-sizing: border-box; /* Include padding in width */
     }
+
+    #end-game-modal .modal-actions button {
+        flex: 1 1 0; /* Make buttons share space equally */
+        min-width: 0; /* Allow shrinking */
+        padding: 0.75rem 1.5rem; /* Adjust padding as needed */
+        font-size: 1rem;
+        /* Remove any fixed width that might conflict */
+        width: auto !important;
+        max-width: none !important;
+    }
+    /* --- END MODIFY --- */
 }

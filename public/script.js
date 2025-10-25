@@ -3747,27 +3747,65 @@ async function loadState(MASTER_MEMBER_LIST) {
         }
         const avgRank = Object.values(baselineRank).reduce((a, b) => a + b, 0) / Object.values(baselineRank).length || 0.5;
 
-        // 2. Calculate Strength-of-Schedule Score (no changes here)
+        // 2. Calculate Strength-of-Schedule Score (ENHANCED)
+        // Uses Expected Outcome probability to fairly assess performance
         let historicalScore = 0;
         let gamesPlayedHistorical = 0;
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const historicalGames = allGames.filter(game => new Date(game.endTime) > thirtyDaysAgo && (game.teams.team1.includes(player.name) || game.teams.team2.includes(player.name)));
+        
         historicalGames.forEach(game => {
             if (game.winner === 'skipped' || !game.score) return;
+            
+            // Determine player's team and opponent team
             const isPlayerInTeam1 = game.teams.team1.includes(player.name);
+            const playerTeam = isPlayerInTeam1 ? game.teams.team1 : game.teams.team2;
             const opponentTeam = isPlayerInTeam1 ? game.teams.team2 : game.teams.team1;
             const isWinner = (isPlayerInTeam1 && game.winner === 'team1') || (!isPlayerInTeam1 && game.winner === 'team2');
-            const opponentAvgRank = opponentTeam.reduce((sum, pName) => sum + (baselineRank[pName] || avgRank), 0) / opponentTeam.length;
-            let weight = 1.0;
+            
+            // Calculate team averages using baseline ranks
+            const playerTeamAvg = playerTeam.reduce((sum, pName) => 
+                sum + (baselineRank[pName] || avgRank), 0) / playerTeam.length;
+            const opponentTeamAvg = opponentTeam.reduce((sum, pName) => 
+                sum + (baselineRank[pName] || avgRank), 0) / opponentTeam.length;
+            
+            // Calculate expected win probability using logistic function
+            // This accounts for ALL 4 players' strengths
+            const scoreDiff = playerTeamAvg - opponentTeamAvg;
+            const expectedWinProb = 1 / (1 + Math.exp(-5 * scoreDiff));
+            
+            // Calculate performance score based on expected outcome
+            let performanceScore;
+            
             if (isWinner) {
-                if (opponentAvgRank > avgRank) weight = 1 + (opponentAvgRank - avgRank);
+                // Won the match
+                if (expectedWinProb < 0.5) {
+                    // UPSET WIN (were underdogs)
+                    // Massive bonus for beating stronger opponents
+                    performanceScore = (1.0 - expectedWinProb) * 2;
+                } else {
+                    // EXPECTED WIN (were favorites)
+                    // Small credit for beating weaker opponents
+                    performanceScore = (1.0 - expectedWinProb) * 0.5;
+                }
             } else {
-                if (opponentAvgRank < avgRank) weight = 1 + (avgRank - opponentAvgRank);
+                // Lost the match
+                if (expectedWinProb > 0.5) {
+                    // BAD LOSS (were favorites)
+                    // Heavy penalty for losing to weaker opponents
+                    performanceScore = -(expectedWinProb) * 2;
+                } else {
+                    // EXPECTED LOSS (were underdogs)
+                    // Small penalty for losing to stronger opponents
+                    performanceScore = -(expectedWinProb) * 0.5;
+                }
             }
-            historicalScore += isWinner ? weight : -weight;
+            
+            historicalScore += performanceScore;
             gamesPlayedHistorical++;
         });
+        
         const finalHistoricalScore = gamesPlayedHistorical > 0 ? historicalScore / gamesPlayedHistorical : 0;
 
         // 3. Today's Form (no changes here)
@@ -3800,9 +3838,10 @@ async function loadState(MASTER_MEMBER_LIST) {
         let blendedScore = (finalHistoricalScore * historicalWeight) + (todaysWinPct * todayWeight);
         // --- END OF REFINED LOGIC ---
 
-        // 5. Apply Player Type Modifiers (no changes here)
-        if (player.type === 'Veteran') blendedScore -= 0.1;
-        if (player.type === 'Junior') blendedScore -= 0.2;
+        // 5. Apply Player Type Modifiers
+        // ENHANCED: Removed static penalties for Veteran/Junior
+        // Player type doesn't determine skill - performance does!
+        // Strategic veterans and elite juniors now get proper credit
         if (player.guest && gamesPlayedHistorical === 0) blendedScore = 0;
 
         if (returnDetailed) {
@@ -4386,8 +4425,10 @@ async function loadState(MASTER_MEMBER_LIST) {
                 // Power score only logic (remains unchanged)
                 const males = potentialFoursome.filter(p => p.gender === 'M').length;
                 const females = potentialFoursome.filter(p => p.gender === 'F').length;
-                if (males === 3 && females === 1 || males === 1 && females === 3) {
-                    return;
+
+                // CRITICAL: Never allow 3:1 gender splits
+                if ((males === 3 && females === 1) || (males === 1 && females === 3)) {
+                    return; // Skip this combination entirely
                 }
                 const foursomeScores = allPlayerScores.filter(ps => potentialFoursomeNames.includes(ps.player.name));
                  if (foursomeScores.length !== 4) return; // Ensure we have scores for 4 players
@@ -4404,6 +4445,11 @@ async function loadState(MASTER_MEMBER_LIST) {
                 // Gender Balancing Logic
                 const males = potentialFoursome.filter(p => p.gender === 'M').length;
                 const females = potentialFoursome.filter(p => p.gender === 'F').length;
+
+                // CRITICAL: Never allow 3:1 gender splits
+                if ((males === 3 && females === 1) || (males === 1 && females === 3)) {
+                    return; // Skip this combination entirely
+                }
 
                 let isMatch = false;
                 // --- START CORRECTION ---
@@ -4449,8 +4495,10 @@ async function loadState(MASTER_MEMBER_LIST) {
                 // Rule: Avoid 3:1 gender splits even in fallback
                 const males = potentialFoursome.filter(p => p.gender === 'M').length;
                 const females = potentialFoursome.filter(p => p.gender === 'F').length;
-                if (males === 3 && females === 1 || males === 1 && females === 3) {
-                    return; // Skip invalid 3:1 split
+
+                // CRITICAL: Never allow 3:1 gender splits
+                if ((males === 3 && females === 1) || (males === 1 && females === 3)) {
+                    return; // Skip this combination entirely
                 }
 
                 const potentialFoursomeNames = potentialFoursome.map(p => p.name);
@@ -5472,22 +5520,31 @@ async function loadState(MASTER_MEMBER_LIST) {
     function createPlayerListItem(player, index, selectedPlayerNames, requiredPlayers, playerStats, starPlayers, winningStreaks, heartbreakerName, isSpecialCase = false, sliceEnd = 8, specialHighlightIndex = -1, isSelector = false, inGroup = false) {
         const li = document.createElement("li");
         const playerName = player.name;
-        
+
         let statusText;
+        // *** MODIFIED STATUS TEXT LOGIC ***
         if (player.guest) {
-            statusText = 'Guest';
+            // If it's a guest AND they have a specific type (Junior, Adult, etc.)
+            if (player.type) {
+                statusText = `${player.type} Guest`; // e.g., "Adult Guest"
+            } else {
+                statusText = 'Guest'; // Fallback if type is missing
+            }
         } else if (player.committee) {
-            statusText = `Committee ${player.committee}`;
+            statusText = `Committee ${player.committee}`; //
         } else {
-            statusText = player.type ? `${player.type} Member` : 'Member';
+            // For members, use their type from the master list if available, otherwise default
+            statusText = player.type ? `${player.type} Member` : 'Member'; //
         }
+        // *** END MODIFIED LOGIC ***
+
 
         let priorityText = '';
-        let priorityClass = 'player-status';
+        let priorityClass = 'player-status'; // Use player-status by default
 
         if (playerName === state.onDuty) {
-            priorityText = 'Low Priority';
-            priorityClass = 'player-priority';
+            priorityText = 'Low Priority'; //
+            priorityClass = 'player-priority'; //
         }
 
         let iconHtml = '';
@@ -5495,36 +5552,42 @@ async function loadState(MASTER_MEMBER_LIST) {
         const isQueen = playerName === starPlayers.queenOfTheCourt;
         const isHeartbreaker = playerName === heartbreakerName;
         const streak = winningStreaks[playerName] || 0;
-        
-        const statusFaderItems = [statusText];
+
+        const statusFaderItems = [statusText]; // Start fader items with the primary status
         let statusHTML;
 
         if (isKing || isQueen) {
-            iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>';
-            statusFaderItems.push(isKing ? "King of the Court" : "Queen of the Court");
+            iconHtml += '<span style="color: gold; margin-left: 5px;">👑</span>'; //
+            statusFaderItems.push(isKing ? "King of the Court" : "Queen of the Court"); //
         }
         if (streak >= 3) {
-            iconHtml += `<span title="${streak} wins in a row!" style="margin-left: 5px;">🎲</span>`;
-            statusFaderItems.push("On a roll!");
+            iconHtml += `<span title="${streak} wins in a row!" style="margin-left: 5px;">🎲</span>`; //
+            statusFaderItems.push("On a roll!"); //
         }
         if (isHeartbreaker) {
-            iconHtml += `<span title="Heartbreaker!" style="margin-left: 5px;">💔</span>`;
-            statusFaderItems.push("So Close!");
+            iconHtml += `<span title="Heartbreaker!" style="margin-left: 5px;">💔</span>`; //
+            statusFaderItems.push("So Close!"); //
         }
 
+        // Generate status HTML, handling the fader if needed
         if (statusFaderItems.length > 1) {
-            statusHTML = `<div class="player-status-fader">`;
-            statusFaderItems.forEach((text, i) => {
-                statusHTML += `<span class="status-text ${i === 0 ? 'is-visible' : ''}">${text}</span>`;
+            statusHTML = `<div class="player-status-fader">`; //
+            // Add the primary status text first (which now includes the type for guests)
+            statusHTML += `<span class="status-text is-visible ${priorityClass}">${priorityText || statusText}</span>`; //
+            // Add other fading statuses (King/Queen, On a Roll, etc.)
+            statusFaderItems.slice(1).forEach((text) => { // Start from index 1
+                statusHTML += `<span class="status-text">${text}</span>`; //
             });
             statusHTML += `</div>`;
         } else {
-            statusHTML = `<span class="${priorityClass}">${priorityText || statusText}</span>`;
+             // If only one status, display it directly
+            statusHTML = `<span class="${priorityClass}">${priorityText || statusText}</span>`; //
         }
-        
+
+
         const isPaused = player.isPaused;
-        const pauseIcon = isPaused ? 'mdi-play' : 'mdi-pause';
-        const pauseAction = isPaused ? 'resume' : 'pause';
+        const pauseIcon = isPaused ? 'mdi-play' : 'mdi-pause'; //
+        const pauseAction = isPaused ? 'resume' : 'pause'; //
 
         let playtimeHTML;
         if (isPaused && player.pauseTime) {
@@ -5534,17 +5597,17 @@ async function loadState(MASTER_MEMBER_LIST) {
             const minutes = Math.floor(remaining / 60000);
             const seconds = Math.floor((remaining % 60000) / 1000);
             const timeString = `${String(minutes).padStart(2, "0")}m${String(seconds).padStart(2, "0")}s`;
-            playtimeHTML = `<span class="player-playtime player-pause-cooldown" data-pause-time="${player.pauseTime}">${timeString}</span>`;
+            playtimeHTML = `<span class="player-playtime player-pause-cooldown" data-pause-time="${player.pauseTime}">${timeString}</span>`; //
         } else {
             const playtime = playerStats[playerName] ? formatDuration(playerStats[playerName].totalDurationMs) : '00h00m';
-            playtimeHTML = `<span class="player-playtime">${playtime}</span>`;
+            playtimeHTML = `<span class="player-playtime">${playtime}</span>`; //
         }
 
         let suggestionButtonHTML = '<div class="suggestion-icon-wrapper"></div>'; // Placeholder for alignment
         if (isSelector && state.availablePlayers.length >= 5) {
-            suggestionButtonHTML = `<div class="suggestion-icon-wrapper"><button class="suggestion-btn" title="Suggest a balanced game">💡</button></div>`;
+            suggestionButtonHTML = `<div class="suggestion-icon-wrapper"><button class="suggestion-btn" title="Suggest a balanced game">💡</button></div>`; //
         }
-        
+
         li.innerHTML = `
             <div class="player-details">
                 <div class="player-name-container">
@@ -5563,35 +5626,36 @@ async function loadState(MASTER_MEMBER_LIST) {
                 </div>
                 ${playtimeHTML}
             </div>
-        `;
-        li.dataset.playerName = playerName;
+        `; //
+        li.dataset.playerName = playerName; //
 
         // Apply suggestion classes if a suggestion is active
         if (state.activeSuggestion) {
             const { team1, team2 } = state.activeSuggestion;
             if (team1.some(p => p.name === playerName)) {
-                li.classList.add('suggested-partner');
+                li.classList.add('suggested-partner'); //
             } else if (team2.some(p => p.name === playerName)) {
-                li.classList.add('suggested-opponent');
+                li.classList.add('suggested-opponent'); //
             }
         }
 
-        if (player.isPaused) li.classList.add("paused-player");
-        if (selectedPlayerNames.includes(playerName)) li.classList.add("selected");
+        if (player.isPaused) li.classList.add("paused-player"); //
+        if (selectedPlayerNames.includes(playerName)) li.classList.add("selected"); //
         else {
-            const isSelectionFull = selectedPlayerNames.length >= 4;
+            const isSelectionFull = selectedPlayerNames.length >= 4; // Check if 4 players already selected
             let isDisabled = false;
-            if (isSpecialCase) { if (index >= sliceEnd) isDisabled = true; } 
-            else { if (index >= sliceEnd) isDisabled = true; }
-            if (player.isPaused) isDisabled = true;
-            if (index === specialHighlightIndex) isDisabled = false;
-            if (isSelectionFull || isDisabled) li.classList.add("disabled");
+            if (isSpecialCase) { if (index >= sliceEnd) isDisabled = true; } //
+            else { if (index >= sliceEnd) isDisabled = true; } //
+            if (player.isPaused) isDisabled = true; //
+            if (index === specialHighlightIndex) isDisabled = false; //
+            // Disable if selection is full OR if player is beyond the selectable range/paused
+            if (isSelectionFull || isDisabled) li.classList.add("disabled"); //
         }
-        
-        if (isSelector) li.classList.add("first-player");
-        if (index === 0) li.classList.add("first-player");
-        if (!isSelector) li.classList.remove("first-player");
-        
+
+        if (isSelector) li.classList.add("first-player"); //
+        // This handles the case where the paused player at index 0 makes the next available player the 'first-player' visually
+        if (!isSelector && index === state.availablePlayers.findIndex(p => !p.isPaused)) li.classList.add("first-player"); //
+
         return li;
     }
 
@@ -6955,11 +7019,8 @@ async function loadState(MASTER_MEMBER_LIST) {
         // and only nullifies the court selection before re-rendering.
         state.selection.courtId = null;
 
-        // --- ADD THIS BLOCK ---
-        // Also clear any stored suggestion if the court selection is cancelled
-        state.currentSuggestionOutcome = null;
-        state.currentSuggestionType = null;
-        // --- END ADD ---
+        // Note: We do NOT clear currentSuggestionOutcome here
+        // This prevents gaming the system by cancelling court selection to get different results
 
         render();
         saveState();
@@ -7019,9 +7080,8 @@ async function loadState(MASTER_MEMBER_LIST) {
             // If a suggestion is already active *on the screen* (highlighted), clear it.
             if (state.activeSuggestion) {
                 clearSuggestionHighlights();
-                // Also clear the stored outcome so it re-rolls next time
-                state.currentSuggestionOutcome = null; 
-                state.currentSuggestionType = null;
+                // Note: We do NOT clear currentSuggestionOutcome here
+                // This prevents gaming the system by toggling to get different results
             } 
             // Otherwise, generate or retrieve the stored suggestion
             else {
@@ -7077,16 +7137,13 @@ async function loadState(MASTER_MEMBER_LIST) {
             return;
         }
         
-        // If a player is clicked manually, clear any active suggestion
+        // If a player is clicked manually, clear any active suggestion highlights
         if(state.activeSuggestion) {
             clearSuggestionHighlights();
         }
 
-        // Also clear any stored suggestion outcome if a player is clicked
-        if (state.currentSuggestionOutcome) {
-            state.currentSuggestionOutcome = null;
-            state.currentSuggestionType = null;
-        }
+        // Note: We do NOT clear currentSuggestionOutcome here
+        // This prevents gaming the system by clicking players to get different results
 
         const li = e.target.closest("li");
         
@@ -8498,6 +8555,13 @@ async function loadState(MASTER_MEMBER_LIST) {
 
                 enforceQueueLogic(); // Re-apply all queue rules after the move
 
+                // Clear any stored suggestion since the selector has changed
+                state.currentSuggestionOutcome = null;
+                state.currentSuggestionType = null;
+                if (state.activeSuggestion) {
+                    clearSuggestionHighlights();
+                }
+
                 const newFirstPlayerFullName = getFirstAvailablePlayerName();
                 // Use pronounceable names in the swap message
                 const playerToMovePronounceable = getPronounceableName(playerToMove.name);
@@ -8691,7 +8755,9 @@ async function loadState(MASTER_MEMBER_LIST) {
             if (!state.notificationControls.isMinimized) {
                 state.notificationControls.isMinimized = true;
                 // --- THIS IS THE FIX ---
-                playCustomTTS("Switching to 2-minute alerts.");
+                if (!state.matchSettings.autoMatchModes) {
+                    playCustomTTS("Switching to 2-minute alerts.");
+                }
                 // --- END OF FIX ---
                 updateNotificationIcons();
                 saveState();
@@ -8701,7 +8767,9 @@ async function loadState(MASTER_MEMBER_LIST) {
         else {
             if (state.notificationControls.isMinimized) {
                 state.notificationControls.isMinimized = false;
-                playCustomTTS("Switching to 5-minute alerts.");
+                if (!state.matchSettings.autoMatchModes) {
+                    playCustomTTS("Switching to 5-minute alerts.");
+                }
                 updateNotificationIcons();
                 saveState();
             }
@@ -10606,14 +10674,24 @@ async function loadState(MASTER_MEMBER_LIST) {
         input.addEventListener('input', validationCallback);
     }
 
-    function validateGuestForm() { const name = guestNameInput.value.trim(); const surname = guestSurnameInput.value.trim(); const isReady = (name.length > 0 && surname.length > 0); guestConfirmBtn.disabled = !isReady; guestConfirmBtn.style.backgroundColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)'; guestConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)'; }
+    function validateGuestForm() {
+        const name = guestNameInput.value.trim();
+        const surname = guestSurnameInput.value.trim();
+        const genderSelected = !!document.querySelector('input[name="guest-gender"]:checked'); // Check if gender is selected
+        const ageTypeSelected = !!document.querySelector('input[name="age-type"]:checked'); // *** NEW: Check if age type is selected ***
+        const isReady = (name.length > 0 && surname.length > 0 && genderSelected && ageTypeSelected); // *** Added ageTypeSelected ***
+        guestConfirmBtn.disabled = !isReady;
+        guestConfirmBtn.style.backgroundColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
+        guestConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
+    }
     // REVISED function to handle different contexts
     function handleGuestCheckIn() {
         const firstName = guestNameInput.value.trim();
         const lastName = guestSurnameInput.value.trim();
         const gender = document.querySelector('input[name="guest-gender"]:checked').value;
-        const playerType = document.querySelector('input[name="player-type"]:checked').value;
-        const isGuest = playerType === 'guest';
+        const guestType = document.querySelector('input[name="player-type"]:checked').value; // Guest or Member
+        const ageType = document.querySelector('input[name="age-type"]:checked').value; // *** NEW: Read age type ***
+        const isGuest = guestType === 'guest';
         const context = guestNameModal.dataset.context; // Get the context
 
         // Always enable the 'member' radio button after use, regardless of context
@@ -10631,7 +10709,7 @@ async function loadState(MASTER_MEMBER_LIST) {
         // --- Logic based on context and player type ---
         if (context === 'purchaser') {
             // Purchaser flow - always treat as guest, add/update history
-            playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
+            playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
             updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
             guestNameModal.classList.add('hidden');
             delete guestNameModal.dataset.context;
@@ -10641,7 +10719,7 @@ async function loadState(MASTER_MEMBER_LIST) {
         }
         else if (context === 'manual-entry') {
             // Manual entry flow - always treat as guest, add to history AND manual selection
-            playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
+            playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
             updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
 
             // Add directly to manual entry selection if not already there and space permits
@@ -10659,17 +10737,19 @@ async function loadState(MASTER_MEMBER_LIST) {
         else {
              // Standard check-in flow
              if (isGuest) {
-                 playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
+                 playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
                  updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
              } else {
                  // Member check-in
                  playerObject = MASTER_MEMBER_LIST.find(p => p.name.toLowerCase() === formattedPlayerName.toLowerCase());
                  if (playerObject) {
+                     // If found in master list, update its type property (if it exists) or add it
+                     playerObject.type = ageType; // *** Store ageType for existing member ***
                      state.clubMembers = state.clubMembers.filter(p => p.name.toLowerCase() !== formattedPlayerName.toLowerCase());
                  } else {
-                     // If member not found, treat as guest (should ideally not happen if name matches)
-                     playerObject = { name: formattedPlayerName, gender: gender, guest: true, isPaused: false };
-                     updateGuestHistory(playerObject.name, playerObject.gender);
+                     // If member not found, treat as guest (but mark as member type internally)
+                     playerObject = { name: formattedPlayerName, gender: gender, guest: false, type: ageType, isPaused: false }; // *** Mark guest:false, Store ageType ***
+                     updateGuestHistory(playerObject.name, playerObject.gender); // Still track visits for potential future guest status? Or skip? Let's track.
                  }
              }
              // Proceed to leaderboard confirmation for standard check-in
@@ -10711,6 +10791,7 @@ async function loadState(MASTER_MEMBER_LIST) {
         guestConfirmBtn.disabled = true;
         document.querySelector('input[name="guest-gender"][value="M"]').checked = true; // Default gender to M
         document.querySelector('input[name="player-type"][value="guest"]').checked = true; // Default type to Guest
+        document.querySelector('input[name="age-type"][value="Adult"]').checked = true; // *** NEW: Default age type to Adult ***
         // Ensure member radio is re-enabled if it was disabled
         const memberRadio = document.querySelector('input[name="player-type"][value="member"]');
         if (memberRadio) memberRadio.disabled = false;
@@ -11172,6 +11253,11 @@ async function loadState(MASTER_MEMBER_LIST) {
         }
     }
 
+    // Track last announcement times to prevent duplicates
+    let lastFastPlayAnnouncement = 0;
+    let last1SetAnnouncement = 0;
+    const ANNOUNCEMENT_COOLDOWN = 5000; // 5 seconds cooldown between same announcements
+
     function autoAssignMatchMode() {
         if (!state.matchSettings.autoMatchModes) {
             return; // Do nothing if the feature is turned off
@@ -11191,7 +11277,12 @@ async function loadState(MASTER_MEMBER_LIST) {
             if (state.matchSettings.matchMode !== 'fast') {
                 state.matchSettings.matchMode = 'fast';
                 state.matchSettings.fastPlayGames = 4;
-                playCustomTTS("There is currently a high demand. Switching to Fast Play mode.");
+                // Only announce if cooldown period has passed
+                const now = Date.now();
+                if (now - lastFastPlayAnnouncement > ANNOUNCEMENT_COOLDOWN) {
+                    playCustomTTS("There is currently a high demand. Switching to Fast Play mode and 2-minute alerts.");
+                    lastFastPlayAnnouncement = now;
+                }
 
                 // If an alert is scheduled for more than 2 minutes away, reset it to 2 minutes.
                 const remainingTime = alertScheduleTime - Date.now();
@@ -11203,7 +11294,12 @@ async function loadState(MASTER_MEMBER_LIST) {
         } else {
             if (state.matchSettings.matchMode !== '1set') {
                 state.matchSettings.matchMode = '1set';
-                playCustomTTS("Player queue is reduced. Switching to standard 1 Set matches.");
+                // Only announce if cooldown period has passed
+                const now2 = Date.now();
+                if (now2 - last1SetAnnouncement > ANNOUNCEMENT_COOLDOWN) {
+                    playCustomTTS("Player queue is reduced. Switching to standard 1 Set matches and 5-minute alerts.");
+                    last1SetAnnouncement = now2;
+                }
             }
         }
     }
