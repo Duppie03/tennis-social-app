@@ -5,7 +5,8 @@ const WS_URL = window.location.origin.replace(/^http/, 'ws'); // Convert http://
 const API_ENDPOINTS = {
     getState: `${API_BASE_URL}/api/state`,
     saveState: `${API_BASE_URL}/api/state`,
-    health: `${API_BASE_URL}/api/health`
+    health: `${API_BASE_URL}/api/health`,
+    controlLight: `${API_BASE_URL}/api/lights/control` // <-- ADD THIS LINE
 };
 
 // WebSocket connection

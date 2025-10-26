@@ -1,3 +1,4 @@
+/* ✅ FIXED VERSION - If you see this, the file is correct! Updated: Sat Oct 25 09:04:13 UTC 2025 */
 /* =================================
     Global Styles & Color Variables
     ================================= */
@@ -1907,6 +1908,158 @@ header h1 { margin: 0; }
 }
 
 
+/* Manage Court Players Modal - Make header container flex */
+.modal-header-with-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.modal-header-with-actions h3 {
+    margin: 0;
+    flex-grow: 1;
+}
+
+/* Modal header actions container */
+.modal-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Shared styles for header action buttons */
+.header-swap-player-btn,
+.header-team-select-btn {
+    background: none;
+    border: none;
+    color: BLACK;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, transform 0.1s;
+    flex-shrink: 0;
+}
+
+.header-swap-player-btn:hover,
+.header-team-select-btn:hover {
+    color: var(--primary-blue);
+    transform: scale(1.1);
+}
+
+.header-swap-player-btn:active,
+.header-team-select-btn:active {
+    transform: scale(0.95);
+}
+
+.header-swap-player-btn i,
+.header-team-select-btn i {
+    font-size: 1.8rem;
+}
+
+/* Ensure the instructions text doesn't interfere */
+#manage-court-players-instructions {
+    margin: 0.5rem 0 1rem 0;
+}
+
+/* ================================
+   Swap Player Modal Styles
+   ================================ */
+.swap-player-display {
+    background-color: var(--light-blue);
+    border: 2px solid var(--secondary-blue);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+}
+
+.swap-player-display .player-info {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--dark-text);
+}
+
+.swap-player-display .court-info {
+    font-size: 0.9rem;
+    color: var(--neutral-color);
+    margin-top: 0.25rem;
+}
+
+.swap-confirmation-display {
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.swap-confirmation-display .swap-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1rem 0;
+    gap: 1rem;
+}
+
+.swap-confirmation-display .player-card {
+    flex: 1;
+    background-color: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 2px solid var(--secondary-blue);
+    text-align: center;
+}
+
+.swap-confirmation-display .player-card .name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--dark-text);
+    margin-bottom: 0.25rem;
+}
+
+.swap-confirmation-display .player-card .court {
+    font-size: 0.85rem;
+    color: var(--neutral-color);
+}
+
+.swap-confirmation-display .swap-arrow {
+    font-size: 2rem;
+    color: var(--secondary-blue);
+}
+
+#swap-target-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#swap-target-list li:hover {
+    background-color: var(--light-blue);
+}
+
+#swap-target-list li .player-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+#swap-target-list li .court-label {
+    font-size: 0.85rem;
+    color: var(--neutral-color);
+    margin-right: 1rem;
+}
+
+#swap-target-list li .gender-label {
+    font-size: 0.85rem;
+    color: var(--neutral-color);
+    margin-right: 0.5rem;
+    min-width: 30px;
+}
+
 
 
 /* --- NEW: Ensure End Game Modal is on top --- */
@@ -2597,12 +2750,12 @@ header h1 { margin: 0; }
 }
 
 .result-section {
-    margin-top: 1.5rem;
+    margin-top: 0.5rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border-color);
 }
 .result-section:first-of-type {
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     padding-top: 0;
     border-top: none;
 }
@@ -2651,7 +2804,255 @@ header h1 { margin: 0; }
     line-height: 1.3;
     white-space: pre-line;
 }
+/* ============================================
+   RESULT SECTION - CLEAN RULES
+   ============================================ */
+.result-section {
+    margin-top: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
 
+.result-section:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.result-section.hidden {
+    display: none;
+}
+
+.result-section h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-blue);
+    font-size: calc(1rem * var(--font-size-multiplier));
+    font-weight: 600;
+}
+
+.team-selection {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.team-selection:last-child {
+    margin-bottom: 0;
+}
+
+.team-selection.winner {
+    border-color: var(--confirm-color);
+    background-color: #eafaf1;
+    font-weight: bold;
+}
+
+.team-selection.loser {
+    border-color: var(--cancel-color);
+    background-color: #fbe9eb;
+    opacity: 0.7;
+}
+
+.team-selection h5 {
+    margin: 0 1rem 0 0;
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+    flex-shrink: 0;
+}
+
+.team-selection p {
+    margin: 0;
+    font-size: calc(1.1rem * var(--font-size-multiplier));
+}
+
+/* ============================================
+   GAME RESULTS MODAL - CLEAN REBUILD
+   ============================================ */
+
+/* Modal content container */
+#end-game-modal .modal-content {
+    max-width: 700px;
+    width: 95%;
+    max-height: 90vh;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 1.5rem 2rem 1rem 2rem;
+    overflow: hidden;
+}
+
+/* Override modal-header spacing */
+#end-game-modal .modal-header-with-actions {
+    margin-bottom: 0.25rem;
+}
+
+/* Override result-section spacing for this modal */
+#end-game-modal .result-section {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+#end-game-modal .result-section:first-of-type {
+    padding-top: 0;
+}
+
+#end-game-modal .result-section h4 {
+    margin-bottom: 0.5rem;
+}
+
+/* Team selection cards */
+#end-game-modal .team-card {
+    padding: 1rem 1.5rem;
+    margin: 0.5rem 0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#end-game-modal .team-card:hover {
+    border-color: var(--primary-blue);
+    background-color: #f8f9fa;
+}
+
+#end-game-modal .team-card.selected {
+    border-color: var(--success-green);
+    background-color: #d4edda;
+}
+
+/* Score input area */
+#end-game-modal .score-input-area {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+#end-game-modal .score-input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#end-game-modal .score-input-wrapper label {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+#end-game-modal .score-input-wrapper input {
+    padding: 0.75rem;
+    font-size: 1.5rem;
+    text-align: center;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+#end-game-modal .score-input-wrapper.winning input {
+    border-color: var(--success-green);
+    background-color: #f0f9f4;
+}
+
+#end-game-modal .score-input-wrapper.losing input {
+    border-color: #dc3545;
+    background-color: #fff5f5;
+}
+
+/* CRITICAL: Action buttons container - stays at bottom */
+#end-game-modal .modal-actions {
+    display: flex !important;
+    gap: 0.75rem;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 1rem;
+    flex-wrap: nowrap;
+    width: 100%;
+    flex-shrink: 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+#end-game-modal .modal-actions button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#end-game-modal .modal-actions button#end-game-cancel-btn,
+#end-game-modal .modal-actions button#end-game-skip-btn,
+#end-game-modal .modal-actions button#end-game-confirm-btn {
+    width: auto !important;
+    max-width: none !important;
+}
+
+/* ============================================
+   RESPONSIVE OVERRIDES
+   ============================================ */
+
+/* Mobile */
+@media (max-width: 600px) {
+    #end-game-modal .modal-content {
+        width: 98%;
+        max-height: 95vh;
+        padding: 1rem;
+    }
+    
+    #end-game-modal .modal-actions {
+        gap: 0.5rem;
+        padding-top: 0.75rem;
+    }
+    
+    #end-game-modal .modal-actions button {
+        padding: 0.75rem 0.25rem;
+        font-size: 0.85rem;
+    }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+    #end-game-modal .modal-content {
+        max-width: 650px;
+        max-height: 88vh;
+    }
+    
+    #end-game-modal .modal-actions button {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+}
+
+/* Desktop */
+@media (min-width: 901px) {
+    #end-game-modal .modal-content {
+        max-width: 700px;
+        max-height: 85vh;
+    }
+
+    #end-game-modal .modal-actions {
+        gap: 1rem;
+        padding-top: 1.25rem;
+    }
+
+    #end-game-modal .modal-actions button {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0.9rem 1.5rem;
+        font-size: 1rem;
+        width: auto !important;
+        max-width: none !important;
+    }
+}
 .score-input-wrapper {
     display: flex;
     flex-direction: column;
@@ -3010,9 +3411,9 @@ header h1 { margin: 0; }
 .switch {
     position: relative;
     display: inline-block;
-    width: 50px;
+    width: 50px !important;
     height: 28px;
-    flex-shrink: 0;
+    flex-shrink: 0 !important;
 }
 
 .switch input {
@@ -7729,7 +8130,9 @@ input[type="range"] {
 
 /* Body text */
 .screensaver-body-text {
-    font-size: 1.4rem;
+    /* --- MODIFY THIS LINE --- */
+    font-size: 1.6rem; /* Increased from 1.4rem */
+    /* --- END MODIFY --- */
     line-height: 1.6;
     margin: 0 0 1rem 0; /* Reduced bottom margin */
     text-align: center;
@@ -7741,8 +8144,10 @@ input[type="range"] {
 
 .screensaver-body-text p {
     margin: 0 0 1rem 0;
+    /* --- ADD THIS LINE --- */
+    white-space: pre-line; /* Preserves line breaks, collapses extra spaces */
+    /* --- END ADD --- */
 }
-
 .screensaver-body-text p:last-child {
     margin-bottom: 0;
 }
@@ -8166,15 +8571,23 @@ input[type="range"] {
 /* Display Field */
 #global-keyboard-display {
     font-size: calc(1.2rem * var(--font-size-multiplier));
-    min-height: 40px;
+    min-height: 40px; /* Keep minimum height */
+    height: auto; /* Allow height to grow if needed */
+    max-height: 80px; /* Limit growth to prevent excessive height */
     background: white;
     border-radius: 5px;
     padding: 8px 10px;
     margin-bottom: 6px;
     color: var(--key-text-color);
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-    white-space: pre-wrap;
-    min-height: 1.5em;
+    white-space: pre-wrap; /* Keep line break handling */
+    border: none; /* Remove default textarea border */
+    resize: none; /* Disable manual resizing handle */
+    outline: none; /* Remove focus outline */
+    font-family: inherit; /* Use body font */
+    line-height: 1.4; /* Adjust line height for readability */
+    overflow-y: auto; /* Add scrollbar if content exceeds max-height */
+    cursor: text; /* Show text cursor on hover */
 }
 
 /* Main Key Grid */
@@ -8447,161 +8860,471 @@ input[type="range"] {
     color: transparent !important;
 }
 
-/* ============================================
-   GAME RESULTS MODAL - RESPONSIVE WIDTH FIX
-   ============================================ */
-
-/* Make the game results modal wider and more flexible */
-#end-game-modal .modal-content {
-    max-width: 700px;
-    width: 95%;
-}
-
-/* Ensure team selection buttons are properly sized */
-#end-game-modal .result-section {
-    margin-bottom: 1.5rem;
-}
-
-#end-game-modal .team-card {
-    padding: 1rem 1.5rem;
-    margin: 0.5rem 0;
-    border: 2px solid #ddd;
+/* ================================
+   Undo Toast Notification
+   ================================ */
+.undo-toast {
+    position: fixed;
+    bottom: 80px; /* Above mobile menu bar */
+    left: 50%;
+    transform: translateX(-50%) translateY(150%);
+    background-color: #323232;
+    color: white;
     border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    min-width: 320px;
+    max-width: 90%;
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.undo-toast:not(.hidden) {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.undo-toast-content {
     display: flex;
     align-items: center;
-    gap: 1rem;
-}
-
-#end-game-modal .team-card:hover {
-    border-color: var(--primary-blue);
-    background-color: #f8f9fa;
-}
-
-#end-game-modal .team-card.selected {
-    border-color: var(--success-green);
-    background-color: #d4edda;
-}
-
-/* Score input area - make it flex properly */
-#end-game-modal .score-input-area {
-    display: flex;
-    gap: 1rem;
     justify-content: space-between;
+    padding: 1rem 1.25rem;
+    gap: 1rem;
 }
 
-#end-game-modal .score-input-wrapper {
+#undo-toast-message {
     flex: 1;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.undo-toast-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.undo-btn {
+    background-color: var(--primary-green);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.undo-btn:hover {
+    background-color: var(--confirm-hover-color);
+}
+
+.undo-btn:active {
+    transform: scale(0.95);
+}
+
+.undo-dismiss {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.undo-dismiss:hover {
+    opacity: 1;
+}
+
+.undo-toast-timer {
+    height: 3px;
+    background-color: var(--primary-green);
+    width: 100%;
+    transition: width 10s linear;
+}
+
+.undo-toast:not(.hidden) .undo-toast-timer {
+    width: 0;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .undo-toast {
+        bottom: 60px; /* Adjust for mobile menu */
+        min-width: 280px;
+    }
+    
+    .undo-toast-content {
+        padding: 0.875rem 1rem;
+    }
+    
+    #undo-toast-message {
+        font-size: 0.875rem;
+    }
+}
+
+/* Undo History Modal */
+#undo-history-list li {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border-color);
 }
 
-#end-game-modal .score-input-wrapper label {
+#undo-history-list li:hover {
+    background-color: var(--light-blue);
+}
+
+#undo-history-list li.empty-history {
+    justify-content: center;
+    text-align: center;
+    color: var(--neutral-color);
+    cursor: default;
+}
+
+#undo-history-list li.empty-history:hover {
+    background-color: transparent;
+}
+
+.undo-history-action {
     font-weight: 600;
     font-size: 0.95rem;
+    color: var(--dark-text);
+    margin-bottom: 0.25rem;
 }
 
-#end-game-modal .score-input-wrapper input {
-    padding: 0.75rem;
-    font-size: 1.5rem;
-    text-align: center;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-weight: bold;
+.undo-history-timestamp {
+    font-size: 0.8rem;
+    color: var(--neutral-color);
 }
 
-#end-game-modal .score-input-wrapper.winning input {
-    border-color: var(--success-green);
-    background-color: #f0f9f4;
+/* ================================
+   Drag & Drop Styles
+   ================================ */
+.draggable-player {
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-#end-game-modal .score-input-wrapper.losing input {
-    border-color: #dc3545;
-    background-color: #fff5f5;
+.draggable-player:active {
+    cursor: grabbing;
 }
 
-/* CRITICAL FIX: Modal actions - 3 buttons sharing the container width */
-#end-game-modal .modal-actions {
-    display: flex !important; /* Force flex display */
-    gap: 0.75rem;
-    justify-content: space-between;
-    margin-top: 1.5rem;
-    flex-wrap: nowrap; /* Keep in one row */
-    width: 100%; /* Ensure container takes full width */
+.player-spot[draggable="true"] {
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-#end-game-modal .modal-actions button {
-    flex: 1 1 0; /* Equal flex grow, shrink, and base of 0 */
-    min-width: 0; /* Allow buttons to shrink below content width */
-    padding: 0.75rem 0.5rem;
-    font-size: 0.95rem;
+.player-spot.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.player-spot.drag-over {
+    box-shadow: 0 0 0 3px var(--primary-green);
+    background-color: rgba(40, 167, 69, 0.1);
+    transform: scale(1.05);
+}
+
+.player-spot.drag-over-invalid {
+    box-shadow: 0 0 0 3px var(--cancel-color);
+    background-color: rgba(220, 53, 69, 0.1);
+    cursor: not-allowed;
+}
+
+/* Available players list - drag targets */
+#availablePlayersList li.drag-over {
+    background-color: var(--light-blue);
+    box-shadow: 0 0 0 2px var(--primary-green);
+    transform: scale(1.02);
+}
+
+#availablePlayersList li.drag-over-invalid {
+    background-color: #fbe9eb;
+    box-shadow: 0 0 0 2px var(--cancel-color);
+}
+
+/* Double-click to enable dragging */
+.player-spot[draggable="true"] {
+    position: relative;
+}
+
+.player-spot.drag-enabled {
+    animation: drag-pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 0 2px var(--primary-green);
+    cursor: grab !important;
+}
+
+.player-spot.drag-enabled::after {
+    content: "Drag me!";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--primary-green);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    pointer-events: none;
+    animation: fade-in 0.3s ease-out;
 }
 
-/* Ensure no other styles override the button width */
-#end-game-modal .modal-actions button#end-game-cancel-btn,
-#end-game-modal .modal-actions button#end-game-skip-btn,
-#end-game-modal .modal-actions button#end-game-confirm-btn {
-    width: auto !important; /* Override any width: 100% */
-    max-width: none !important;
+@keyframes drag-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px var(--primary-green);
+    }
+    50% {
+        box-shadow: 0 0 0 4px var(--primary-green), 0 0 8px rgba(40, 167, 69, 0.4);
+    }
 }
 
-/* Mobile responsiveness */
-@media (max-width: 600px) {
-    #end-game-modal .modal-content {
-        width: 98%;
-        padding: 1rem;
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Disable cursor for non-enabled draggable players */
+.player-spot[draggable="true"]:not(.drag-enabled) {
+    cursor: default;
+}
+
+/* ================================
+   Undo History Modal
+   ================================ */
+#undo-history-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#undo-history-list li {
+    display: flex;
+    flex-direction: column;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#undo-history-list li:hover {
+    background-color: var(--light-blue);
+}
+
+#undo-history-list li.empty-history {
+    justify-content: center;
+    text-align: center;
+    color: var(--neutral-color);
+    cursor: default;
+}
+
+#undo-history-list li.empty-history:hover {
+    background-color: transparent;
+}
+
+.undo-history-action {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--dark-text);
+    margin-bottom: 0.25rem;
+}
+
+.undo-history-timestamp {
+    font-size: 0.8rem;
+    color: var(--neutral-color);
+}
+
+/* Add near other input styles or at the end */
+.long-press-paste:active {
+    background-color: #d0e7ff !important; /* Light blue background during press */
+    transition: background-color 0.1s;
+}
+
+/* Ensure scrollbar style for the form grid (optional) */
+#light-settings-court-modal .scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+#light-settings-court-modal .scrollable::-webkit-scrollbar-thumb {
+  background-color: var(--neutral-color);
+  border-radius: 3px;
+}
+
+/* ============================================================================
+   GATE CONTROLS STYLING - Add this to your style.css
+   ============================================================================ */
+
+/* Gate Controls Container */
+.gate-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-left: 15px;
+}
+
+/* Gate Button Styling */
+.gate-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.85em;
+    min-width: 85px;
+    box-shadow: none;
+}
+
+.gate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+    background: transparent;
+}
+
+.gate-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Pulsing Animation when gate is activated */
+.gate-btn.pulsing {
+    animation: pulse-gate 1s ease-in-out;
+    pointer-events: none; /* Prevent double-clicks during pulse */
+}
+
+@keyframes pulse-gate {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    25% {
+        opacity: 0.7;
+        transform: scale(0.95);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    75% {
+        opacity: 0.7;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Gate Button Icon */
+.gate-btn i {
+    font-size: 1.8em;
+    margin-bottom: 4px;
+}
+
+/* Gate Button Text */
+.gate-btn span {
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Disabled State */
+.gate-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .gate-controls {
+        gap: 8px;
+        margin-left: 12px;
     }
     
-    #end-game-modal .modal-actions {
-        gap: 0.5rem;
+    .gate-btn {
+        min-width: 75px;
+        padding: 8px 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .gate-controls {
+        gap: 6px;
+        margin-left: 8px;
     }
     
-    #end-game-modal .modal-actions button {
-        padding: 0.75rem 0.25rem;
-        font-size: 0.85rem;
-    }
-}
-
-/* Tablet */
-@media (min-width: 601px) and (max-width: 900px) {
-    #end-game-modal .modal-content {
-        max-width: 650px;
+    .gate-btn {
+        min-width: 65px;
+        padding: 6px 10px;
     }
     
-    #end-game-modal .modal-actions button {
-        padding: 0.75rem 1rem;
-        font-size: 0.95rem;
+    .gate-btn i {
+        font-size: 1.5em;
+    }
+    
+    .gate-btn span {
+        font-size: 0.65em;
     }
 }
 
-/* Desktop */
-@media (min-width: 901px) {
-    #end-game-modal .modal-content {
-        max-width: 700px;
+@media (max-width: 480px) {
+    .gate-controls {
+        gap: 5px;
+        margin-left: 5px;
     }
-
-    /* --- MODIFY THIS BLOCK --- */
-    #end-game-modal .modal-actions {
-        display: flex !important; /* Ensure flex display */
-        justify-content: space-between; /* Space out buttons */
-        gap: 0.75rem; /* Consistent gap */
-        width: 100%; /* Take full width */
-        box-sizing: border-box; /* Include padding in width */
+    
+    .gate-btn {
+        min-width: 55px;
+        padding: 5px 8px;
+        border-radius: 8px;
     }
-
-    #end-game-modal .modal-actions button {
-        flex: 1 1 0; /* Make buttons share space equally */
-        min-width: 0; /* Allow shrinking */
-        padding: 0.75rem 1.5rem; /* Adjust padding as needed */
-        font-size: 1rem;
-        /* Remove any fixed width that might conflict */
-        width: auto !important;
-        max-width: none !important;
+    
+    .gate-btn i {
+        font-size: 1.3em;
+        margin-bottom: 2px;
     }
-    /* --- END MODIFY --- */
+    
+    .gate-btn span {
+        font-size: 0.6em;
+    }
 }
+
+/* Make sure header-buttons has proper flex layout */
+.header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Ensure gate controls don't wrap on small screens */
+@media (max-width: 640px) {
+    .header-buttons {
+        flex-wrap: nowrap;
+        gap: 5px;
+    }
+}
+
+/* ============================================================================
+   END OF GATE CONTROLS STYLING
+   ============================================================================ */

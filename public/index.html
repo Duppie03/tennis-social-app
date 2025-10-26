@@ -1,3 +1,4 @@
+<!-- ✅ FIXED HTML VERSION - If you see this comment, the file is correct! -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +23,17 @@
         <img src="source/eldorainge-tennis-logo.png" alt="Club Logo" id="header-logo">
         <div class="header-buttons">
             <div id="weather-display"></div>
+            <!-- Gate Controls -->
+            <div class="gate-controls">
+                <button id="pedestrian-gate-btn" class="gate-btn" title="Open Pedestrian Gate">
+                    <i class="mdi mdi-gate"></i>
+                    <span>Pedestrian</span>
+                </button>
+                <button id="parking-gate-btn" class="gate-btn" title="Open Parking Lot Gate">
+                    <i class="mdi mdi-garage-open"></i>
+                    <span>Parking</span>
+                </button>
+            </div>
         </div>
     </header>
     <div id="mobile-menu-bar" class="mobile-menu-bar">
@@ -240,6 +252,10 @@
                     <button id="select-sound-btn" class="admin-icon-btn" title="Select Alert Sound">🔔</button>
                     <button id="reset-app-btn" class="admin-icon-btn" title="Reset Application Data">
                         <i class="mdi mdi-refresh"></i>
+                    </button>
+                    <button id="undo-history-btn" class="settings-action-btn">
+                        <i class="mdi mdi-history"></i>
+                        <span>Undo History</span>
                     </button>
                 </div>
             </div>
@@ -612,7 +628,7 @@
             <div class="modal-header-with-actions">
                 <h3>Enter Game Results</h3>
             </div>
-            <p id="end-game-timestamp" style="font-size: 0.9rem; color: #6c757d; text-align: center; margin-top: -1rem; margin-bottom: 1.5rem;"></p>
+            <p id="end-game-timestamp" style="font-size: 0.9rem; color: #6c757d; text-align: center; margin-top: -0.5rem; margin-bottom: 0.5rem;"></p>
 
             <div class="result-section">
                 <h4>1. Select Winning Team</h4>
@@ -734,12 +750,10 @@
 
     <div id="global-keyboard-modal" class="global-keyboard-overlay hidden">
         <div class="keyboard-content">
-            <div id="global-keyboard-display"></div>
-
+            <textarea id="global-keyboard-display" rows="2" spellcheck="false"></textarea>
             <div id="emoji-search-container" class="hidden">
                 <input type="text" id="emoji-search-input" placeholder="Search emoji..." />
             </div>
-
             <div id="global-keyboard-grid" class="keyboard-grid">
                 </div>
         </div>
@@ -804,6 +818,55 @@
             <div class="modal-actions">
                 <button id="cw-close-btn">Close</button>
                 <button id="cw-more-details-btn" class="action-btn">More Details</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swap Player Modal -->
+    <div id="swap-player-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Swap Player with Another Court</h3>
+            <p id="swap-player-instructions">Select a player from Court X to swap with:</p>
+            
+            <div id="swap-source-player" class="swap-player-display">
+                <!-- Source player will be shown here -->
+            </div>
+            
+            <ul id="swap-target-list" class="modal-action-list scrollable">
+                <!-- Target players from other courts will be listed here -->
+            </ul>
+            
+            <div class="modal-actions">
+                <button id="swap-player-back-btn" class="action-btn cancel">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swap Confirmation Modal -->
+    <div id="swap-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Confirm Player Swap</h3>
+            <div id="swap-confirm-details" class="swap-confirmation-display">
+                <!-- Swap details will be shown here -->
+            </div>
+            <div class="modal-actions">
+                <button id="swap-confirm-back-btn" class="action-btn neutral">Back</button>
+                <button id="swap-confirm-execute-btn" class="action-btn confirm">Confirm Swap</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="undo-history-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Undo History</h3>
+            <p>Recent actions from this session. Select an action to undo (requires PIN).</p>
+            
+            <ul id="undo-history-list" class="modal-action-list scrollable">
+                <!-- Undo history items will be listed here -->
+            </ul>
+            
+            <div class="modal-actions">
+                <button id="undo-history-close-btn" class="action-btn cancel">Close</button>
             </div>
         </div>
     </div>
@@ -1523,6 +1586,148 @@
     <div id="screensaver-overlay" class="hidden">
         <div id="screensaver-content">
             </div>
+    </div>
+
+    <!-- Undo Toast Notification -->
+    <div id="undo-toast" class="undo-toast hidden">
+        <div class="undo-toast-content">
+            <span id="undo-toast-message">Action completed</span>
+            <div class="undo-toast-actions">
+                <button id="undo-toast-btn" class="undo-btn">Undo</button>
+                <button id="undo-toast-dismiss" class="undo-dismiss">×</button>
+            </div>
+        </div>
+        <div id="undo-toast-timer" class="undo-toast-timer"></div>
+    </div>
+
+    <div id="light-settings-court-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3 id="light-settings-court-title">Edit Light Settings for Court X</h3>
+            </div>
+            <p style="color: var(--neutral-color); margin-bottom: 1.5rem;">Configure global and court-specific Shelly settings.</p>
+
+            <div class="event-form-grid scrollable" style="grid-template-columns: 1fr; gap: 1rem; flex-grow: 1; min-height: 0; padding-right: 0.5rem; margin-bottom: 1rem;">
+
+                <div class="form-group" style="border-bottom: 2px solid var(--primary-blue); padding-bottom: 1rem; margin-bottom: 1rem;">
+                    <label style="font-weight: bold; color: var(--primary-blue); font-size: 1rem;">Global Settings (Shared)</label>
+                    <div style="margin-top: 0.5rem;">
+                         <label for="light-setting-base-url">Shelly Base URL (Cloud/Local):</label>
+                         <input type="text" id="light-setting-base-url" class="long-press-paste" readonly placeholder="e.g., https://shelly-...cloud or http://IP...">
+                    </div>
+                     <div style="margin-top: 0.5rem;">
+                        <label for="light-setting-auth-key">Shelly Cloud Auth Key:</label>
+                        <input type="text" id="light-setting-auth-key" class="long-press-paste" readonly placeholder="Paste Shelly Cloud Auth Key here">
+                    </div>
+                </div>
+                <label style="font-weight: bold; color: var(--primary-blue); font-size: 1rem; margin-top: -0.5rem;">Court Specific Settings</label>
+                <div class="form-group">
+                    <label for="light-setting-label">Display Label:</label>
+                    <input type="text" id="light-setting-label" class="long-press-paste" readonly placeholder="e.g., Court A Lights">
+                </div>
+                <div class="form-group">
+                    <label for="light-setting-cloud-id">Shelly Cloud Device ID:</label>
+                    <input type="text" id="light-setting-cloud-id" class="long-press-paste" readonly placeholder="Enter Cloud ID (for remote control)">
+                </div>
+                 <div class="form-group">
+                    <label for="light-setting-local-ip">Shelly Local IP Address:</label>
+                    <input type="text" id="light-setting-local-ip" class="long-press-paste" readonly placeholder="Enter Local IP (e.g., 192.168...)">
+                </div>
+                <div class="form-group" style="flex-direction: row; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 1rem; margin-top: 0.5rem;">
+                    <label for="light-setting-managed" style="margin-bottom: 0;">Managed by App?</label>
+                    <label class="switch">
+                        <input type="checkbox" id="light-setting-managed">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                 </div> <div class="modal-actions" style="margin-top: 0; padding-top: 0.5rem;"> <button id="light-settings-court-cancel-btn" class="action-btn cancel">Cancel</button>
+                <button id="light-settings-court-save-btn" class="action-btn confirm">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedestrian Gate Settings Modal -->
+    <div id="pedestrian-gate-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>🚶 Pedestrian Gate Settings</h3>
+            </div>
+            <p style="color: var(--neutral-color); margin-bottom: 1.5rem;">Configure Shelly device for pedestrian gate (1-second pulse).</p>
+            
+            <div class="event-form-grid scrollable" style="grid-template-columns: 1fr; gap: 1rem; flex-grow: 1; min-height: 0; padding-right: 0.5rem; margin-bottom: 1rem;">
+                
+                <div class="form-group" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <label for="pedestrian-gate-managed" style="margin-bottom: 0;">Enable Control</label>
+                    <label class="switch">
+                        <input type="checkbox" id="pedestrian-gate-managed">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pedestrian-gate-cloud-id">Cloud Device ID:</label>
+                    <input type="text" id="pedestrian-gate-cloud-id" class="long-press-paste" readonly placeholder="Shelly device ID for cloud API">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pedestrian-gate-local-ip">Local IP Address:</label>
+                    <input type="text" id="pedestrian-gate-local-ip" class="long-press-paste" readonly placeholder="e.g., 192.168.1.101">
+                </div>
+                
+                <div style="background: #f0f8ff; border-left: 4px solid var(--primary-blue); padding: 1rem; border-radius: 4px;">
+                    <p style="margin: 0; font-size: 0.9em; color: var(--text-color);">
+                        <strong>ℹ️ Note:</strong> This sends a 1-second pulse signal. Perfect for maglock controllers. Uses the same cloud/local fallback as court lights.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 0; padding-top: 0.5rem;">
+                <button id="pedestrian-gate-settings-cancel-btn" class="action-btn cancel">Cancel</button>
+                <button id="pedestrian-gate-settings-save-btn" class="action-btn confirm">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parking Gate Settings Modal -->
+    <div id="parking-gate-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header-with-actions">
+                <h3>🚗 Parking Lot Gate Settings</h3>
+            </div>
+            <p style="color: var(--neutral-color); margin-bottom: 1.5rem;">Configure Shelly device for parking lot gate (1-second pulse).</p>
+            
+            <div class="event-form-grid scrollable" style="grid-template-columns: 1fr; gap: 1rem; flex-grow: 1; min-height: 0; padding-right: 0.5rem; margin-bottom: 1rem;">
+                
+                <div class="form-group" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <label for="parking-gate-managed" style="margin-bottom: 0;">Enable Control</label>
+                    <label class="switch">
+                        <input type="checkbox" id="parking-gate-managed">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="parking-gate-cloud-id">Cloud Device ID:</label>
+                    <input type="text" id="parking-gate-cloud-id" class="long-press-paste" readonly placeholder="Shelly device ID for cloud API">
+                </div>
+                
+                <div class="form-group">
+                    <label for="parking-gate-local-ip">Local IP Address:</label>
+                    <input type="text" id="parking-gate-local-ip" class="long-press-paste" readonly placeholder="e.g., 192.168.1.102">
+                </div>
+                
+                <div style="background: #f0f8ff; border-left: 4px solid var(--primary-blue); padding: 1rem; border-radius: 4px;">
+                    <p style="margin: 0; font-size: 0.9em; color: var(--text-color);">
+                        <strong>ℹ️ Note:</strong> This sends a 1-second pulse signal. Perfect for gate motor controllers. Uses the same cloud/local fallback as court lights.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 0; padding-top: 0.5rem;">
+                <button id="parking-gate-settings-cancel-btn" class="action-btn cancel">Cancel</button>
+                <button id="parking-gate-settings-save-btn" class="action-btn confirm">Save Settings</button>
+            </div>
+        </div>
     </div>
 
     <script src="api.js"></script>
