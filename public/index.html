@@ -1729,6 +1729,16 @@
         </div>
     </div>
 
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            alert(`!!! JavaScript Error !!!\nMessage: ${message}\nSource: ${source}\nLine: ${lineno}\nError: ${error}`);
+            // You could also try sending this to a console inside the pkg context if possible,
+            // but alert is the most direct way to see if *any* JS error happens early.
+            console.error("!!! JavaScript Error !!!", { message, source, lineno, colno, error });
+        };
+        console.log("Error handler attached."); // Verify this runs
+    </script>
+
     <script src="api.js"></script>
     <script src="script.js"></script>
 </body>
