@@ -363,9 +363,9 @@ async function startServer() {
 ║        Mzansi Court Q Server              ║
 ║  Running on port ${PORT}                     ║
 ║  http://localhost:${PORT}                    ║
-║  WebSocket: ENABLED ✅                       ║
-║  Environment: ${process.env.NODE_ENV || 'production (default)'}            ║
-║  Static Files: ${staticDir}                  ║
+║  WebSocket: ENABLED ✅                     ║
+║  Environment: ${process.env.NODE_ENV || 'production (default)'}         ║
+║  Static Files: ${staticDir}                      ║
 ╚═══════════════════════════════════════════╝
             `);
         });
