@@ -1,0 +1,33 @@
+name: Build and Package App
+
+# --- THIS SECTION DEFINES WHEN THE WORKFLOW RUNS ---
+on:                     # <--- Make sure this line is present and at the start of a line
+  push:                 # <--- Indented under 'on:'
+    branches:           # <--- Indented under 'push:'
+      - main            # <--- Indented under 'branches:', starts with a dash and space
+
+jobs:                   # <--- This line should NOT be indented under 'on:'
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Match your package.json 'engines' field
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build and Package
+        run: npm run package
+
+      - name: Upload Artifact (Executable)
+        uses: actions/upload-artifact@v3
+        with:
+          name: mzansi-court-q-windows
+          # Ensure this path matches the actual executable name created by 'npm run package'
+          path: mzansi-court-q.exe
