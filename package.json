@@ -1,16 +1,21 @@
 {
-  "name": "tennis-club-manager",
+  "name": "mzansi-court-q", 
   "version": "1.0.0",
   "description": "Eldoraigne Tennis Club Social Day Manager",
-  "main": "server.js",
+  "_main": "server.js",
+  "bin": "server.js", 
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "parcel build public/index.html --dist-dir dist --public-url ./", 
+    "package": "npm run build && pkg ." 
   },
   "keywords": [
     "tennis",
     "club",
-    "manager"
+    "manager",
+    "mzansi",
+    "south africa"
   ],
   "author": "",
   "license": "MIT",
@@ -21,9 +26,19 @@
     "ws": "^8.14.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "parcel": "^2.10.3", 
+    "pkg": "^5.8.1" 
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "pkg": { 
+    "assets": [
+      "dist/**/*" 
+    ],
+    "targets": [
+      "node16-win-x64" 
+    ]
   }
 }

@@ -411,6 +411,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let gateButtonPressTimer = null;
     let gateButtonIsLongPress = false;
 
+    // ============================================================================
+    // COURT LIGHT LONG-PRESS SETUP
+    // ============================================================================
+
+    let lightIconPressTimer = null;
+    let lightIconIsLongPress = false;
+
     // Undo system - separate from state because functions can't be serialized
     let currentUndoAction = null;
     let currentUndoTimeout = null;
@@ -3846,6 +3853,100 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('parking-gate-btn')?.addEventListener('click', () => {
         handleGateButtonClick('parking');
     }); 
+
+
+    function setupCourtLightLongPress() {
+        // This should be called after court cards are rendered
+        const lightButtons = document.querySelectorAll('.light-toggle-btn');
+        
+        lightButtons.forEach(button => {
+            const courtId = button.dataset.courtId;
+            
+            // Pointer down - start timer
+            button.addEventListener('pointerdown', (e) => {
+                lightIconIsLongPress = false;
+                
+                lightIconPressTimer = setTimeout(() => {
+                    lightIconIsLongPress = true;
+                    console.log(`[Light] Long press detected on Court ${courtId}`);
+                    
+                    // Visual feedback
+                    button.style.transform = 'scale(0.9)';
+                    
+                    // Show settings modal for this court
+                    showLightSettingsForCourt(courtId);
+                    
+                }, 800); // 800ms for long press
+            });
+            
+            // Pointer up - check if it was a long press
+            button.addEventListener('pointerup', (e) => {
+                if (lightIconPressTimer) {
+                    clearTimeout(lightIconPressTimer);
+                }
+                
+                button.style.transform = '';
+                
+                // If it WAS a long press, don't toggle the light
+                if (lightIconIsLongPress) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+                // Otherwise, the existing handleLightToggleChange will handle it
+                
+                lightIconIsLongPress = false;
+            });
+            
+            // Pointer leave - cancel timer
+            button.addEventListener('pointerleave', (e) => {
+                if (lightIconPressTimer) {
+                    clearTimeout(lightIconPressTimer);
+                }
+                button.style.transform = '';
+                lightIconIsLongPress = false;
+            });
+        });
+    }
+
+    function showLightSettingsForCourt(courtId) {
+        const modal = document.getElementById('light-settings-court-modal');
+        const court = state.lightSettings?.courts?.[courtId];
+        
+        if (!court) {
+            console.error(`No light settings for court ${courtId}`);
+            playCustomTTS('Court light settings not found.');
+            return;
+        }
+        
+        // Update modal title
+        document.getElementById('light-settings-court-title').textContent = `Court ${courtId} Light Settings`;
+        
+        // Store which court we're editing
+        modal.dataset.editingCourtId = courtId;
+        
+        // Load global settings (same for all courts)
+        document.getElementById('light-setting-base-url').value = state.lightSettings.shellyBaseUrl || '';
+        document.getElementById('light-setting-auth-key').value = state.lightSettings.shellyAuthKey || '';
+        
+        // Load court-specific settings
+        document.getElementById('light-setting-label').value = court.label || `Court ${courtId} Lights`;
+        document.getElementById('light-setting-cloud-id').value = court.shellyCloudId || '';
+        document.getElementById('light-setting-local-ip').value = court.shellyDeviceId || '';
+        document.getElementById('light-setting-managed').checked = court.isManaged || false;
+        
+        modal.classList.remove('hidden');
+        // ← ADD THESE 5 LINES HERE (before closing brace):
+        wireGlobalKeypadToInput(document.getElementById('light-setting-base-url'));
+        wireGlobalKeypadToInput(document.getElementById('light-setting-auth-key'));
+        wireGlobalKeypadToInput(document.getElementById('light-setting-label'));
+        wireGlobalKeypadToInput(document.getElementById('light-setting-cloud-id'));
+        wireGlobalKeypadToInput(document.getElementById('light-setting-local-ip'));
+    }
+    
+
+    // Call this after rendering courts
+    // Add to your renderCourts() function or wherever courts are created:
+    // setupCourtLightLongPress();
 
 
 
@@ -7321,6 +7422,9 @@ document.addEventListener('DOMContentLoaded', () => {
             courtGrid.appendChild(card);
         });
 
+        // ← ADD THIS LINE:
+        setupCourtLightLongPress();
+
         // ================================
         // STEP 16: ATTACH DRAG & DROP EVENT LISTENERS
         // ================================
@@ -10126,7 +10230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- REVISED li.innerHTML ---
                 li.innerHTML = `
-                    <span class="court-label-button" style="cursor: pointer; font-weight: 500; margin-right: auto;">${court.id}</span> <button class="light-toggle-btn" data-court-id="${court.id}" title="Toggle Court ${court.id} Lights" ${lightDisabledAttr} style="flex-shrink: 0;"> <i class="mdi ${lightIconClass}"></i>
+                    <span style="font-weight: 500; margin-right: auto;">${court.id}</span> <button class="light-toggle-btn" data-court-id="${court.id}" title="Toggle Court ${court.id} Lights" ${lightDisabledAttr} style="flex-shrink: 0;"> <i class="mdi ${lightIconClass}"></i>
                     </button>
                     <label class="switch" style="flex-shrink: 0; width: 50px"> <input type="checkbox" data-court-id="${court.id}" ${isVisible ? 'checked' : ''}>
                         <span class="slider"></span>
@@ -10181,13 +10285,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (visibilityToggleInput) {
             // Clicked the visibility toggle switch's input
             handleCourtVisibilityChange({ target: visibilityToggleInput }); // Pass the input as the target
-        } else if (courtLabelButton) {
-            // Clicked the court label (A, B, C...)
-            const courtItem = courtLabelButton.closest('.court-availability-item[data-court-id]');
-            if (courtItem) {
-                const courtId = courtItem.dataset.courtId;
-                showLightSettingsCourtModal(courtId);
-            }
         }
         // Clicks elsewhere within the li (like empty space) are ignored
     }
@@ -10237,34 +10334,36 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveLightSettingsCourtModal() {
         const modal = document.getElementById('light-settings-court-modal');
         const courtId = modal.dataset.editingCourtId;
-        // Ensure lightSettings and the specific court exist before saving
-        if (!courtId || !state.lightSettings || !state.lightSettings.courts || !state.lightSettings.courts[courtId]) {
-             console.error(`Cannot save: Court settings for ${courtId} not found!`);
-             return;
+        
+        if (!courtId || !state.lightSettings?.courts?.[courtId]) {
+            console.error(`Cannot save: Court ${courtId} not found!`);
+            return;
         }
-
-        // ++ SAVE GLOBAL SETTINGS ++
+        
+        // Save GLOBAL settings (shared by all courts)
         state.lightSettings.shellyBaseUrl = document.getElementById('light-setting-base-url').value.trim();
         state.lightSettings.shellyAuthKey = document.getElementById('light-setting-auth-key').value.trim();
-        // ++ END SAVE GLOBAL SETTINGS ++
-
-        // == SAVE COURT-SPECIFIC SETTINGS ==
-        const court = state.lightSettings.courts[courtId]; // Get the specific court object
+        
+        // Save COURT-SPECIFIC settings
+        const court = state.lightSettings.courts[courtId];
         court.label = document.getElementById('light-setting-label').value.trim() || `Court ${courtId} Lights`;
         court.shellyCloudId = document.getElementById('light-setting-cloud-id').value.trim();
         court.shellyDeviceId = document.getElementById('light-setting-local-ip').value.trim();
         court.isManaged = document.getElementById('light-setting-managed').checked;
-
+        court.toggleAfter = 0;  // ← IMPORTANT: Permanent toggle, no auto-off
+        
         if (!court.isManaged) {
             court.shellyCloudId = '';
             court.shellyDeviceId = '';
-            court.isActive = false; // Turn off if management is disabled
+            court.isActive = false;
         }
-        // == END SAVE COURT-SPECIFIC SETTINGS ==
+        
+        console.log(`[Light Settings] Saved Court ${courtId}:`, court);
 
-        saveState(); // Save the entire state object
+        saveState();
         modal.classList.add('hidden');
-        showAdminModal(); // Re-render and show the admin modal
+        render(); // ← ADD THIS LINE
+        playCustomTTS(`Court ${courtId} light settings saved.`);
     }
     // --- NEW: Click and Hold Paste Functionality ---
     function setupLongPressPaste() {
@@ -10826,7 +10925,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <div class="screensaver-right-column">
                             <div class="screensaver-right-column-main-content">
-                                <img src="source/eldorainge-tennis-logo.png" alt="Eldoraigne Tennis" class="screensaver-club-logo">
+                                <img src="source/mzansi-court-q-logo.png" alt="Eldoraigne Tennis" class="screensaver-club-logo">
 
                                 <h1 class="screensaver-event-heading">${event.heading || 'Club Event'}</h1>
 
