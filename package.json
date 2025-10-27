@@ -36,7 +36,10 @@
   },
   "pkg": {
     "assets": [
-      "dist/**/*"
+      "dist/**/*",
+      "public/source/members.csv",
+      "public/source/*.mp3",
+      "public/source/screensaver/**/*"
     ],
     "targets": [
       "node16-win-x64"
