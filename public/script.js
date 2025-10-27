@@ -1,3 +1,4 @@
+console.log("--- script.js started ---");
 document.addEventListener('DOMContentLoaded', () => {
 
     const ADMIN_PIN_BASE = "0308"; // <-- ADD THIS NEW LINE

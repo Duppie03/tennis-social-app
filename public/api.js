@@ -1,4 +1,5 @@
 // API Configuration
+console.log("--- api.js started ---");
 const API_BASE_URL = window.location.origin;
 const WS_URL = window.location.origin.replace(/^http/, 'ws'); // Convert http:// to ws://
 
