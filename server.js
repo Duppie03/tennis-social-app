@@ -38,11 +38,11 @@ app.use(express.static(staticPath));
 // --- END ENVIRONMENT VARIABLE LOGIC ---
 
 // Path to our data storage file
-const DATA_FILE = path.join(__dirname, 'data', 'state.json');
+const DATA_FILE = path.join(process.cwd(), 'data', 'state.json');
 
 // Ensure data directory exists
 async function ensureDataDirectory() {
-    const dataDir = path.join(__dirname, 'data');
+    const dataDir = path.join(process.cwd(), 'data');
     try {
         await fs.access(dataDir);
     } catch {
