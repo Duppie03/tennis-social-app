@@ -53,6 +53,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return result;
     }
+
+    // --- NEW HELPER FUNCTION TO PARSE GUEST CSV ---
+    function parseGuestCSV(csvText) {
+        const lines = csvText.trim().split('\n');
+        if (!lines[0]) return []; // Handle empty file
+        
+        const result = [];
+        // Skip header row, start from line 1
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue; // Skip blank lines
+            
+            // Handle quoted fields with commas
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let j = 0; j < lines[i].length; j++) {
+                const char = lines[i][j];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim()); // Push last value
+            
+            if (values.length < 3) continue; // Need at least name, gender, phone
+            
+            const guest = {
+                name: values[0] || '',
+                gender: values[1] || '',
+                phone: values[2] || '',
+                email: values[3] || '',
+                daysVisited: parseInt(values[4]) || 0,
+                lastCheckIn: values[5] || ''
+            };
+            
+            if (guest.name) result.push(guest);
+        }
+        return result;
+    }
     // --- NEW HELPER FUNCTION: Gets the name to use for TTS ---
     // --- UPDATED HELPER FUNCTION: Gets the name to use for TTS (Phonetic First + Surname) ---
     function getPronounceableName(playerName) {
@@ -610,6 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const guestNameModal = document.getElementById('guest-name-modal');
     const guestNameInput = document.getElementById('guest-name-input');
     const guestSurnameInput = document.getElementById('guest-surname-input');
+    const guestPhoneInput = document.getElementById('guest-phone-input');
+    const guestEmailInput = document.getElementById('guest-email-input');
     const guestGenderRadios = document.querySelectorAll('input[name="guest-gender"]');
     const guestConfirmBtn = document.getElementById('guest-confirm-btn');
     const guestCancelBtn = document.getElementById('guest-cancel-btn');
@@ -6323,7 +6369,24 @@ document.addEventListener('DOMContentLoaded', () => {
             bodyTimerHTML = `<div class="court-body-timer status-${court.status}" id="timer-${court.id}"></div>`;
         }
 
-        const formatName = (playerObj) => playerObj ? playerObj.name.split(' ')[0] : '';
+        const formatName = (playerObj) => {
+            if (!playerObj) return '';
+            
+            const nameParts = playerObj.name.split(' ');
+            if (nameParts.length === 1) {
+                // Single name (unlikely but handle it)
+                return nameParts[0];
+            }
+            
+            const firstName = nameParts[0];
+            const surnames = nameParts.slice(1); // All parts after first name
+            
+            // Create initials from surname parts
+            // "van der Westhuizen" becomes "vdW"
+            const surnameInitials = surnames.map(part => part.charAt(0)).join('');
+            
+            return `${firstName} ${surnameInitials}`;
+        };
 
         let playerSpotsHTML = '';
         let coreReserveTextHTML = '';
@@ -12239,9 +12302,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function validateGuestForm() {
         const name = guestNameInput.value.trim();
         const surname = guestSurnameInput.value.trim();
-        const genderSelected = !!document.querySelector('input[name="guest-gender"]:checked'); // Check if gender is selected
-        const ageTypeSelected = !!document.querySelector('input[name="age-type"]:checked'); // *** NEW: Check if age type is selected ***
-        const isReady = (name.length > 0 && surname.length > 0 && genderSelected && ageTypeSelected); // *** Added ageTypeSelected ***
+        const phone = guestPhoneInput.value.trim();
+        const genderSelected = !!document.querySelector('input[name="guest-gender"]:checked');
+        const ageTypeSelected = !!document.querySelector('input[name="age-type"]:checked');
+        const guestType = document.querySelector('input[name="player-type"]:checked')?.value || 'guest';
+        
+        // Phone is required for guests, optional for members
+        const phoneRequired = (guestType === 'guest');
+        const phoneValid = phoneRequired ? phone.length > 0 : true;
+        
+        const isReady = (name.length > 0 && surname.length > 0 && phoneValid && genderSelected && ageTypeSelected);
         guestConfirmBtn.disabled = !isReady;
         guestConfirmBtn.style.backgroundColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
         guestConfirmBtn.style.borderColor = isReady ? 'var(--confirm-color)' : 'var(--inactive-color)';
@@ -12250,18 +12320,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleGuestCheckIn() {
         const firstName = guestNameInput.value.trim();
         const lastName = guestSurnameInput.value.trim();
+        const phone = guestPhoneInput.value.trim();
+        const email = guestEmailInput.value.trim();
         const gender = document.querySelector('input[name="guest-gender"]:checked').value;
         const guestType = document.querySelector('input[name="player-type"]:checked').value; // Guest or Member
-        const ageType = document.querySelector('input[name="age-type"]:checked').value; // *** NEW: Read age type ***
+        const ageType = document.querySelector('input[name="age-type"]:checked').value;
         const isGuest = guestType === 'guest';
-        const context = guestNameModal.dataset.context; // Get the context
+        const context = guestNameModal.dataset.context;
 
         // Always enable the 'member' radio button after use, regardless of context
         const memberRadio = document.querySelector('input[name="player-type"][value="member"]');
         if (memberRadio) memberRadio.disabled = false;
 
-
-        if (!firstName || !lastName) return;
+        // Validate required fields
+        if (!firstName || !lastName) {
+            playCustomTTS("Please enter first name and surname.");
+            return;
+        }
+        
+        // Phone is required for guests, optional for members
+        if (isGuest && !phone) {
+            playCustomTTS("Please enter phone number for guest.");
+            return;
+        }
 
         const formatCase = (str) => str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
         const formattedPlayerName = `${formatCase(firstName)} ${formatCase(lastName)}`;
@@ -12270,66 +12351,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Logic based on context and player type ---
         if (context === 'purchaser') {
-            // Purchaser flow - always treat as guest, add/update history
-            playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
-            updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
+            // Purchaser flow - always treat as guest
+            playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false };
+            updateGuestHistory(playerObject.name, playerObject.gender, phone, email);
             guestNameModal.classList.add('hidden');
             delete guestNameModal.dataset.context;
             confirmPurchaser(formattedPlayerName, 'new_guest');
-            resetGuestForm(); // Reset form after use
-            return; // Exit purchaser flow
+            resetGuestForm();
+            return;
         }
         else if (context === 'manual-entry') {
-            // Manual entry flow - always treat as guest, add to history AND manual selection
-            playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
-            updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
+            // Manual entry flow - respect guest/member selection
+            if (isGuest) {
+                playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false };
+                updateGuestHistory(playerObject.name, playerObject.gender, phone, email);
+            } else {
+                // Member in manual entry
+                playerObject = { name: formattedPlayerName, gender: gender, guest: false, type: ageType, isPaused: false };
+                exportMemberToCSV(formattedPlayerName, gender, ageType);
+            }
 
-            // Add directly to manual entry selection if not already there and space permits
             if (state.manualEntry.players.length < 4 && !state.manualEntry.players.includes(playerObject.name)) {
                 state.manualEntry.players.push(playerObject.name);
             }
 
             guestNameModal.classList.add('hidden');
             delete guestNameModal.dataset.context;
-            showManualPlayerSelectionModal(); // Re-show and update the manual entry modal
-            resetGuestForm(); // Reset form after use
-            saveState(); // Save guest history update
-            return; // Exit manual entry flow
+            showManualPlayerSelectionModal();
+            resetGuestForm();
+            saveState();
+            return;
         }
         else {
              // Standard check-in flow
              if (isGuest) {
-                 playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false }; // *** Store ageType ***
-                 updateGuestHistory(playerObject.name, playerObject.gender); // Add/Update guest history
+                 playerObject = { name: formattedPlayerName, gender: gender, guest: true, type: ageType, isPaused: false };
+                 updateGuestHistory(playerObject.name, playerObject.gender, phone, email);
              } else {
                  // Member check-in
                  playerObject = MASTER_MEMBER_LIST.find(p => p.name.toLowerCase() === formattedPlayerName.toLowerCase());
                  if (playerObject) {
-                     // If found in master list, update its type property (if it exists) or add it
-                     playerObject.type = ageType; // *** Store ageType for existing member ***
+                     // Found in master list
+                     playerObject.type = ageType;
                      state.clubMembers = state.clubMembers.filter(p => p.name.toLowerCase() !== formattedPlayerName.toLowerCase());
                  } else {
-                     // If member not found, treat as guest (but mark as member type internally)
-                     playerObject = { name: formattedPlayerName, gender: gender, guest: false, type: ageType, isPaused: false }; // *** Mark guest:false, Store ageType ***
-                     updateGuestHistory(playerObject.name, playerObject.gender); // Still track visits for potential future guest status? Or skip? Let's track.
+                     // New member - add to member CSV
+                     playerObject = { name: formattedPlayerName, gender: gender, guest: false, type: ageType, isPaused: false };
+                     exportMemberToCSV(formattedPlayerName, gender, ageType);
                  }
              }
-             // Proceed to leaderboard confirmation for standard check-in
+             // Proceed to leaderboard confirmation
              leaderboardConfirmModal.dataset.player = JSON.stringify(playerObject);
              leaderboardConfirmModal.classList.remove('hidden');
              guestNameModal.classList.add('hidden');
-             // Form reset is handled within finishCheckIn for this flow
         }
     }
 
     // --- NEW HELPER: Add/Update Guest History ---
-    function updateGuestHistory(guestName, guestGender) {
+    function updateGuestHistory(guestName, guestGender, phone, email) {
         const guestIndex = state.guestHistory.findIndex(g => g.name === guestName);
         const today = new Date().toISOString().split('T')[0];
 
         if (guestIndex > -1) {
-            // Update existing guest gender if needed
+            // Update existing guest
             state.guestHistory[guestIndex].gender = guestGender;
+            state.guestHistory[guestIndex].phone = phone;
+            state.guestHistory[guestIndex].email = email || ''; // Email is optional
             // Increment visits only if last visit wasn't today
             if (state.guestHistory[guestIndex].lastCheckIn !== today) {
                 state.guestHistory[guestIndex].daysVisited = (state.guestHistory[guestIndex].daysVisited || 0) + 1;
@@ -12340,16 +12427,23 @@ document.addEventListener('DOMContentLoaded', () => {
             state.guestHistory.push({
                 name: guestName,
                 gender: guestGender,
+                phone: phone,
+                email: email || '', // Email is optional
                 daysVisited: 1, // First visit
                 lastCheckIn: today
             });
         }
+        
+        // Trigger CSV export after updating guest history
+        exportGuestCSV();
     }
 
     // --- NEW HELPER: Reset Guest Form ---
     function resetGuestForm() {
         guestNameInput.value = '';
         guestSurnameInput.value = '';
+        guestPhoneInput.value = '';
+        guestEmailInput.value = '';
         guestConfirmBtn.disabled = true;
         document.querySelector('input[name="guest-gender"][value="M"]').checked = true; // Default gender to M
         document.querySelector('input[name="player-type"][value="guest"]').checked = true; // Default type to Guest
@@ -12358,6 +12452,157 @@ document.addEventListener('DOMContentLoaded', () => {
         const memberRadio = document.querySelector('input[name="player-type"][value="member"]');
         if (memberRadio) memberRadio.disabled = false;
     }
+
+    // --- NEW: Load Guest History from CSV on Startup ---
+    async function loadGuestCSV() {
+        try {
+            const response = await fetch('/api/guests/read-csv');
+            if (!response.ok) {
+                console.log('No existing guest CSV found, starting fresh');
+                return;
+            }
+            const data = await response.json();
+            if (data.success && data.csvContent) {
+                const guestsFromCSV = parseGuestCSV(data.csvContent);
+                if (guestsFromCSV.length > 0) {
+                    state.guestHistory = guestsFromCSV;
+                    console.log(`✅ Loaded ${guestsFromCSV.length} guests from CSV`);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading guest CSV:', error);
+        }
+    }
+
+    // --- NEW: Export Guest History to CSV (Read-Merge-Write) ---
+    async function exportGuestCSV() {
+        try {
+            // Step 1: Read existing CSV from file
+            const readResponse = await fetch('/api/guests/read-csv');
+            let existingGuests = [];
+            
+            if (readResponse.ok) {
+                const readData = await readResponse.json();
+                if (readData.success && readData.csvContent) {
+                    existingGuests = parseGuestCSV(readData.csvContent);
+                }
+            }
+            
+            // Step 2: Merge with current state.guestHistory
+            // Create a map of existing guests by name
+            const guestMap = new Map();
+            
+            // Add existing CSV guests to map
+            existingGuests.forEach(guest => {
+                guestMap.set(guest.name.toLowerCase(), guest);
+            });
+            
+            // Update/add guests from state.guestHistory
+            if (state.guestHistory && state.guestHistory.length > 0) {
+                state.guestHistory.forEach(guest => {
+                    const key = guest.name.toLowerCase();
+                    const existing = guestMap.get(key);
+                    
+                    if (existing) {
+                        // Update existing guest with newer data
+                        guestMap.set(key, {
+                            name: guest.name,
+                            gender: guest.gender || existing.gender,
+                            phone: guest.phone || existing.phone,
+                            email: guest.email !== undefined ? guest.email : existing.email,
+                            daysVisited: Math.max(guest.daysVisited || 0, existing.daysVisited || 0),
+                            lastCheckIn: guest.lastCheckIn > existing.lastCheckIn ? guest.lastCheckIn : existing.lastCheckIn
+                        });
+                    } else {
+                        // Add new guest
+                        guestMap.set(key, guest);
+                    }
+                });
+            }
+            
+            // Step 3: Convert map back to array
+            const allGuests = Array.from(guestMap.values());
+            
+            if (allGuests.length === 0) {
+                console.log('No guests to export');
+                return;
+            }
+            
+            // Step 4: Create CSV content
+            const headers = ['Name', 'Gender', 'Phone', 'Email', 'Days Visited', 'Last Check-In'];
+            const rows = allGuests.map(guest => [
+                guest.name || '',
+                guest.gender || '',
+                guest.phone || '',
+                guest.email || '',
+                guest.daysVisited || 0,
+                guest.lastCheckIn || ''
+            ]);
+
+            // Combine headers and rows
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => {
+                    // Escape cells that contain commas, quotes, or newlines
+                    const cellStr = String(cell);
+                    if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                        return `"${cellStr.replace(/"/g, '""')}"`;
+                    }
+                    return cellStr;
+                }).join(','))
+            ].join('\n');
+
+            // Step 5: Write to server
+            const writeResponse = await fetch('/api/guests/export-csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ csvContent })
+            });
+
+            if (writeResponse.ok) {
+                console.log(`✅ Guest CSV exported successfully (${allGuests.length} guests)`);
+                // Update state.guestHistory to match what's in CSV
+                state.guestHistory = allGuests;
+            } else {
+                console.error('❌ Failed to export guest CSV:', writeResponse.statusText);
+            }
+        } catch (error) {
+            console.error('❌ Error exporting guest CSV:', error);
+        }
+    }
+
+    // --- NEW: Append Member to Member CSV ---
+    async function exportMemberToCSV(name, gender, type) {
+        try {
+            const response = await fetch('/api/members/append-csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, gender, type })
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                if (data.duplicate) {
+                    console.log(`ℹ️ Member already exists in CSV: ${name}`);
+                } else {
+                    console.log(`✅ Member added to CSV: ${name}`);
+                }
+                return true;
+            } else {
+                console.error('❌ Failed to add member to CSV:', data.error);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Error adding member to CSV:', error);
+            return false;
+        }
+    }
+
     function resetConfirmModal(){ 
         setTimeout(() => { 
             cancelConfirmModal.querySelector("h3").textContent = "Confirm Action"; 
@@ -14886,7 +15131,7 @@ document.addEventListener('DOMContentLoaded', () => {
      // --- INITIALIZATION ---
     async function initializeApp() {
         try {
-            const response = await fetch('./source/members.csv');
+            const response = await fetch('source/members.csv');
             if (!response.ok) {
                 throw new Error('Could not load member list from members.csv.');
             }
@@ -14897,6 +15142,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Now that we have the member list, we can proceed
             await loadState(MASTER_MEMBER_LIST);
+            
+            // Load guest history from CSV
+            await loadGuestCSV();
+            
             // --- ADD THIS LINE ---
             resetChecklistForNewDay(); // Check if checklist needs reset for the current day
             // --- END ADD ---
@@ -15970,9 +16219,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     guestConfirmBtn.addEventListener("click", handleGuestCheckIn);
     guestGenderRadios.forEach(radio => radio.addEventListener('change', validateGuestForm));
+    
+    // Add listeners for player-type (Guest/Member) changes
+    const playerTypeRadios = document.querySelectorAll('input[name="player-type"]');
+    playerTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isGuest = e.target.value === 'guest';
+            const phoneContainer = guestPhoneInput.closest('.score-input-area');
+            const emailContainer = guestEmailInput.closest('.score-input-area');
+            
+            // Show/hide contact fields based on guest/member selection
+            if (phoneContainer) {
+                phoneContainer.style.display = isGuest ? 'flex' : 'none';
+            }
+            if (emailContainer) {
+                emailContainer.style.display = isGuest ? 'flex' : 'none';
+            }
+            
+            // Clear phone/email if switching to member
+            if (!isGuest) {
+                guestPhoneInput.value = '';
+                guestEmailInput.value = '';
+            }
+            
+            validateGuestForm();
+        });
+    });
+    
     const wireNameInputToKeypad = (input) => { input.readOnly = true; input.addEventListener('click', (e) => { showAlphaKeypad(e.target); }); };
     wireNameInputToKeypad(guestNameInput);
     wireNameInputToKeypad(guestSurnameInput);
+    wireNameInputToKeypad(guestEmailInput); // Email uses letter keypad
+    
+    // Wire phone input to number keypad
+    guestPhoneInput.readOnly = true;
+    guestPhoneInput.addEventListener('click', (e) => { 
+        showGlobalKeyboard(e.target, 'NumberPad', ''); 
+    });
+    
+    // Add input listeners for validation
+    guestNameInput.addEventListener('input', validateGuestForm);
+    guestSurnameInput.addEventListener('input', validateGuestForm);
+    guestPhoneInput.addEventListener('input', validateGuestForm);
 
     adminCloseBtn.addEventListener('click', () => {
         adminSettingsModal.classList.add('hidden');

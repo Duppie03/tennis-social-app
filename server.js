@@ -207,6 +207,177 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// GET /api/guests/read-csv - Read existing guest CSV file
+app.get('/api/guests/read-csv', async (req, res) => {
+    try {
+        const csvFilePath = path.join(process.cwd(), 'data', 'guests.csv');
+        
+        // Check if file exists
+        try {
+            await fs.access(csvFilePath);
+            const csvContent = await fs.readFile(csvFilePath, 'utf8');
+            res.json({
+                success: true,
+                csvContent: csvContent,
+                timestamp: new Date().toISOString()
+            });
+        } catch {
+            // File doesn't exist yet - return empty
+            res.json({
+                success: true,
+                csvContent: '',
+                timestamp: new Date().toISOString()
+            });
+        }
+    } catch (error) {
+        console.error('Error reading guest CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to read CSV',
+            message: error.message
+        });
+    }
+});
+
+// POST /api/guests/export-csv - Export guest history to CSV file
+app.post('/api/guests/export-csv', async (req, res) => {
+    try {
+        const { csvContent } = req.body;
+        
+        if (!csvContent) {
+            return res.status(400).json({
+                success: false,
+                error: 'No CSV content provided'
+            });
+        }
+
+        // Ensure data directory exists
+        const dataDir = path.join(process.cwd(), 'data');
+        await ensureDataDirectory();
+
+        // Save CSV file
+        const csvFilePath = path.join(dataDir, 'guests.csv');
+        await fs.writeFile(csvFilePath, csvContent, 'utf8');
+
+        console.log(`✅ Guest CSV exported to: ${csvFilePath}`);
+
+        res.json({
+            success: true,
+            message: 'CSV exported successfully',
+            filePath: csvFilePath,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error exporting guest CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to export CSV',
+            message: error.message
+        });
+    }
+});
+
+// GET /api/guests/download-csv - Download the guest CSV file
+app.get('/api/guests/download-csv', async (req, res) => {
+    try {
+        const csvFilePath = path.join(process.cwd(), 'data', 'guests.csv');
+        
+        // Check if file exists
+        try {
+            await fs.access(csvFilePath);
+        } catch {
+            return res.status(404).json({
+                success: false,
+                error: 'CSV file not found'
+            });
+        }
+
+        // Send file as download
+        res.download(csvFilePath, 'guests.csv', (err) => {
+            if (err) {
+                console.error('Error sending CSV file:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        success: false,
+                        error: 'Failed to download CSV'
+                    });
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error downloading guest CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to download CSV',
+            message: error.message
+        });
+    }
+});
+
+// POST /api/members/append-csv - Append new member to members CSV
+app.post('/api/members/append-csv', async (req, res) => {
+    try {
+        const { name, gender, type } = req.body;
+        
+        if (!name || !gender || !type) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: name, gender, type'
+            });
+        }
+
+        // Path to members CSV
+        const membersPath = isDevelopment 
+            ? path.join(__dirname, 'public', 'source', 'members.csv')
+            : path.join(__dirname, 'dist', 'source', 'members.csv');
+
+        // Read existing CSV
+        let existingContent = '';
+        try {
+            existingContent = await fs.readFile(membersPath, 'utf8');
+        } catch (error) {
+            // File might not exist, we'll create it with headers
+            existingContent = 'Name,Gender,Type,Committee,Phonetic Spelling\n';
+        }
+
+        // Check if member already exists
+        const lines = existingContent.trim().split('\n');
+        const existingNames = lines.slice(1).map(line => {
+            const parts = line.split(',');
+            return parts[0] ? parts[0].trim().toLowerCase() : '';
+        });
+
+        if (existingNames.includes(name.toLowerCase())) {
+            return res.json({
+                success: true,
+                message: 'Member already exists in CSV',
+                duplicate: true
+            });
+        }
+
+        // Append new member (Name, Gender, Type, Committee (blank), Phonetic (blank))
+        const newLine = `${name},${gender},${type},,\n`;
+        const updatedContent = existingContent.trim() + '\n' + newLine;
+
+        await fs.writeFile(membersPath, updatedContent, 'utf8');
+
+        console.log(`✅ Member added to CSV: ${name}`);
+
+        res.json({
+            success: true,
+            message: 'Member added successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error appending to member CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to append member',
+            message: error.message
+        });
+    }
+});
+
 // POST /api/lights/control - Control Shelly devices (Unchanged logic)
 app.post('/api/lights/control', async (req, res) => {
     const {
