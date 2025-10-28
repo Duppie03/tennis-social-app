@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "cross-env NODE_ENV=development nodemon server.js",
-    "build": "parcel build public/index.html --dist-dir dist --public-url . --no-scope-hoist --no-optimize",
+    "build:parcel": "parcel build public/index.html --dist-dir dist --public-url . --no-scope-hoist --no-optimize",
+    "build:copy": "xcopy /E /I /Y public\\source dist\\source",
+    "build": "npm run build:parcel && npm run build:copy",
     "package": "npm run build && pkg ."
   },
   "keywords": [
@@ -36,10 +38,7 @@
   },
   "pkg": {
     "assets": [
-      "dist/**/*",
-      "public/source/members.csv",
-      "public/source/*.mp3",
-      "public/source/screensaver/**/*"
+      "dist/**/*"
     ],
     "targets": [
       "node16-win-x64"

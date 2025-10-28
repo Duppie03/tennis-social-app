@@ -14886,7 +14886,7 @@ document.addEventListener('DOMContentLoaded', () => {
      // --- INITIALIZATION ---
     async function initializeApp() {
         try {
-            const response = await fetch('source/members.csv');
+            const response = await fetch('./source/members.csv');
             if (!response.ok) {
                 throw new Error('Could not load member list from members.csv.');
             }
